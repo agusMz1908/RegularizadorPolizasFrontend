@@ -27,3 +27,16 @@ export interface DropdownOption {
   label: string;
   disabled?: boolean;
 }
+
+export interface NavigationContext {
+  cliente?: import('./cliente').Cliente;
+  compania?: import('./poliza').Compania;
+  ramo?: import('./poliza').Ramo;
+  returnUrl?: string;
+}
+
+export interface BreadcrumbItem {
+  label: string;
+  href?: string;
+  active?: boolean;
+}

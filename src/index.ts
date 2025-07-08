@@ -1,4 +1,4 @@
-// index.ts - Archivo principal de exportaciones
+// src/index.ts - CORREGIDO
 
 import { Cliente } from './types/cliente';
 import { Compania } from './types/compania';
@@ -35,15 +35,10 @@ export type {
   VelneoPolicyResponse,
   VerificationStatus,
   VerificationField,
-} from './types/api';
-
-export type {
-  // User types
-  User,
-  AuthState,
   LoginRequest,
   LoginResponse,
-} from './types/user';
+  User,
+} from './types/api';
 
 export type {
   // Common types
@@ -199,12 +194,12 @@ export const ERROR_CODES = {
 } as const;
 
 // ================================
-// CONFIGURATION
+// CONFIGURATION - CORREGIDO para Vite
 // ================================
 export const APP_CONFIG = {
-  API_BASE_URL: process.env.REACT_APP_API_URL || 'https://localhost:5001/api',
-  AZURE_DOCUMENT_ENDPOINT: process.env.REACT_APP_AZURE_DOC_ENDPOINT || '',
-  VELNEO_ENDPOINT: process.env.REACT_APP_VELNEO_ENDPOINT || '',
+  API_BASE_URL: import.meta.env.VITE_API_URL || 'https://localhost:7191/api',
+  AZURE_DOCUMENT_ENDPOINT: import.meta.env.VITE_AZURE_DOC_ENDPOINT || '',
+  VELNEO_ENDPOINT: import.meta.env.VITE_VELNEO_ENDPOINT || '',
   MAX_UPLOAD_SIZE: MAX_FILE_SIZE,
   SUPPORTED_FILE_TYPES: [FILE_TYPES.PDF],
   DEBOUNCE_DELAY: 300,
@@ -215,6 +210,8 @@ export const APP_CONFIG = {
 // ================================
 // MOCK DATA (for development)
 // ================================
+
+
 export const MOCK_DATA = {
   companias: [
     { id: 1, nombre: 'Banco de Seguros del Estado', codigo: 'BSE' },
@@ -259,10 +256,10 @@ export const VERSION = '1.0.0';
 export const BUILD_DATE = new Date().toISOString();
 
 // ================================
-// DEVELOPMENT HELPERS
+// DEVELOPMENT HELPERS - CORREGIDO para Vite
 // ================================
-export const isDevelopment = process.env.NODE_ENV === 'development';
-export const isProduction = process.env.NODE_ENV === 'production';
+export const isDevelopment = import.meta.env.MODE === 'development';
+export const isProduction = import.meta.env.MODE === 'production';
 
 // Logger for development
 export const devLog = (...args: any[]) => {

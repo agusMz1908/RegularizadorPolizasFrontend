@@ -1,6 +1,6 @@
 // src/components/dashboard/Dashboard.tsx
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 export default function Dashboard() {
   const { user, logout } = useAuth();

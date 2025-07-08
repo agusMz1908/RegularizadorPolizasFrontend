@@ -6,9 +6,6 @@ import {
 } from '../types/api';
 
 export class AzureDocumentService {
-  static processDocument(file: File, clienteId: number, companiaId: number, ramoId: number, arg4: (progress: any) => void) {
-    throw new Error('Method not implemented.');
-  }
   private baseUrl = '/azure-document';
 
   public async processDocument(
@@ -19,7 +16,6 @@ export class AzureDocumentService {
     onUploadProgress?: (progress: number) => void
   ): Promise<DocumentProcessResponse> {
     try {
-      // Crear FormData con todos los datos necesarios
       const formData = new FormData();
       formData.append('file', file);
       formData.append('clienteId', clienteId.toString());
@@ -109,3 +105,5 @@ export class AzureDocumentService {
     }
   }
 }
+
+export const azureDocumentService = new AzureDocumentService();

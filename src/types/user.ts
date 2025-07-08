@@ -1,6 +1,8 @@
+// src/types/user.ts
 export interface User {
   id: number;
   nombre: string;
+  email: string;
   activo: boolean;
   rol?: string;
   permisos?: string[];
@@ -16,8 +18,9 @@ export interface AuthState {
 }
 
 export interface LoginRequest {
-  nombre: string;
+  email: string;
   password: string;
+  rememberMe?: boolean;
 }
 
 export interface LoginResponse {

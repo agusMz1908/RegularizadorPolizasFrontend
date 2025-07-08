@@ -1,6 +1,3 @@
-import { PolizaFormData } from "./poliza";
-import { DocumentResult } from "./processing";
-
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -9,6 +6,39 @@ export interface ApiResponse<T = any> {
   statusCode?: number;
 }
 
+// User types
+export interface User {
+  id: number;
+  nombre: string;
+  email: string;
+  activo: boolean;
+  rol?: string;
+  permisos?: string[];
+  fechaCreacion?: Date;
+  ultimoAcceso?: Date;
+}
+
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  token: string | null;
+  refreshToken: string | null;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+  rememberMe?: boolean;
+}
+
+export interface LoginResponse {
+  user: User;
+  token: string;
+  refreshToken: string;
+  expiresIn: number;
+}
+
+// Document processing types
 export interface DocumentProcessRequest {
   file: File;
   clienteId: number;
@@ -23,6 +53,18 @@ export interface DocumentProcessResponse {
   confidence: number;
 }
 
+export interface DocumentResult {
+  documentoId: string;
+  nombreArchivo: string;
+  tamañoArchivo: number;
+  camposExtraidos: Record<string, any>;
+  confianzaPromedio: number;
+  requiereVerificacion: boolean;
+  pdfViewerUrl: string;
+  fechaProcesamiento?: Date;
+}
+
+// Velneo integration types
 export interface VelneoPolicyRequest {
   clienteId: number;
   companiaId: number;
@@ -39,6 +81,7 @@ export interface VelneoPolicyResponse {
   fechaCreacion: Date;
 }
 
+// Verification types
 export interface VerificationStatus {
   polizaId: string;
   camposVerificados: Record<string, VerificationField>;
@@ -56,4 +99,5 @@ export interface VerificationField {
   requiereAtencion: boolean;
 }
 
-export { DocumentResult };
+// Import PolizaFormData from poliza types
+import type { PolizaFormData } from './poliza';

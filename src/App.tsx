@@ -1,6 +1,6 @@
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/auth/ProtectedRoutes';
-import Dashboard from './components/dashboard/Dashboard';
+import Dashboard from './pages/Dashboard';
 
 function App() {
   return (

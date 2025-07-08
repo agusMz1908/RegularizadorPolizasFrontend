@@ -1,3 +1,4 @@
+// src/services/api.ts - CORREGIDO
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ApiResponse, LoginRequest, LoginResponse } from '../types/api';
 
@@ -7,7 +8,8 @@ class ApiService {
 
   constructor() {
     this.client = axios.create({
-      baseURL: process.env.REACT_APP_API_URL || 'https://your-api-url.com/api',
+      // CORREGIDO: Cambiar REACT_APP_ por VITE_ para Vite
+      baseURL: import.meta.env.VITE_API_URL || 'https://localhost:7191/api',
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',

@@ -44,6 +44,20 @@ export interface PolizaFormData {
   deducible?: number;
   comision?: number;
   
-  // Observaciones
   observaciones?: string;
+}
+
+export interface Compania {
+  id: number;
+  nombre: string;
+  codigo: string;
+  activo?: boolean;
+}
+
+export interface Ramo {
+  id: number;
+  nombre: string;
+  codigo: string;
+  icon?: React.ReactNode;
+  activo?: boolean;
 }

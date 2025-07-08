@@ -2,8 +2,6 @@ import { apiService } from './api';
 import { Cliente } from '../types/cliente';
 import { Poliza } from '../types/poliza';
 import { PaginatedResponse, FilterParams, PaginationParams } from '../types/common';
-import { AzureDocumentService } from './azureDocumentService';
-import { VelneoService } from './velneoService';
 
 export class ClienteService {
   private baseUrl = '/clientes';
@@ -97,6 +95,4 @@ export class ClienteService {
   }
 }
 
-export const azureDocumentService = new AzureDocumentService();
-export const velneoService = new VelneoService();
 export const clienteService = new ClienteService();

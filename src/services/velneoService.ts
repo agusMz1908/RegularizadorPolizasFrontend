@@ -78,3 +78,5 @@ export class VelneoService {
     return response.data;
   }
 }
+
+export const velneoService = new VelneoService();

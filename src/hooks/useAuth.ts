@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, createContext, useContext } from 'react';
-import { User, AuthState, LoginRequest } from '../types/user';
-import { apiService } from '../services/api';
+import { User, AuthState, LoginRequest, LoginResponse } from '../types/api';
+import { apiService } from '../services/api'; 
 
 const AuthContext = createContext<{
   authState: AuthState;
