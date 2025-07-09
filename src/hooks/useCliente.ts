@@ -1,144 +1,211 @@
-// src/hooks/useClientesReal.ts
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Cliente } from '../types/cliente';
 import { Poliza } from '../types/poliza';
-import { velneoClienteService } from '../services/velneoClienteService';
+import { clienteService, PagedResult, PaginationParams } from '../services/clienteService';
 
-export const useClientes = () => {
+interface UseClientesReturn {
+  clientes: Cliente[];
+  clienteSeleccionado: Cliente | null;
+  polizasCliente: Poliza[];
+  totalClientes: number;
+  totalPolizas: number;
+
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  
+  loading: boolean;
+  loadingPolizas: boolean;
+  loadingCount: boolean;
+  error: string | null;
+  
+  selectCliente: (cliente: Cliente) => void;
+  clearClienteSeleccionado: () => void;
+  searchClientes: (query: string) => void;
+  refreshClientes: () => void;
+  goToPage: (page: number) => void;
+  changePageSize: (size: number) => void;
+  
+  hasClientes: boolean;
+  hasPolizas: boolean;
+  isClienteSelected: boolean;
+}
+
+export const useClientes = (): UseClientesReturn => {
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [polizasCliente, setPolizasCliente] = useState<Poliza[]>([]);
+  
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [totalClientes, setTotalClientes] = useState(0);
+  const [totalPolizas, setTotalPolizas] = useState(0);
+  const [hasNextPage, setHasNextPage] = useState(false);
+  const [hasPreviousPage, setHasPreviousPage] = useState(false);
+  
   const [loading, setLoading] = useState(false);
   const [loadingPolizas, setLoadingPolizas] = useState(false);
+  const [loadingCount, setLoadingCount] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const [searchTerm, setSearchTerm] = useState('');
 
-  const loadClientes = useCallback(async () => {
-    setLoading(true);
-    setError(null);
+  const loadClientes = useCallback(async (page: number = 1, size: number = 50) => {
     try {
-      console.log('🔄 Cargando clientes desde Velneo...');
-      const clientesData = await velneoClienteService.getClientes();
-      console.log('✅ Clientes cargados:', clientesData.length);
-      setClientes(clientesData);
+      setLoading(true);
+      setError(null);
+      
+      const params: PaginationParams = { page, pageSize: size };
+      const result = await clienteService.getClientes(params);
+      
+      setClientes(result.items);
+      setCurrentPage(result.pageNumber);
+      setTotalPages(result.totalPages);
+      setPageSize(result.pageSize);
+      setTotalClientes(result.totalCount);
+      setHasNextPage(result.hasNextPage);
+      setHasPreviousPage(result.hasPreviousPage);
+      
     } catch (err: any) {
-      console.error('❌ Error cargando clientes:', err);
-      setError(err.message);
+      setError(err.message || 'Error cargando clientes');
+      setClientes([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const loadPolizasCliente = useCallback(async (clienteId: number) => {
-    setLoadingPolizas(true);
-    setError(null);
+  const loadClientesCount = useCallback(async () => {
     try {
-      console.log('🔄 Cargando pólizas para cliente:', clienteId);
-      const polizasData = await velneoClienteService.getPolizasByCliente(clienteId);
-      console.log('✅ Pólizas cargadas:', polizasData.length);
-      setPolizasCliente(polizasData);
+      setLoadingCount(true);
+      const result = await clienteService.getClientesCount();
+      setTotalClientes(result.total_clients);
     } catch (err: any) {
-      console.error('❌ Error cargando pólizas:', err);
-      setError(err.message);
-      setPolizasCliente([]); 
+      console.error('Error loading clients count:', err);
+    } finally {
+      setLoadingCount(false);
+    }
+  }, []);
+
+  const loadPolizasCliente = useCallback(async (clienteId: number) => {
+    try {
+      setLoadingPolizas(true);
+      setError(null);
+      
+      const result = await clienteService.getPolizasByCliente(clienteId, { page: 1, pageSize: 100 });
+      setPolizasCliente(result.items);
+      setTotalPolizas(result.totalCount);
+      
+    } catch (err: any) {
+      setError(err.message || 'Error cargando pólizas del cliente');
+      setPolizasCliente([]);
     } finally {
       setLoadingPolizas(false);
     }
   }, []);
 
+  useEffect(() => {
+    loadClientes(1, pageSize);
+    loadClientesCount();
+  }, [loadClientes, loadClientesCount, pageSize]);
+
   const selectCliente = useCallback((cliente: Cliente) => {
-    console.log('👤 Cliente seleccionado:', cliente.nombre);
     setClienteSeleccionado(cliente);
     loadPolizasCliente(cliente.id);
   }, [loadPolizasCliente]);
 
-
   const clearClienteSeleccionado = useCallback(() => {
-    console.log('🧹 Limpiando selección de cliente');
     setClienteSeleccionado(null);
     setPolizasCliente([]);
+    setTotalPolizas(0);
   }, []);
 
   const searchClientes = useCallback(async (query: string) => {
+    setSearchTerm(query);
+    
     if (!query.trim()) {
-      loadClientes();
+      await loadClientes(1, pageSize);
       return;
     }
 
-    setLoading(true);
-    setError(null);
     try {
-      console.log('🔍 Buscando clientes:', query);
-      const resultados = await velneoClienteService.searchClientes(query);
-      console.log('✅ Resultados encontrados:', resultados.length);
+      setLoading(true);
+      setError(null);
+      
+      const resultados = await clienteService.searchClientes(query);
       setClientes(resultados);
+      setCurrentPage(1);
+      setTotalPages(1);
+      setTotalClientes(resultados.length);
+      setHasNextPage(false);
+      setHasPreviousPage(false);
+      
     } catch (err: any) {
-      console.error('❌ Error buscando clientes:', err);
-      setError(err.message);
+      const clientesFiltrados = clientes.filter(cliente =>
+        cliente.nombre?.toLowerCase().includes(query.toLowerCase()) ||
+        cliente.documento?.includes(query) ||
+        cliente.email?.toLowerCase().includes(query.toLowerCase())
+      );
+      
+      setClientes(clientesFiltrados);
+      setTotalClientes(clientesFiltrados.length);
     } finally {
       setLoading(false);
     }
-  }, [loadClientes]);
+  }, [clientes, loadClientes, pageSize]);
 
   const refreshClientes = useCallback(() => {
-    console.log('🔄 Refrescando lista de clientes...');
-    loadClientes();
+    if (searchTerm.trim()) {
+      searchClientes(searchTerm);
+    } else {
+      loadClientes(currentPage, pageSize);
+    }
+  }, [searchTerm, searchClientes, loadClientes, currentPage, pageSize]);
+
+  const goToPage = useCallback((page: number) => {
+    if (page >= 1 && page <= totalPages && !searchTerm.trim()) {
+      loadClientes(page, pageSize);
+    }
+  }, [loadClientes, pageSize, totalPages, searchTerm]);
+
+  const changePageSize = useCallback((size: number) => {
+    setPageSize(size);
+    loadClientes(1, size);
   }, [loadClientes]);
 
-  const refreshPolizas = useCallback(() => {
-    if (clienteSeleccionado) {
-      console.log('🔄 Refrescando pólizas del cliente seleccionado...');
-      loadPolizasCliente(clienteSeleccionado.id);
-    }
-  }, [clienteSeleccionado, loadPolizasCliente]);
-
-  const getClienteById = useCallback(async (id: number): Promise<Cliente | null> => {
-    try {
-      console.log('🔍 Obteniendo cliente por ID:', id);
-      return await velneoClienteService.getClienteById(id);
-    } catch (err: any) {
-      console.error('❌ Error obteniendo cliente:', err);
-      setError(err.message);
-      return null;
-    }
-  }, []);
-
-  const stats = {
-    totalClientes: clientes.length,
-    clientesActivos: clientes.filter(c => c.activo).length,
-    totalPolizas: polizasCliente.length,
-    polizasVigentes: polizasCliente.filter(p => p.estado === 'Vigente').length,
-    polizasPendientes: polizasCliente.filter(p => p.estado === 'Pendiente').length,
-  };
-
-  useEffect(() => {
-    loadClientes();
-  }, [loadClientes]);
-
-  useEffect(() => {
-    if (clientes.length > 0) {
-      setError(null);
-    }
-  }, [clientes]);
+  const hasClientes = useMemo(() => clientes.length > 0, [clientes]);
+  const hasPolizas = useMemo(() => polizasCliente.length > 0, [polizasCliente]);
+  const isClienteSelected = useMemo(() => clienteSeleccionado !== null, [clienteSeleccionado]);
 
   return {
     clientes,
     clienteSeleccionado,
     polizasCliente,
-    stats,
+    totalClientes,
+    totalPolizas,
+    
+    currentPage,
+    totalPages,
+    pageSize,
+    hasNextPage,
+    hasPreviousPage,
     
     loading,
     loadingPolizas,
+    loadingCount,
     error,
     
     selectCliente,
     clearClienteSeleccionado,
     searchClientes,
     refreshClientes,
-    refreshPolizas,
-    getClienteById,
+    goToPage,
+    changePageSize,
     
-    hasClientes: clientes.length > 0,
-    hasPolizas: polizasCliente.length > 0,
-    isClienteSelected: !!clienteSeleccionado,
+    hasClientes,
+    hasPolizas,
+    isClienteSelected,
   };
 };
