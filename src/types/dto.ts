@@ -14,8 +14,10 @@ export interface ClientDto {
   fechaNacimiento?: string;
   ocupacion?: string;
   ingresosMensuales?: number;
+  
+  // ✅ Añadir la propiedad que viene del backend
+  activo: boolean;
 }
-
 
 export class ClienteMapper {
   static fromDto(dto: ClientDto): Cliente {
@@ -33,6 +35,13 @@ export class ClienteMapper {
       fechaNacimiento: dto.fechaNacimiento,
       ocupacion: dto.ocupacion,
       ingresosMensuales: dto.ingresosMensuales,
+      
+      // ✅ Mapear la propiedad activo del backend
+      activo: dto.activo,
+      
+      // Campos requeridos por el tipo Cliente
+      polizas: [],
+      totalPolizas: 0,
     };
   }
 
@@ -51,6 +60,9 @@ export class ClienteMapper {
       fechaNacimiento: cliente.fechaNacimiento,
       ocupacion: cliente.ocupacion,
       ingresosMensuales: cliente.ingresosMensuales,
+      
+      // ✅ Incluir activo en el DTO
+      activo: cliente.activo,
     };
   }
 

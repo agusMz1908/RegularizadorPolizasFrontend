@@ -1,42 +1,46 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
 
 interface LoadingSpinnerProps {
-  size?: 'sm' | 'md' | 'lg' | 'xl';
-  text?: string;
-  className?: string;
-  fullScreen?: boolean;
+  message?: string;
+  submessage?: string;
+  showProgress?: boolean;
 }
 
-const sizeClasses = {
-  sm: 'w-4 h-4',
-  md: 'w-6 h-6',
-  lg: 'w-8 h-8',
-  xl: 'w-12 h-12',
-};
+export default function LoadingSpinner({ 
+  message = "Cargando clientes...", 
+  submessage = "Esto puede tardar unos momentos debido al volumen de datos",
+  showProgress = true 
+}: LoadingSpinnerProps) {
+  return (
+    <div className="min-h-64 flex flex-col items-center justify-center space-y-4 p-8">
+      {/* Spinner */}
+      <div className="relative">
+        <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+        <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-blue-400 rounded-full animate-spin animation-delay-75"></div>
+      </div>
 
-export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
-  size = 'md',
-  text,
-  className = '',
-  fullScreen = false,
-}) => {
-  const content = (
-    <div className={`flex flex-col items-center justify-center ${className}`}>
-      <Loader2 className={`${sizeClasses[size]} animate-spin text-blue-600`} />
-      {text && (
-        <p className="mt-2 text-sm text-gray-600">{text}</p>
+      {/* Mensajes */}
+      <div className="text-center space-y-2">
+        <h3 className="text-lg font-medium text-gray-900">
+          {message}
+        </h3>
+        <p className="text-sm text-gray-600 max-w-md">
+          {submessage}
+        </p>
+      </div>
+
+      {/* Barra de progreso animada */}
+      {showProgress && (
+        <div className="w-64 bg-gray-200 rounded-full h-2 overflow-hidden">
+          <div className="h-2 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full animate-pulse"></div>
+        </div>
       )}
+
+      {/* Info adicional */}
+      <div className="text-xs text-gray-500 text-center space-y-1">
+        <p>💾 Descargando datos desde Velneo...</p>
+        <p>📊 Procesando información de clientes...</p>
+      </div>
     </div>
   );
-
-  if (fullScreen) {
-    return (
-      <div className="fixed inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50">
-        {content}
-      </div>
-    );
-  }
-
-  return content;
-};
+}

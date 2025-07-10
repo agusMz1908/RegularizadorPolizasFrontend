@@ -1,3 +1,4 @@
+
 import { Poliza } from "./poliza";
 
 export interface Cliente {
@@ -18,4 +19,11 @@ export interface Cliente {
   
   polizas?: Poliza[];
   totalPolizas?: number;
+  
+  activo: boolean;
+}
+
+export interface ClienteMapper {
+  fromBackend(clienteDto: any): Cliente;
+  toBackend(cliente: Cliente): any;
 }

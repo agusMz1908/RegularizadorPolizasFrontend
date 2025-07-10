@@ -1,58 +1,63 @@
 export interface Poliza {
   id: number;
-  numero: string;
   clienteId: number;
-  companiaId: number;
-  ramoId: number;
-
+  numero: string;
   compania: string;
   ramo: string;
-  producto: string;
-
-  fechaInicio: string;
-  fechaVencimiento: string;
-  fechaEmision: string;
-
+  estado: 'Vigente' | 'Vencida' | 'Cancelada' | 'Pendiente';
+  fechaDesde: string;
+  fechaHasta: string;
   prima: number;
-  primaAnual: number;
-  sumaDolarizada?: number;
+  moneda: string;
+  sumaAsegurada?: number;
   deducible?: number;
-
-  estado: 'vigente' | 'vencida' | 'cancelada' | 'suspendida' | 'por_vencer';
-  tipoPoliza: 'nueva' | 'renovacion' | 'endoso';
-
-  vehiculo?: {
-    marca: string;
-    modelo: string;
-    año: number;
-    chapa: string;
-    numeroMotor?: string;
-    numeroChasis?: string;
-    color?: string;
-  };
-
-  beneficiarios?: Beneficiario[];
-  conductores?: Conductor[];
-
-  fechaCreacion: string;
-  fechaActualizacion: string;
-  creadoPor: string;
+  comision?: number;
   observaciones?: string;
 }
 
-export interface Beneficiario {
-  id: number;
-  nombre: string;
-  documento: string;
-  relacion: string;
-  porcentaje: number;
+export interface PolizaFormData {
+  // Datos básicos
+  numeroPoliza?: string;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  prima?: number;
+  moneda?: string;
+  
+  // Datos del asegurado
+  nombreAsegurado?: string;
+  documentoAsegurado?: string;
+  telefonoAsegurado?: string;
+  emailAsegurado?: string;
+  direccionAsegurado?: string;
+  
+  // Datos del vehículo (si aplica)
+  marca?: string;
+  modelo?: string;
+  año?: string;
+  chapa?: string;
+  chasis?: string;
+  motor?: string;
+  color?: string;
+  
+  // Datos financieros
+  sumaAsegurada?: number;
+  deducible?: number;
+  comision?: number;
+  
+  observaciones?: string;
 }
 
-export interface Conductor {
+export interface Compania {
   id: number;
   nombre: string;
-  documento: string;
-  licencia: string;
-  fechaNacimiento: string;
-  principal: boolean;
+  codigo: string;
+  activo?: boolean;
+}
+
+export interface Ramo {
+  id: number;
+  nombre: string;
+  codigo: string;
+  icon?: React.ReactNode;
+  activo?: boolean;
 }

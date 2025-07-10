@@ -1,20 +1,21 @@
-// src/services/clienteService.ts - ACTUALIZADO
-import { apiService } from './api';
+// src/services/clienteService.ts
+import { apiService } from './api';  // ✅ Import nombrado
 import { Cliente } from '../types/cliente';
 import { Poliza } from '../types/poliza';
-import { FilterParams, PaginationParams, PagedResult } from '../types/common';
+import { PaginatedResponse, FilterParams, PaginationParams } from '../types/common';
 import { ClientDto, ClienteMapper } from '../types/dto';
 
 export class ClienteService {
-  private baseUrl = '/api/clients'; 
+  private baseUrl = '/clientes';
 
   public async getClientes(
     pagination?: PaginationParams,
     filters?: FilterParams
-  ): Promise<PagedResult<Cliente>> {
+  ): Promise<PaginatedResponse<Cliente>> {
     const params = new URLSearchParams();
     
     if (pagination) {
+      // Mapear a los nombres que espera el backend
       params.append('page', pagination.page.toString());
       params.append('pageSize', pagination.limit.toString());
       if (pagination.sortBy) params.append('sortBy', pagination.sortBy);
@@ -27,7 +28,9 @@ export class ClienteService {
       });
     }
 
-    const response = await apiService.get<PagedResult<ClientDto>>(
+    console.log('🔗 Solicitando clientes con URL:', `${this.baseUrl}?${params.toString()}`);
+
+    const response = await apiService.get<PaginatedResponse<ClientDto>>(
       `${this.baseUrl}?${params.toString()}`
     );
     
@@ -35,45 +38,52 @@ export class ClienteService {
       throw new Error(response.error || 'Error obteniendo clientes');
     }
     
-    const mappedClientes = ClienteMapper.fromDtoArray(response.data.items);
-    
-    return {
-      items: mappedClientes,
+    console.log('✅ Respuesta del servicio:', {
+      items: response.data.items.length,
       totalCount: response.data.totalCount,
       pageNumber: response.data.pageNumber,
-      pageSize: response.data.pageSize,
-      totalPages: response.data.totalPages || Math.ceil(response.data.totalCount / response.data.pageSize)
+      totalPages: response.data.totalPages
+    });
+    
+    // ✅ Usar el mapper existente en lugar del adaptador
+    const clientesMapeados = ClienteMapper.fromDtoArray(response.data.items);
+    
+    return {
+      ...response.data,
+      items: clientesMapeados,
     };
   }
 
   public async getClienteById(id: number): Promise<Cliente> {
-    const response = await apiService.get<Cliente>(`${this.baseUrl}/${id}`);
+    const response = await apiService.get<ClientDto>(`${this.baseUrl}/${id}`);
     
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Error obteniendo cliente');
     }
     
-    return response.data;
+    return ClienteMapper.fromDto(response.data);
   }
 
   public async createCliente(cliente: Omit<Cliente, 'id'>): Promise<Cliente> {
-    const response = await apiService.post<Cliente>(this.baseUrl, cliente);
+    const clienteDto = ClienteMapper.toDto(cliente as Cliente);
+    const response = await apiService.post<ClientDto>(this.baseUrl, clienteDto);
     
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Error creando cliente');
     }
     
-    return response.data;
+    return ClienteMapper.fromDto(response.data);
   }
 
   public async updateCliente(id: number, cliente: Partial<Cliente>): Promise<Cliente> {
-    const response = await apiService.put<Cliente>(`${this.baseUrl}/${id}`, cliente);
+    const clienteDto = ClienteMapper.toDto(cliente as Cliente);
+    const response = await apiService.put<ClientDto>(`${this.baseUrl}/${id}`, clienteDto);
     
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Error actualizando cliente');
     }
     
-    return response.data;
+    return ClienteMapper.fromDto(response.data);
   }
 
   public async deleteCliente(id: number): Promise<void> {
@@ -94,17 +104,32 @@ export class ClienteService {
     return response.data;
   }
 
-  public async searchClientes(query: string): Promise<Cliente[]> {
+  public async searchClientes(query: string, pagination?: PaginationParams): Promise<PaginatedResponse<Cliente>> {
     const params = new URLSearchParams();
     params.append('search', query);
     
-    const response = await apiService.get<Cliente[]>(`${this.baseUrl}/search?${params.toString()}`);
+    if (pagination) {
+      params.append('page', pagination.page.toString());
+      params.append('pageSize', pagination.limit.toString());
+      if (pagination.sortBy) params.append('sortBy', pagination.sortBy);
+      if (pagination.sortOrder) params.append('sortOrder', pagination.sortOrder);
+    }
+    
+    const response = await apiService.get<PaginatedResponse<ClientDto>>(
+      `${this.baseUrl}?${params.toString()}`
+    );
     
     if (!response.success || !response.data) {
       throw new Error(response.error || 'Error buscando clientes');
     }
     
-    return response.data;
+    // ✅ Usar el mapper existente
+    const clientesMapeados = ClienteMapper.fromDtoArray(response.data.items);
+    
+    return {
+      ...response.data,
+      items: clientesMapeados,
+    };
   }
 }
 

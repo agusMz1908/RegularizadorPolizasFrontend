@@ -81,132 +81,45 @@ class AuthService {
    */
   private decodeJWT(token: string): any {
     try {
-      const base64Url = token.split('.')[1];
+      const base64Url = token.split('.')[1]; // FIX: Completar la línea
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
-        return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-      }).join(''));
-
+      const jsonPayload = decodeURIComponent(
+        atob(base64)
+          .split('')
+          .map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+          })
+          .join('')
+      );
       return JSON.parse(jsonPayload);
-    } catch {
+    } catch (error) {
+      console.error('Error decodificando JWT:', error);
       return null;
     }
   }
 
   /**
-   * Parsear roles del token JWT
+   * Parsear roles desde el token JWT
    */
   private parseRolesFromToken(payload: any): Role[] {
     const roles: Role[] = [];
     
     // El token puede tener roles en diferentes formatos
-    let tokenRoles: string[] = [];
+    const rolesClaim = payload.role || payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
     
-    if (payload.role) {
-      if (Array.isArray(payload.role)) {
-        tokenRoles = payload.role;
-      } else {
-        tokenRoles = [payload.role];
-      }
-    }
-
-    // Crear objetos Role básicos
-    tokenRoles.forEach((roleName, index) => {
-      roles.push({
-        id: index + 1,
-        name: roleName,
-        description: `Rol ${roleName}`,
-        permissions: this.getDefaultPermissionsForRole(roleName),
+    if (rolesClaim) {
+      const roleNames = Array.isArray(rolesClaim) ? rolesClaim : [rolesClaim];
+      
+      roleNames.forEach((roleName: string, index: number) => {
+        roles.push({
+          id: index + 1,
+          name: roleName,
+          permissions: [] // Por ahora vacío, se puede extender
+        });
       });
-    });
-
+    }
+    
     return roles;
-  }
-
-  /**
-   * Obtener permisos básicos por rol
-   */
-  private getDefaultPermissionsForRole(roleName: string): Permission[] {
-    const basePermissions: Permission[] = [];
-    
-    switch (roleName.toLowerCase()) {
-      case 'superadmin':
-        basePermissions.push(
-          { id: 1, name: 'admin.full', resource: 'Admin', action: 'Full', description: 'Acceso completo' },
-          { id: 2, name: 'polizas.full', resource: 'Polizas', action: 'Full', description: 'Gestión completa de pólizas' },
-          { id: 3, name: 'users.full', resource: 'Users', action: 'Full', description: 'Gestión de usuarios' }
-        );
-        break;
-      case 'admin':
-        basePermissions.push(
-          { id: 4, name: 'polizas.manage', resource: 'Polizas', action: 'Manage', description: 'Gestionar pólizas' },
-          { id: 5, name: 'users.view', resource: 'Users', action: 'View', description: 'Ver usuarios' }
-        );
-        break;
-      case 'manager':
-        basePermissions.push(
-          { id: 6, name: 'polizas.process', resource: 'Polizas', action: 'Process', description: 'Procesar pólizas' },
-          { id: 7, name: 'reports.view', resource: 'Reports', action: 'View', description: 'Ver reportes' }
-        );
-        break;
-      case 'operator':
-        basePermissions.push(
-          { id: 8, name: 'polizas.upload', resource: 'Polizas', action: 'Upload', description: 'Subir pólizas' }
-        );
-        break;
-      default:
-        basePermissions.push(
-          { id: 9, name: 'polizas.view', resource: 'Polizas', action: 'View', description: 'Ver pólizas' }
-        );
-    }
-
-    return basePermissions;
-  }
-
-  /**
-   * Validar token
-   */
-  async validateToken(token: string): Promise<boolean> {
-    try {
-      const response = await fetch(`${this.baseUrl}/validate-token`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(token),
-      });
-
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
-   * Renovar token (refresh)
-   */
-  async refreshToken(token: string): Promise<AuthResultDto> {
-    try {
-      const response = await fetch(`${this.baseUrl}/refresh`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error('No se pudo renovar la sesión');
-      }
-
-      return await response.json();
-    } catch (error) {
-      if (error instanceof Error) {
-        throw error;
-      }
-      throw new Error('Error al renovar sesión');
-    }
   }
 
   /**
@@ -265,6 +178,18 @@ class AuthService {
 
   isTokenExpired(expiration: string): boolean {
     return new Date(expiration) < new Date();
+  }
+
+  /**
+   * Validar si el token está bien formado
+   */
+  isValidTokenFormat(token: string): boolean {
+    try {
+      const parts = token.split('.');
+      return parts.length === 3;
+    } catch {
+      return false;
+    }
   }
 
   /**

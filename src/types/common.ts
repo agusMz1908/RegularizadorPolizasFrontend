@@ -1,3 +1,4 @@
+// src/types/common.ts
 export interface PaginationParams {
   page: number;
   limit: number;
@@ -5,22 +6,24 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
 }
 
-// Tipo que coincide con tu backend .NET
-export interface PagedResult<T> {
+// Tipo que coincide con el backend (PagedResult<T>)
+export interface PaginatedResponse<T> {
   items: T[];
   totalCount: number;
+  currentPage: number;
   pageNumber: number;
   pageSize: number;
-  totalPages?: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 }
 
-// Tipo genérico para otros casos
-export interface PaginatedResponse<T> {
-  data: T[];
-  total: number;
-  page: number;
-  limit: number;
+// Alias para compatibilidad con naming frontend más común
+export interface PaginationInfo {
+  currentPage: number;
   totalPages: number;
+  pageSize: number;
+  totalCount: number;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
 }
@@ -32,33 +35,7 @@ export interface FilterParams {
   ramo?: string;
   fechaDesde?: string;
   fechaHasta?: string;
-  tipoPoliza?: string;
-  clienteId?: number;
-}
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  timestamp: string;
-}
-
-export interface SearchParams {
-  query: string;
-  filters?: FilterParams;
-  pagination?: PaginationParams;
-}
-
-// Estados de carga y error
-export interface LoadingState {
-  loading: boolean;
-  error: string | null;
-}
-
-export interface AsyncState<T> extends LoadingState {
-  data: T | null;
-  lastUpdated?: string;
+  [key: string]: any; // Para filtros adicionales
 }
 
 export interface DropdownOption {
@@ -69,6 +46,8 @@ export interface DropdownOption {
 
 export interface NavigationContext {
   cliente?: import('./cliente').Cliente;
+  compania?: import('./poliza').Compania;
+  ramo?: import('./poliza').Ramo;
   returnUrl?: string;
 }
 
@@ -76,4 +55,26 @@ export interface BreadcrumbItem {
   label: string;
   href?: string;
   active?: boolean;
+}
+
+// Respuesta estándar de la API
+export interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  timestamp?: string;
+}
+
+// Para sortear tablas
+export interface SortConfig {
+  key: string;
+  direction: 'asc' | 'desc';
+}
+
+// Para búsquedas con debounce
+export interface SearchConfig {
+  query: string;
+  debounceMs?: number;
+  minLength?: number;
 }
