@@ -22,7 +22,6 @@ export interface User {
 export interface Role {
   id: number;
   name: string;
-  description: string;
   permissions: Permission[];
 }
 
@@ -31,7 +30,6 @@ export interface Permission {
   name: string;
   resource: string;
   action: string;
-  description: string;
 }
 
 export interface AuthState {
@@ -46,12 +44,4 @@ export interface AuthContextType extends AuthState {
   login: (credentials: LoginDto) => Promise<void>;
   logout: () => void;
   clearError: () => void;
-}
-
-export type LoadingState = 'idle' | 'loading' | 'succeeded' | 'failed';
-
-export interface StoredAuth {
-  token: string;
-  user: User;
-  expiration: string;
 }

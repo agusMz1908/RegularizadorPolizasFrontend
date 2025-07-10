@@ -1,14 +1,14 @@
-// src/context/AuthContext.tsx
+// src/context/AuthContext.tsx - VERSIÓN CORREGIDA
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { AuthState, AuthContextType, LoginDto, User } from '../types/auth';
 import authService from '../services/authService';
+import { LoginDto, User, AuthState, AuthContextType } from '../types/auth';
 
-// Estado inicial
+// Estado inicial - IMPORTANTE: isAuthenticated debe ser false por defecto
 const initialState: AuthState = {
   user: null,
   token: null,
-  isAuthenticated: false,
-  isLoading: true,
+  isAuthenticated: false, // ✅ CLAVE: Comenzar como false
+  isLoading: true,        // ✅ CLAVE: Comenzar en loading para verificar
   error: null,
 };
 
@@ -16,10 +16,10 @@ const initialState: AuthState = {
 type AuthAction =
   | { type: 'AUTH_START' }
   | { type: 'AUTH_SUCCESS'; payload: { user: User; token: string } }
-  | { type: 'AUTH_FAILURE'; payload: string }
+  | { type: 'AUTH_ERROR'; payload: string }
   | { type: 'AUTH_LOGOUT' }
-  | { type: 'CLEAR_ERROR' }
-  | { type: 'SET_LOADING'; payload: boolean };
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'CLEAR_ERROR' };
 
 // Reducer
 function authReducer(state: AuthState, action: AuthAction): AuthState {
@@ -36,17 +36,17 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         ...state,
         user: action.payload.user,
         token: action.payload.token,
-        isAuthenticated: true,
+        isAuthenticated: true, // ✅ Solo true cuando login exitoso
         isLoading: false,
         error: null,
       };
 
-    case 'AUTH_FAILURE':
+    case 'AUTH_ERROR':
       return {
         ...state,
         user: null,
         token: null,
-        isAuthenticated: false,
+        isAuthenticated: false, // ✅ False en caso de error
         isLoading: false,
         error: action.payload,
       };
@@ -56,14 +56,8 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         ...state,
         user: null,
         token: null,
-        isAuthenticated: false,
+        isAuthenticated: false, // ✅ False al hacer logout
         isLoading: false,
-        error: null,
-      };
-
-    case 'CLEAR_ERROR':
-      return {
-        ...state,
         error: null,
       };
 
@@ -73,80 +67,98 @@ function authReducer(state: AuthState, action: AuthAction): AuthState {
         isLoading: action.payload,
       };
 
+    case 'CLEAR_ERROR':
+      return {
+        ...state,
+        error: null,
+      };
+
     default:
       return state;
   }
 }
 
-// Context
-const AuthContext = createContext<AuthContextType | null>(null);
+// Contexto
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Provider props
+// Provider
 interface AuthProviderProps {
   children: ReactNode;
 }
 
-// Provider component
-export function AuthProvider({ children }: AuthProviderProps) {
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(authReducer, initialState);
 
-  // Verificar autenticación al cargar la app
+  // ✅ VERIFICACIÓN INICIAL - Solo ejecutar una vez al cargar
   useEffect(() => {
     const checkAuthStatus = async () => {
+      console.log('🔍 Verificando estado de autenticación...');
+      
       try {
-        const storedAuth = authService.getStoredAuthData();
+        // Buscar datos de autenticación guardados
+        const storedAuthData = authService.getStoredAuthData();
         
-        if (!storedAuth) {
-          dispatch({ type: 'SET_LOADING', payload: false });
-          return;
-        }
-
-        // Verificar si el token es válido
-        const isValid = await authService.validateToken(storedAuth.token);
-        
-        if (isValid) {
-          dispatch({
-            type: 'AUTH_SUCCESS',
-            payload: {
-              user: storedAuth.user,
-              token: storedAuth.token,
-            },
-          });
+        if (storedAuthData && storedAuthData.token && storedAuthData.user) {
+          console.log('✅ Token encontrado, verificando validez...');
+          
+          // Verificar si el token no ha expirado
+          if (!authService.isTokenExpired(storedAuthData.expiration)) {
+            console.log('✅ Token válido, autenticando usuario...');
+            
+            dispatch({
+              type: 'AUTH_SUCCESS',
+              payload: {
+                user: storedAuthData.user,
+                token: storedAuthData.token,
+              },
+            });
+          } else {
+            console.log('❌ Token expirado, limpiando datos...');
+            authService.clearAuthData();
+            dispatch({ type: 'AUTH_LOGOUT' });
+          }
         } else {
-          // Token inválido, limpiar datos
-          authService.clearAuthData();
+          console.log('❌ No hay datos de autenticación guardados');
           dispatch({ type: 'AUTH_LOGOUT' });
         }
       } catch (error) {
-        console.error('Error al verificar autenticación:', error);
+        console.error('❌ Error al verificar autenticación:', error);
         authService.clearAuthData();
         dispatch({ type: 'AUTH_LOGOUT' });
       } finally {
+        // ✅ IMPORTANTE: Terminar loading independientemente del resultado
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };
 
     checkAuthStatus();
-  }, []);
+  }, []); // ✅ Array vacío - solo ejecutar una vez
 
   // Función de login
   const login = async (credentials: LoginDto): Promise<void> => {
+    console.log('🔄 Iniciando login para:', credentials.nombre);
     dispatch({ type: 'AUTH_START' });
 
     try {
-      // Validar credenciales
+      // Validar credenciales básicas
       if (!credentials.nombre?.trim() || !credentials.password?.trim()) {
         throw new Error('Por favor completa todos los campos');
       }
 
-      // Realizar login
+      // Realizar login en el backend
       const authResult = await authService.login(credentials);
       
+      if (!authResult || !authResult.token) {
+        throw new Error('Respuesta inválida del servidor');
+      }
+
       // Obtener datos completos del usuario
       const user = await authService.getCurrentUser(authResult.token);
       
       // Guardar en localStorage
       authService.saveAuthData(authResult, user);
+      
+      console.log('✅ Login exitoso para:', user.nombre);
       
       // Actualizar estado
       dispatch({
@@ -158,27 +170,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido durante el login';
+      console.error('❌ Error en login:', errorMessage);
+      
+      // Limpiar cualquier dato corrupto
+      authService.clearAuthData();
+      
       dispatch({
-        type: 'AUTH_FAILURE',
+        type: 'AUTH_ERROR',
         payload: errorMessage,
       });
-      throw error; // Re-throw para que el componente pueda manejarlo
     }
   };
 
   // Función de logout
   const logout = async (): Promise<void> => {
+    console.log('🔄 Cerrando sesión...');
+    
     try {
+      // Intentar logout en el backend si hay token
       if (state.token) {
         await authService.logout(state.token);
       }
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
+      console.warn('⚠️ Error al cerrar sesión en el backend:', error);
     } finally {
-      // Limpiar datos locales
+      // Limpiar datos locales siempre
       authService.clearAuthData();
       dispatch({ type: 'AUTH_LOGOUT' });
+      console.log('✅ Sesión cerrada');
     }
   };
 
@@ -187,8 +207,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     dispatch({ type: 'CLEAR_ERROR' });
   };
 
-  // Valor del context
-  const contextValue: AuthContextType = {
+  // Valor del contexto
+  const value: AuthContextType = {
     ...state,
     login,
     logout,
@@ -196,54 +216,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
   };
 
   return (
-    <AuthContext.Provider value={contextValue}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-// Hook para usar el context
-export function useAuth(): AuthContextType {
+// Hook personalizado
+export const useAuth = (): AuthContextType => {
   const context = useContext(AuthContext);
-  
-  if (!context) {
-    throw new Error('useAuth debe ser usado dentro de AuthProvider');
+  if (context === undefined) {
+    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
   }
-  
   return context;
-}
+};
 
-// Hook para verificar permisos
-export function usePermissions() {
-  const { user } = useAuth();
+// HOC para componentes protegidos
+export const withAuth = <P extends object>(Component: React.ComponentType<P>) => {
+  return (props: P) => {
+    const { isAuthenticated, isLoading } = useAuth();
 
-  const hasPermission = (requiredPermission: string): boolean => {
-    if (!user) return false;
+    if (isLoading) {
+      return <div>Cargando...</div>;
+    }
 
-    return user.roles.some(role =>
-      role.permissions.some(permission => permission.name === requiredPermission)
-    );
+    if (!isAuthenticated) {
+      return <div>Acceso denegado</div>;
+    }
+
+    return <Component {...props} />;
   };
-
-  const hasRole = (requiredRole: string): boolean => {
-    if (!user) return false;
-
-    return user.roles.some(role => role.name === requiredRole);
-  };
-
-  const hasAnyRole = (requiredRoles: string[]): boolean => {
-    if (!user) return false;
-
-    return user.roles.some(role => requiredRoles.includes(role.name));
-  };
-
-  return {
-    hasPermission,
-    hasRole,
-    hasAnyRole,
-    userRoles: user?.roles.map(role => role.name) || [],
-    userPermissions: user?.roles.flatMap(role => 
-      role.permissions.map(permission => permission.name)
-    ) || [],
-  };
-}
+};
