@@ -1,4 +1,3 @@
-// src/pages/Dashboard.tsx - Versión simplificada
 import React, { useState, useEffect } from 'react';
 import { Plus, RefreshCw, Search, Filter, FileText, Users, Menu, X, AlertCircle, Loader2 } from 'lucide-react';
 import { useClientes } from '../hooks/useCliente';
@@ -76,11 +75,23 @@ const Dashboard: React.FC = () => {
   }, [filtroCliente]);
 
   // Filtros
-  const polizasFiltradas = polizasCliente.filter(poliza =>
-    poliza.numero.includes(filtroPoliza) ||
-    poliza.compania.toLowerCase().includes(filtroPoliza.toLowerCase()) ||
-    poliza.ramo.toLowerCase().includes(filtroPoliza.toLowerCase())
+const polizasFiltradas = polizasCliente.filter(poliza => {
+  if (!filtroPoliza.trim()) return true;
+  
+  const filtro = filtroPoliza.toLowerCase();
+  
+  const numero = poliza.conpol || poliza.numero || '';
+  const compania = poliza.com_alias || poliza.compania || '';
+  const ramo = poliza.ramo || '';
+  const cobertura = poliza.contpocob || '';
+  
+  return (
+    numero.toString().toLowerCase().includes(filtro) ||
+    compania.toLowerCase().includes(filtro) ||
+    ramo.toLowerCase().includes(filtro) ||
+    cobertura.toLowerCase().includes(filtro)
   );
+});
 
   const handleNewPoliza = () => {
     if (!clienteSeleccionado) {
@@ -103,15 +114,25 @@ const Dashboard: React.FC = () => {
     }
   };
 
-  const getEstadoColor = (estado: string) => {
-    switch (estado) {
-      case 'Vigente': return 'text-green-600 bg-green-100';
-      case 'Vencida': return 'text-red-600 bg-red-100';
-      case 'Cancelada': return 'text-gray-600 bg-gray-100';
-      case 'Pendiente': return 'text-yellow-600 bg-yellow-100';
-      default: return 'text-gray-600 bg-gray-100';
-    }
-  };
+const getEstadoColor = (estado: string | undefined) => {
+  if (!estado) return 'bg-gray-100 text-gray-800';
+  
+  switch (estado.toLowerCase()) {
+    case 'vigente':
+    case 'activo':
+      return 'bg-green-100 text-green-800';
+    case 'vencida':
+    case 'vencido':
+      return 'bg-red-100 text-red-800';
+    case 'cancelada':
+    case 'cancelado':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'pendiente':
+      return 'bg-blue-100 text-blue-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+};
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -399,7 +420,7 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
             
-            {!clienteSeleccionado ? (
+              {!clienteSeleccionado ? (
               <div className="p-8 text-center text-gray-500">
                 <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p className="text-lg font-medium mb-2">Selecciona un cliente</p>
@@ -416,7 +437,7 @@ const Dashboard: React.FC = () => {
                 <p className="text-lg font-medium mb-2">Sin pólizas</p>
                 <p>Este cliente no tiene pólizas registradas</p>
                 <button
-                  onClick={handleNewPoliza}
+                  onClick={() => setShowNewPolizaModal(true)}
                   className="mt-4 inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
                 >
                   <Plus className="w-4 h-4" />
@@ -449,43 +470,73 @@ const Dashboard: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {polizasFiltradas.map((poliza) => (
-                      <tr key={poliza.id} className="hover:bg-gray-50">
+                    {polizasFiltradas.map((poliza, index) => (
+                      <tr key={poliza.id || index} className="hover:bg-gray-50">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm font-medium text-gray-900">
-                            {poliza.numero}
+                            {poliza.conpol || poliza.numero || 'Sin número'}
                           </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{poliza.compania}</div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">{poliza.ramo}</div>
+                          {poliza.conend && (
+                            <div className="text-xs text-gray-500">
+                              Endoso: {poliza.conend}
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {poliza.fechaDesde} - {poliza.fechaHasta}
+                            {poliza.com_alias || poliza.compania || 'Sin compañía'}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="text-sm text-gray-900">
-                            {poliza.moneda} {poliza.prima?.toLocaleString()}
+                            {poliza.ramo || 'Sin ramo'}
                           </div>
+                          {poliza.contpocob && (
+                            <div className="text-xs text-gray-500">
+                              {poliza.contpocob}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          <div>
+                            {poliza.confchdes ? new Date(poliza.confchdes).toLocaleDateString() : 'Sin fecha'}
+                          </div>
+                          {poliza.confchhas && (
+                            <div className="text-xs text-gray-500">
+                              hasta {new Date(poliza.confchhas).toLocaleDateString()}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                          {poliza.conpremio ? 
+                            new Intl.NumberFormat('es-UY', {
+                              style: 'currency',
+                              currency: poliza.moncod === 2 ? 'USD' : 'UYU'
+                            }).format(poliza.conpremio) : 
+                            'Sin prima'
+                          }
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getEstadoColor(poliza.estado)}`}>
-                            {poliza.estado}
+                          <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${getEstadoColor(poliza.estado || 'activo')}`}>
+                            {poliza.estado || 'Activo'}
                           </span>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                
+                {/* ✅ Información de paginación */}
+                {polizasCliente.length > 0 && (
+                  <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
+                    <p className="text-sm text-gray-600">
+                      Mostrando {polizasFiltradas.length} de {polizasCliente.length} pólizas
+                      {filtroPoliza && ` (filtrado por "${filtroPoliza}")`}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
-          </div>
-        </div>
-      </div>
 
       {/* Modal para Nueva Póliza */}
       {showNewPolizaModal && (
@@ -553,7 +604,5 @@ const Dashboard: React.FC = () => {
         </div>
       )}
     </div>
-  );
-};
-
-export default Dashboard;
+  });
+}

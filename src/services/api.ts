@@ -8,7 +8,7 @@ class ApiService {
   constructor() {
     this.client = axios.create({
       baseURL: import.meta.env.VITE_API_URL || 'https://localhost:7191/api',
-      timeout: 120000, // 🔧 AUMENTAR A 2 MINUTOS para consultas de Velneo
+      timeout: parseInt(import.meta.env.VITE_API_TIMEOUT) || 120000,
       headers: {
         'Content-Type': 'application/json',
       },

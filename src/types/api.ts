@@ -99,5 +99,4 @@ export interface VerificationField {
   requiereAtencion: boolean;
 }
 
-// Import PolizaFormData from poliza types
 import type { PolizaFormData } from './poliza';

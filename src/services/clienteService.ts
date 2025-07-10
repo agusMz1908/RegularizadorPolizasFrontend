@@ -1,135 +1,204 @@
-// src/services/clienteService.ts
-import { apiService } from './api';  // ✅ Import nombrado
-import { Cliente } from '../types/cliente';
+import { apiService } from './api';
+import { Cliente, ClienteMapper } from '../types/cliente';
 import { Poliza } from '../types/poliza';
-import { PaginatedResponse, FilterParams, PaginationParams } from '../types/common';
-import { ClientDto, ClienteMapper } from '../types/dto';
+
+export interface PaginatedResponse<T> {
+  items: T[];
+  totalCount: number;
+  currentPage: number;
+  pageNumber: number;
+  pageSize: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+  startItem?: number;
+  endItem?: number;
+  requestDuration?: number;
+  dataSource?: string;
+}
+
+export interface PaginationParams {
+  page: number;
+  pageSize: number;
+  search?: string;
+}
 
 export class ClienteService {
   private baseUrl = '/clientes';
 
-  public async getClientes(
-    pagination?: PaginationParams,
-    filters?: FilterParams
-  ): Promise<PaginatedResponse<Cliente>> {
-    const params = new URLSearchParams();
-    
-    if (pagination) {
-      // Mapear a los nombres que espera el backend
-      params.append('page', pagination.page.toString());
-      params.append('pageSize', pagination.limit.toString());
-      if (pagination.sortBy) params.append('sortBy', pagination.sortBy);
-      if (pagination.sortOrder) params.append('sortOrder', pagination.sortOrder);
-    }
-    
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value) params.append(key, value.toString());
+  async getClientes(params: PaginationParams): Promise<PaginatedResponse<Cliente>> {
+    try {
+      const { page, pageSize, search } = params;
+      
+      const urlParams = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
       });
-    }
+      
+      if (search && search.trim()) {
+        urlParams.append('search', search.trim());
+      }
 
-    console.log('🔗 Solicitando clientes con URL:', `${this.baseUrl}?${params.toString()}`);
+      const url = `${this.baseUrl}?${urlParams.toString()}`;
+      console.log('🔗 ClienteService: Solicitando clientes paginados:', url);
 
-    const response = await apiService.get<PaginatedResponse<ClientDto>>(
-      `${this.baseUrl}?${params.toString()}`
-    );
-    
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Error obteniendo clientes');
-    }
-    
-    console.log('✅ Respuesta del servicio:', {
-      items: response.data.items.length,
-      totalCount: response.data.totalCount,
-      pageNumber: response.data.pageNumber,
-      totalPages: response.data.totalPages
-    });
-    
-    // ✅ Usar el mapper existente en lugar del adaptador
-    const clientesMapeados = ClienteMapper.fromDtoArray(response.data.items);
-    
-    return {
-      ...response.data,
-      items: clientesMapeados,
-    };
-  }
+      const response = await apiService.get<PaginatedResponse<any>>(url);
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Error obteniendo clientes');
+      }
 
-  public async getClienteById(id: number): Promise<Cliente> {
-    const response = await apiService.get<ClientDto>(`${this.baseUrl}/${id}`);
-    
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Error obteniendo cliente');
-    }
-    
-    return ClienteMapper.fromDto(response.data);
-  }
+      const clientesMapeados = ClienteMapper.fromBackendArray(response.data.items);
 
-  public async createCliente(cliente: Omit<Cliente, 'id'>): Promise<Cliente> {
-    const clienteDto = ClienteMapper.toDto(cliente as Cliente);
-    const response = await apiService.post<ClientDto>(this.baseUrl, clienteDto);
-    
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Error creando cliente');
-    }
-    
-    return ClienteMapper.fromDto(response.data);
-  }
+      const result: PaginatedResponse<Cliente> = {
+        ...response.data,
+        items: clientesMapeados,
+      };
 
-  public async updateCliente(id: number, cliente: Partial<Cliente>): Promise<Cliente> {
-    const clienteDto = ClienteMapper.toDto(cliente as Cliente);
-    const response = await apiService.put<ClientDto>(`${this.baseUrl}/${id}`, clienteDto);
-    
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Error actualizando cliente');
-    }
-    
-    return ClienteMapper.fromDto(response.data);
-  }
+      console.log('✅ ClienteService: Respuesta recibida:', {
+        items: result.items.length,
+        totalCount: result.totalCount,
+        currentPage: result.currentPage,
+        totalPages: result.totalPages,
+        dataSource: result.dataSource
+      });
 
-  public async deleteCliente(id: number): Promise<void> {
-    const response = await apiService.delete(`${this.baseUrl}/${id}`);
-    
-    if (!response.success) {
-      throw new Error(response.error || 'Error eliminando cliente');
+      return result;
+    } catch (error) {
+      console.error('❌ ClienteService: Error obteniendo clientes:', error);
+      throw error;
     }
   }
 
-  public async getPolizasByCliente(clienteId: number): Promise<Poliza[]> {
-    const response = await apiService.get<Poliza[]>(`${this.baseUrl}/${clienteId}/polizas`);
-    
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Error obteniendo pólizas del cliente');
+  async getAllClientes(search?: string): Promise<{ items: Cliente[], totalCount: number }> {
+    try {
+      const urlParams = new URLSearchParams();
+      if (search && search.trim()) {
+        urlParams.append('search', search.trim());
+      }
+
+      const url = `${this.baseUrl}/all${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
+      console.log('🔗 ClienteService: Solicitando todos los clientes:', url);
+
+      const response = await apiService.get<{ items: Cliente[], totalCount: number }>(url);
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Error obteniendo todos los clientes');
+      }
+
+      console.log('✅ ClienteService: Todos los clientes obtenidos:', response.data.totalCount);
+      return response.data;
+    } catch (error) {
+      console.error('❌ ClienteService: Error obteniendo todos los clientes:', error);
+      throw error;
     }
-    
-    return response.data;
   }
 
-  public async searchClientes(query: string, pagination?: PaginationParams): Promise<PaginatedResponse<Cliente>> {
-    const params = new URLSearchParams();
-    params.append('search', query);
-    
-    if (pagination) {
-      params.append('page', pagination.page.toString());
-      params.append('pageSize', pagination.limit.toString());
-      if (pagination.sortBy) params.append('sortBy', pagination.sortBy);
-      if (pagination.sortOrder) params.append('sortOrder', pagination.sortOrder);
+  async getClienteById(id: number): Promise<Cliente> {
+    try {
+      console.log('🔗 ClienteService: Obteniendo cliente por ID:', id);
+
+      const response = await apiService.get<Cliente>(`${this.baseUrl}/${id}`);
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Error obteniendo cliente');
+      }
+
+      console.log('✅ ClienteService: Cliente obtenido:', response.data.nombre || response.data.clinom);
+      return response.data;
+    } catch (error) {
+      console.error('❌ ClienteService: Error obteniendo cliente por ID:', error);
+      throw error;
     }
-    
-    const response = await apiService.get<PaginatedResponse<ClientDto>>(
-      `${this.baseUrl}?${params.toString()}`
-    );
-    
-    if (!response.success || !response.data) {
-      throw new Error(response.error || 'Error buscando clientes');
+  }
+
+  async getPolizasByCliente(clienteId: number, params: PaginationParams): Promise<PaginatedResponse<Poliza>> {
+    try {
+      const { page, pageSize, search } = params;
+      
+      const urlParams = new URLSearchParams({
+        page: page.toString(),
+        pageSize: pageSize.toString(),
+      });
+      
+      if (search && search.trim()) {
+        urlParams.append('search', search.trim());
+      }
+
+      const url = `/polizas/cliente/${clienteId}?${urlParams.toString()}`;
+      console.log('🔗 ClienteService: Solicitando pólizas paginadas para cliente:', clienteId, url);
+
+      const response = await apiService.get<PaginatedResponse<Poliza>>(url);
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Error obteniendo pólizas del cliente');
+      }
+
+      console.log('✅ ClienteService: Pólizas del cliente obtenidas:', {
+        clienteId,
+        items: response.data.items.length,
+        totalCount: response.data.totalCount,
+        dataSource: response.data.dataSource
+      });
+
+      return response.data;
+    } catch (error) {
+      console.error('❌ ClienteService: Error obteniendo pólizas del cliente:', error);
+      throw error;
     }
-    
-    // ✅ Usar el mapper existente
-    const clientesMapeados = ClienteMapper.fromDtoArray(response.data.items);
-    
-    return {
-      ...response.data,
-      items: clientesMapeados,
-    };
+  }
+
+  async createCliente(cliente: Omit<Cliente, 'id'>): Promise<Cliente> {
+    try {
+      console.log('🔗 ClienteService: Creando cliente:', cliente.nombre || cliente.clinom);
+
+      const response = await apiService.post<Cliente>(this.baseUrl, cliente);
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Error creando cliente');
+      }
+
+      console.log('✅ ClienteService: Cliente creado con ID:', response.data.id);
+      return response.data;
+    } catch (error) {
+      console.error('❌ ClienteService: Error creando cliente:', error);
+      throw error;
+    }
+  }
+
+  async updateCliente(id: number, cliente: Partial<Cliente>): Promise<Cliente> {
+    try {
+      console.log('🔗 ClienteService: Actualizando cliente:', id);
+
+      const response = await apiService.put<Cliente>(`${this.baseUrl}/${id}`, cliente);
+      
+      if (!response.success || !response.data) {
+        throw new Error(response.error || 'Error actualizando cliente');
+      }
+
+      console.log('✅ ClienteService: Cliente actualizado:', response.data.nombre || response.data.clinom);
+      return response.data;
+    } catch (error) {
+      console.error('❌ ClienteService: Error actualizando cliente:', error);
+      throw error;
+    }
+  }
+
+  async deleteCliente(id: number): Promise<void> {
+    try {
+      console.log('🔗 ClienteService: Eliminando cliente:', id);
+
+      const response = await apiService.delete(`${this.baseUrl}/${id}`);
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Error eliminando cliente');
+      }
+
+      console.log('✅ ClienteService: Cliente eliminado');
+    } catch (error) {
+      console.error('❌ ClienteService: Error eliminando cliente:', error);
+      throw error;
+    }
   }
 }
 
