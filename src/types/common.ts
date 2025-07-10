@@ -1,4 +1,4 @@
-// src/types/common.ts
+// types/common.ts - Tipos corregidos
 export interface PaginationParams {
   page: number;
   limit: number;
@@ -6,36 +6,38 @@ export interface PaginationParams {
   sortOrder?: 'asc' | 'desc';
 }
 
-// Tipo que coincide con el backend (PagedResult<T>)
 export interface PaginatedResponse<T> {
   items: T[];
   totalCount: number;
-  currentPage: number;
   pageNumber: number;
   pageSize: number;
   totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-}
-
-// Alias para compatibilidad con naming frontend más común
-export interface PaginationInfo {
+  // 🆕 Agregar propiedades que faltan según el error
   currentPage: number;
-  totalPages: number;
-  pageSize: number;
-  totalCount: number;
   hasNextPage: boolean;
   hasPreviousPage: boolean;
 }
 
 export interface FilterParams {
   search?: string;
-  estado?: string;
-  compania?: string;
-  ramo?: string;
-  fechaDesde?: string;
-  fechaHasta?: string;
-  [key: string]: any; // Para filtros adicionales
+  [key: string]: any;
+}
+
+export interface PaginationInfo {
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+  totalCount: number;
+  hasNextPage?: boolean;
+  hasPreviousPage?: boolean;
+}
+
+export interface Stats {
+  totalClientes: number;
+  totalPolizas: number;
+  clientesActivos?: number;
+  polizasVigentes?: number;
+  polizasVencidas?: number;
 }
 
 export interface DropdownOption {
@@ -45,36 +47,12 @@ export interface DropdownOption {
 }
 
 export interface NavigationContext {
-  cliente?: import('./cliente').Cliente;
-  compania?: import('./poliza').Compania;
-  ramo?: import('./poliza').Ramo;
-  returnUrl?: string;
+  currentPath: string;
+  breadcrumbs: BreadcrumbItem[];
 }
 
 export interface BreadcrumbItem {
   label: string;
   href?: string;
   active?: boolean;
-}
-
-// Respuesta estándar de la API
-export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
-  message?: string;
-  timestamp?: string;
-}
-
-// Para sortear tablas
-export interface SortConfig {
-  key: string;
-  direction: 'asc' | 'desc';
-}
-
-// Para búsquedas con debounce
-export interface SearchConfig {
-  query: string;
-  debounceMs?: number;
-  minLength?: number;
 }

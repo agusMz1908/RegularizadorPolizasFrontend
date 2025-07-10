@@ -192,7 +192,7 @@ const getEstadoColor = (estado: string | undefined) => {
               <h2 className="text-2xl font-semibold text-gray-800">Gestión de Clientes y Pólizas</h2>
               {isClienteSelected && (
                 <p className="text-sm text-gray-500 mt-1">
-                  Cliente seleccionado: {clienteSeleccionado?.nombre}
+                  Cliente seleccionado: {clienteSeleccionado?.clinom}
                 </p>
               )}
             </div>
@@ -294,70 +294,82 @@ const getEstadoColor = (estado: string | undefined) => {
               <div>
                 {/* Tabla de clientes */}
                 <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="bg-gray-50">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Cliente
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Documento
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Contacto
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                          Estado
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                      {clientes.map((cliente) => (
-                        <tr 
-                          key={cliente.id}
-                          onClick={() => selectCliente(cliente)}
-                          className={`cursor-pointer transition-colors ${
-                            clienteSeleccionado?.id === cliente.id 
-                              ? 'bg-blue-50 border-blue-200' 
-                              : 'hover:bg-gray-50'
-                          }`}
-                        >
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              <div className="text-sm font-medium text-gray-900">
-                                {cliente.nombre}
-                              </div>
-                              {cliente.direccion && (
-                                <div className="text-sm text-gray-500 truncate max-w-xs">
-                                  {cliente.direccion}
-                                </div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900">{cliente.documento}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div>
-                              {cliente.telefono && (
-                                <div className="text-sm text-gray-900">{cliente.telefono}</div>
-                              )}
-                              {cliente.email && (
-                                <div className="text-sm text-gray-500">{cliente.email}</div>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-                              cliente.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                            }`}>
-                              {cliente.activo ? 'Activo' : 'Inactivo'}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+  <table className="w-full">
+    <thead className="bg-gray-50">
+      <tr>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Cliente
+        </th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Documento
+        </th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Contacto
+        </th>
+        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          Estado
+        </th>
+      </tr>
+    </thead>
+    <tbody className="bg-white divide-y divide-gray-200">
+      {clientes.map((cliente) => (
+        <tr 
+          key={cliente.id}
+          onClick={() => selectCliente(cliente)}
+          className={`cursor-pointer transition-colors ${
+            clienteSeleccionado?.id === cliente.id 
+              ? 'bg-blue-50 border-blue-200' 
+              : 'hover:bg-gray-50'
+          }`}
+        >
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {cliente.clinom || 'Sin nombre'}
+              </div>
+              {cliente.clidir && (
+                <div className="text-sm text-gray-500 truncate max-w-xs">
+                  {cliente.clidir}
+                </div>
+              )}
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div>
+              <div className="text-sm text-gray-900">
+                {cliente.cliced || cliente.cliruc || 'Sin documento'}
+              </div>
+              <div className="text-xs text-gray-500">
+                {cliente.cliced ? 'CI' : cliente.cliruc ? 'RUC' : ''}
+              </div>
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div>
+              {cliente.clitelcel && (
+                <div className="text-sm text-gray-900">{cliente.clitelcel}</div>
+              )}
+              {cliente.cliemail && (
+                <div className="text-sm text-gray-500">{cliente.cliemail}</div>
+              )}
+              {!cliente.clitelcel && !cliente.cliemail && (
+                <div className="text-sm text-gray-400">Sin contacto</div>
+              )}
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+              cliente.activo 
+                ? 'bg-green-100 text-green-800' 
+                : 'bg-red-100 text-red-800'
+            }`}>
+              {cliente.activo ? 'Activo' : 'Inactivo'}
+            </span>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
                 </div>
                 
                 {/* Controles de Paginación usando el componente reutilizable */}
@@ -384,7 +396,7 @@ const getEstadoColor = (estado: string | undefined) => {
                   </h3>
                   {clienteSeleccionado && (
                     <p className="text-sm text-gray-500 mt-1">
-                      Cliente: {clienteSeleccionado.nombre}
+                      Cliente: {clienteSeleccionado.clinom}
                     </p>
                   )}
                 </div>
@@ -544,7 +556,7 @@ const getEstadoColor = (estado: string | undefined) => {
           <div className="bg-white rounded-lg p-6 w-full max-w-md">
             <h3 className="text-lg font-semibold mb-4">Nueva Póliza</h3>
             <p className="text-gray-600 mb-4">
-              Cliente: <strong>{clienteSeleccionado?.nombre}</strong>
+              Cliente: <strong>{clienteSeleccionado?.clinom}</strong>
             </p>
             
             <div className="space-y-4">
@@ -602,7 +614,12 @@ const getEstadoColor = (estado: string | undefined) => {
             </div>
           </div>
         </div>
-      )}
+          )}
+        </div>
+      </div>
     </div>
-  });
-}
+  </div>
+  );
+};
+
+export default Dashboard;

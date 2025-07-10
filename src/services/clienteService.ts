@@ -1,204 +1,99 @@
+// services/clienteService.ts - Solución LIMPIA sin adaptadores
 import { apiService } from './api';
-import { Cliente, ClienteMapper } from '../types/cliente';
+import { Cliente } from '../types/cliente';
 import { Poliza } from '../types/poliza';
-
-export interface PaginatedResponse<T> {
-  items: T[];
-  totalCount: number;
-  currentPage: number;
-  pageNumber: number;
-  pageSize: number;
-  totalPages: number;
-  hasNextPage: boolean;
-  hasPreviousPage: boolean;
-  startItem?: number;
-  endItem?: number;
-  requestDuration?: number;
-  dataSource?: string;
-}
-
-export interface PaginationParams {
-  page: number;
-  pageSize: number;
-  search?: string;
-}
+import { PaginatedResponse, FilterParams, PaginationParams } from '../types/common';
 
 export class ClienteService {
   private baseUrl = '/clientes';
 
-  async getClientes(params: PaginationParams): Promise<PaginatedResponse<Cliente>> {
-    try {
-      const { page, pageSize, search } = params;
-      
-      const urlParams = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
+  public async getClientes(
+    pagination?: PaginationParams,
+    filters?: FilterParams
+  ): Promise<PaginatedResponse<Cliente>> {
+    const params = new URLSearchParams();
+    
+    if (pagination) {
+      params.append('page', pagination.page.toString());
+      params.append('pageSize', pagination.limit.toString());
+      if (pagination.sortBy) params.append('sortBy', pagination.sortBy);
+      if (pagination.sortOrder) params.append('sortOrder', pagination.sortOrder);
+    }
+    
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) params.append(key, value.toString());
       });
+    }
+
+    console.log('🔗 URL:', `${this.baseUrl}?${params.toString()}`);
+
+    const response = await apiService.get<PaginatedResponse<Cliente>>(
+      `${this.baseUrl}?${params.toString()}`
+    );
+    
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Error obteniendo clientes');
+    }
+    
+    // 🔍 DEBUG - Ver qué llega exactamente
+    console.log('🔍 Backend Response:', response.data);
+    console.log('🔍 Primer cliente:', response.data.items?.[0]);
+    console.log('🔍 Propiedades:', Object.keys(response.data.items?.[0] || {}));
+    
+    // ✅ USAR LOS DATOS DIRECTAMENTE - SIN MAPEO
+    return response.data;
+  }
+
+  public async getClienteById(id: number): Promise<Cliente> {
+    const response = await apiService.get<Cliente>(`${this.baseUrl}/${id}`);
+    
+    if (!response.success || !response.data) {
+      throw new Error(response.error || 'Error obteniendo cliente');
+    }
+    
+    // ✅ USAR LOS DATOS DIRECTAMENTE
+    return response.data;
+  }
+
+  public async getPolizasByCliente(clienteId: number): Promise<Poliza[]> {
+    try {
+      const pageSize = parseInt(import.meta.env.VITE_POLIZAS_PAGE_SIZE || '100', 10);
       
-      if (search && search.trim()) {
-        urlParams.append('search', search.trim());
-      }
-
-      const url = `${this.baseUrl}?${urlParams.toString()}`;
-      console.log('🔗 ClienteService: Solicitando clientes paginados:', url);
-
-      const response = await apiService.get<PaginatedResponse<any>>(url);
+      const response = await apiService.get<Poliza[] | { items: Poliza[] }>(
+        `/polizas/cliente/${clienteId}?page=1&pageSize=${pageSize}`
+      );
       
       if (!response.success || !response.data) {
-        throw new Error(response.error || 'Error obteniendo clientes');
+        return [];
       }
-
-      const clientesMapeados = ClienteMapper.fromBackendArray(response.data.items);
-
-      const result: PaginatedResponse<Cliente> = {
-        ...response.data,
-        items: clientesMapeados,
-      };
-
-      console.log('✅ ClienteService: Respuesta recibida:', {
-        items: result.items.length,
-        totalCount: result.totalCount,
-        currentPage: result.currentPage,
-        totalPages: result.totalPages,
-        dataSource: result.dataSource
-      });
-
-      return result;
-    } catch (error) {
-      console.error('❌ ClienteService: Error obteniendo clientes:', error);
-      throw error;
+      
+      // Manejar si viene como array directo o dentro de items
+      const polizas = Array.isArray(response.data) ? response.data : response.data.items || [];
+      
+      console.log('✅ Pólizas obtenidas:', polizas.length);
+      return polizas;
+      
+    } catch (err: any) {
+      console.error('❌ Error obteniendo pólizas:', err);
+      return [];
     }
   }
 
-  async getAllClientes(search?: string): Promise<{ items: Cliente[], totalCount: number }> {
-    try {
-      const urlParams = new URLSearchParams();
-      if (search && search.trim()) {
-        urlParams.append('search', search.trim());
-      }
-
-      const url = `${this.baseUrl}/all${urlParams.toString() ? '?' + urlParams.toString() : ''}`;
-      console.log('🔗 ClienteService: Solicitando todos los clientes:', url);
-
-      const response = await apiService.get<{ items: Cliente[], totalCount: number }>(url);
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Error obteniendo todos los clientes');
-      }
-
-      console.log('✅ ClienteService: Todos los clientes obtenidos:', response.data.totalCount);
-      return response.data;
-    } catch (error) {
-      console.error('❌ ClienteService: Error obteniendo todos los clientes:', error);
-      throw error;
-    }
+  public async searchClientes(searchTerm: string): Promise<Cliente[]> {
+  console.log('🔍 Búsqueda en clienteService:', searchTerm);
+  
+  const response = await apiService.get<any>(
+    `/clientes/search?searchTerm=${encodeURIComponent(searchTerm)}`
+  );
+  
+  if (!response.success || !response.data) {
+    throw new Error(response.error || 'Error en búsqueda');
   }
-
-  async getClienteById(id: number): Promise<Cliente> {
-    try {
-      console.log('🔗 ClienteService: Obteniendo cliente por ID:', id);
-
-      const response = await apiService.get<Cliente>(`${this.baseUrl}/${id}`);
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Error obteniendo cliente');
-      }
-
-      console.log('✅ ClienteService: Cliente obtenido:', response.data.nombre || response.data.clinom);
-      return response.data;
-    } catch (error) {
-      console.error('❌ ClienteService: Error obteniendo cliente por ID:', error);
-      throw error;
-    }
-  }
-
-  async getPolizasByCliente(clienteId: number, params: PaginationParams): Promise<PaginatedResponse<Poliza>> {
-    try {
-      const { page, pageSize, search } = params;
-      
-      const urlParams = new URLSearchParams({
-        page: page.toString(),
-        pageSize: pageSize.toString(),
-      });
-      
-      if (search && search.trim()) {
-        urlParams.append('search', search.trim());
-      }
-
-      const url = `/polizas/cliente/${clienteId}?${urlParams.toString()}`;
-      console.log('🔗 ClienteService: Solicitando pólizas paginadas para cliente:', clienteId, url);
-
-      const response = await apiService.get<PaginatedResponse<Poliza>>(url);
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Error obteniendo pólizas del cliente');
-      }
-
-      console.log('✅ ClienteService: Pólizas del cliente obtenidas:', {
-        clienteId,
-        items: response.data.items.length,
-        totalCount: response.data.totalCount,
-        dataSource: response.data.dataSource
-      });
-
-      return response.data;
-    } catch (error) {
-      console.error('❌ ClienteService: Error obteniendo pólizas del cliente:', error);
-      throw error;
-    }
-  }
-
-  async createCliente(cliente: Omit<Cliente, 'id'>): Promise<Cliente> {
-    try {
-      console.log('🔗 ClienteService: Creando cliente:', cliente.nombre || cliente.clinom);
-
-      const response = await apiService.post<Cliente>(this.baseUrl, cliente);
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Error creando cliente');
-      }
-
-      console.log('✅ ClienteService: Cliente creado con ID:', response.data.id);
-      return response.data;
-    } catch (error) {
-      console.error('❌ ClienteService: Error creando cliente:', error);
-      throw error;
-    }
-  }
-
-  async updateCliente(id: number, cliente: Partial<Cliente>): Promise<Cliente> {
-    try {
-      console.log('🔗 ClienteService: Actualizando cliente:', id);
-
-      const response = await apiService.put<Cliente>(`${this.baseUrl}/${id}`, cliente);
-      
-      if (!response.success || !response.data) {
-        throw new Error(response.error || 'Error actualizando cliente');
-      }
-
-      console.log('✅ ClienteService: Cliente actualizado:', response.data.nombre || response.data.clinom);
-      return response.data;
-    } catch (error) {
-      console.error('❌ ClienteService: Error actualizando cliente:', error);
-      throw error;
-    }
-  }
-
-  async deleteCliente(id: number): Promise<void> {
-    try {
-      console.log('🔗 ClienteService: Eliminando cliente:', id);
-
-      const response = await apiService.delete(`${this.baseUrl}/${id}`);
-      
-      if (!response.success) {
-        throw new Error(response.error || 'Error eliminando cliente');
-      }
-
-      console.log('✅ ClienteService: Cliente eliminado');
-    } catch (error) {
-      console.error('❌ ClienteService: Error eliminando cliente:', error);
-      throw error;
-    }
+  
+  console.log('✅ Resultados de búsqueda:', response.data.length);
+  
+    return Array.isArray(response.data) ? response.data : [];
   }
 }
 

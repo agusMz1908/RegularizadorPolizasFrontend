@@ -2,136 +2,83 @@ import { Poliza } from "./poliza";
 
 export interface Cliente {
   id: number;
-  clinro?: number;
-  corrcod?: number;
-  subcorr?: number;
-  
-  clinom?: string;       
-  cliced?: string;     
-  cliruc?: string;      
-  cliemail?: string;     
-  telefono?: string;      
-  clitelcel?: string;    
-  
-  clifchnac?: string;  
-  clifching?: string;     
-  clifchegr?: string;     
-  
-  clicargo?: string;      // Cargo
-  clicon?: string;        // Contacto
-  clirsoc?: string;       // Razón social
-  clilib?: string;        // Libreta
-  clicatlib?: string;     // Categoría libreta
-  clitpo?: string;        // Tipo
-  clidir?: string;        // Dirección (era "direccion")
-  clivtoced?: string;     // Vencimiento cédula
-  clivtolib?: string;     // Vencimiento libreta
-  cliposcod?: string;     // Código postal
-  clitelcorr?: string;    // Teléfono corredor
-  clidptnom?: string;     // Departamento
-  clisex?: string;        // Sexo
-  clitelant?: string;     // Teléfono anterior
-  cliobse?: string;       // Observaciones
-  clifax?: string;        // Fax
-  cliclasif?: string;     // Clasificación
-  clinumrel?: string;     // Número relación
-  
-  fch_ingreso?: string;   // Fecha ingreso formateada
-  activo?: boolean;       // Estado activo
-  
-  polizas?: Poliza[];
-  totalPolizas?: number;
-  
-  get nombre(): string;
-  get documento(): string;
-  get email(): string;
-  get direccion(): string;
-  get fechaCreacion(): string;
-  get fechaActualizacion(): string;
-  get estado(): 'activo' | 'inactivo';
-  get tipoDocumento(): 'CI' | 'RUT' | 'Pasaporte';
-}
-
-export class ClienteMapper {
-  
-  static fromBackend(clienteDto: any): Cliente {
-    const cliente = {
-      ...clienteDto,
-      
-      get nombre(): string {
-        return this.clinom || '';
-      },
-      
-      get documento(): string {
-        return this.cliced || this.cliruc || '';
-      },
-      
-      get email(): string {
-        return this.cliemail || '';
-      },
-      
-      get direccion(): string {
-        return this.clidir || '';
-      },
-      
-      get fechaCreacion(): string {
-        return this.clifching || this.fch_ingreso || '';
-      },
-      
-      get fechaActualizacion(): string {
-        return this.clifchegr || '';
-      },
-      
-      get estado(): 'activo' | 'inactivo' {
-        return this.activo ? 'activo' : 'inactivo';
-      },
-      
-      get tipoDocumento(): 'CI' | 'RUT' | 'Pasaporte' {
-        if (this.cliruc) return 'RUT';
-        if (this.cliced) return 'CI';
-        return 'Pasaporte';
-      }
-    } as Cliente;
-    
-    return cliente;
-  }
-
-  static toBackend(cliente: Cliente): any {
-    return {
-      id: cliente.id,
-      clinom: cliente.clinom || cliente.nombre,
-      cliced: cliente.cliced || cliente.documento,
-      cliruc: cliente.cliruc,
-      cliemail: cliente.cliemail || cliente.email,
-      telefono: cliente.telefono,
-      clitelcel: cliente.clitelcel,
-      clidir: cliente.clidir || cliente.direccion,
-      clifchnac: cliente.clifchnac,
-      activo: cliente.activo ?? true,
-    };
-  }
-  
-  static fromBackendArray(clienteDtos: any[]): Cliente[] {
-    return clienteDtos.map(dto => this.fromBackend(dto));
-  }
-}
-
-
-export interface ClienteFormData {
-  clinom: string;
-  cliced?: string;
-  cliruc?: string;
-  cliemail?: string;
-  telefono?: string;
-  clitelcel?: string;
-  clidir?: string;
-  clifchnac?: string;
-  activo?: boolean;
-}
-
-export interface ClienteFilters {
-  search?: string;
-  activo?: boolean;
-  tipoDocumento?: 'CI' | 'RUT' | 'Pasaporte';
-  departamento?: string;
+  clinro: number;
+  corrcod: number;
+  subcorr: number;
+  clinom: string;              // ← Nombre del cliente
+  telefono: string;
+  clitelcel: string;           // ← Teléfono celular
+  clifchnac: string | null;    // ← Fecha de nacimiento
+  clifching: string | null;
+  clifchegr: string | null;
+  clicargo: string;
+  clicon: string;
+  cliruc: string;              // ← RUC
+  clirsoc: string;
+  cliced: string;              // ← Cédula/Documento
+  clilib: string;
+  clicatlib: string;
+  clitpo: string;
+  clidir: string;              // ← Dirección
+  cliemail: string;            // ← Email
+  clivtoced: string | null;
+  clivtolib: string | null;
+  cliposcod: number;
+  clitelcorr: string;
+  clidptnom: string;           // ← Departamento
+  clisex: string;
+  clitelant: string;
+  cliobse: string;
+  clifax: string;
+  cliclasif: string;
+  clinumrel: string;
+  clicasapt: string;
+  clidircob: string;           // ← Dirección de cobranza
+  clibse: number;
+  clifoto: string;
+  pruebamillares: number;
+  ingresado: string;
+  clialias: string;
+  clipor: string;
+  clisancor: string;
+  clirsa: string;
+  codposcob: number;
+  clidptcob: string;
+  activo: boolean;             // ← Estado activo/inactivo
+  cli_s_cris: string;
+  clifchnac1: string;
+  clilocnom: string;
+  cliloccob: string;
+  categorias_de_cliente: number;
+  sc_departamentos: string;
+  sc_localidades: string;
+  fch_ingreso: string | null;
+  grupos_economicos: number;
+  etiquetas: boolean;
+  doc_digi: boolean;
+  password: string;
+  habilita_app: boolean;
+  referido: string;
+  altura: number;
+  peso: number;
+  cliberkley: string;
+  clifar: string;
+  clisurco: string;
+  clihdi: string;
+  climapfre: string;
+  climetlife: string;
+  clisancris: string;
+  clisbi: string;
+  edo_civil: string;
+  not_bien_mail: boolean;
+  not_bien_wap: boolean;
+  ing_poliza_mail: boolean;
+  ing_poliza_wap: boolean;
+  ing_siniestro_mail: boolean;
+  ing_siniestro_wap: boolean;
+  noti_obs_sini_mail: boolean;
+  noti_obs_sini_wap: boolean;
+  last_update: string | null;
+  app_id: number;
+  polizas: Poliza[];
 }
