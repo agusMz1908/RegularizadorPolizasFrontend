@@ -1,11 +1,21 @@
+import { Poliza } from "./poliza";
+
 export interface Cliente {
   id: number;
   nombre: string;
   documento: string;
-  telefono: string;
   email: string;
-  direccion: string;
-  activo: boolean;
-  fechaCreacion?: Date;
-  fechaModificacion?: Date;
+  telefono?: string;
+  direccion?: string;
+  fechaCreacion: string;
+  fechaActualizacion: string;
+  estado: 'activo' | 'inactivo';
+  
+  tipoDocumento: 'CI' | 'RUT' | 'Pasaporte';
+  fechaNacimiento?: string;
+  ocupacion?: string;
+  ingresosMensuales?: number;
+  
+  polizas?: Poliza[];
+  totalPolizas?: number;
 }

@@ -1,121 +1,58 @@
 export interface Poliza {
   id: number;
-  clienteId: number;
   numero: string;
+  clienteId: number;
+  companiaId: number;
+  ramoId: number;
+
   compania: string;
   ramo: string;
-  estado: 'Vigente' | 'Vencida' | 'Cancelada' | 'Pendiente';
-  
-  fechaInicio: string;        
-  fechaVencimiento: string;   
+  producto: string;
+
+  fechaInicio: string;
+  fechaVencimiento: string;
+  fechaEmision: string;
+
   prima: number;
-  moneda: string;
-  
-  sumaAsegurada?: number;
+  primaAnual: number;
+  sumaDolarizada?: number;
   deducible?: number;
-  comision?: number;
-  observaciones?: string;
-  
-  conpol?: string;          
-  confchdes?: string;     
-  confchhas?: string;       
-  convig?: string;          
-  comAlias?: string;        
-  
-  fechaCreacion?: string;
-  fechaModificacion?: string;
-  activo?: boolean;
-}
 
-export interface PolizaFormData {
-  numeroPoliza?: string;
-  vigenciaDesde?: string;
-  vigenciaHasta?: string;
-  prima?: number;
-  moneda?: string;
+  estado: 'vigente' | 'vencida' | 'cancelada' | 'suspendida' | 'por_vencer';
+  tipoPoliza: 'nueva' | 'renovacion' | 'endoso';
 
-  nombreAsegurado?: string;
-  documentoAsegurado?: string;
-  telefonoAsegurado?: string;
-  emailAsegurado?: string;
-  direccionAsegurado?: string;
+  vehiculo?: {
+    marca: string;
+    modelo: string;
+    año: number;
+    chapa: string;
+    numeroMotor?: string;
+    numeroChasis?: string;
+    color?: string;
+  };
 
-  marca?: string;
-  modelo?: string;
-  año?: string;
-  chapa?: string;
-  chasis?: string;
-  motor?: string;
-  color?: string;
+  beneficiarios?: Beneficiario[];
+  conductores?: Conductor[];
 
-  sumaAsegurada?: number;
-  deducible?: number;
-  comision?: number;
-  
+  fechaCreacion: string;
+  fechaActualizacion: string;
+  creadoPor: string;
   observaciones?: string;
 }
 
-export interface Compania {
+export interface Beneficiario {
   id: number;
   nombre: string;
-  codigo: string;
-  activo?: boolean;
+  documento: string;
+  relacion: string;
+  porcentaje: number;
 }
 
-export interface Ramo {
+export interface Conductor {
   id: number;
   nombre: string;
-  codigo: string;
-  icon?: React.ReactNode;
-  activo?: boolean;
+  documento: string;
+  licencia: string;
+  fechaNacimiento: string;
+  principal: boolean;
 }
-
-export interface PolizaResumidaDto {
-  id: number;
-  conpol: string;          
-  ramo: string;
-  confchdes?: string;       
-  confchhas?: string;      
-  convig: string;        
-  comAlias: string;         
-  prima?: number;
-  moneda?: string;
-}
-
-export const mapPolizaResumidaToPoliza = (dto: PolizaResumidaDto): Poliza => ({
-  id: dto.id,
-  clienteId: 0, 
-  numero: dto.conpol || '',
-  compania: dto.comAlias || '',
-  ramo: dto.ramo || '',
-  estado: mapVigenciaToEstado(dto.convig),
-  fechaInicio: dto.confchdes || '',
-  fechaVencimiento: dto.confchhas || '',
-  prima: dto.prima || 0,
-  moneda: dto.moneda || 'UYU',
-  
-  conpol: dto.conpol,
-  confchdes: dto.confchdes,
-  confchhas: dto.confchhas,
-  convig: dto.convig,
-  comAlias: dto.comAlias,
-});
-
-const mapVigenciaToEstado = (vigencia: string): Poliza['estado'] => {
-  switch (vigencia?.toLowerCase()) {
-    case 'vigente':
-    case 'activa':
-      return 'Vigente';
-    case 'vencida':
-    case 'expirada':
-      return 'Vencida';
-    case 'cancelada':
-    case 'anulada':
-      return 'Cancelada';
-    case 'pendiente':
-    case 'proceso':
-      return 'Pendiente';
-    default:
-      return 'Pendiente';
-  }
-};
