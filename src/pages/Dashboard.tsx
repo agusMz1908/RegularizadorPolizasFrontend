@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, RefreshCw, Search, Filter, FileText, Users, Menu, X, AlertCircle, Loader2 } from 'lucide-react';
+import { Plus, RefreshCw, Search, Filter, FileText, Users, Menu, X, AlertCircle, Loader2, Eye } from 'lucide-react';
 import { useClientes } from '../hooks/useCliente';
 import { Pagination } from '../components/common/Pagination';
+import { ClienteModal, PolizaModal } from '../components/modals'; 
 
 // Types
 interface Compania {
@@ -36,6 +37,16 @@ const Dashboard: React.FC = () => {
     hasClientes,
     hasPolizas,
     isClienteSelected,
+    
+    // 🆕 FUNCIONES PARA MODALES
+    selectedClienteForModal,
+    selectedPolizaForModal,
+    clienteModalOpen,
+    polizaModalOpen,
+    openClienteModal,
+    closeClienteModal,
+    openPolizaModal,
+    closePolizaModal,
   } = useClientes();
 
   // State local
@@ -61,6 +72,22 @@ const Dashboard: React.FC = () => {
     { id: 4, nombre: 'Vida', codigo: 'VIDA' }
   ];
 
+  // 🆕 FUNCIONES PARA MANEJAR MODALES
+  const handleEditCliente = (cliente: any) => {
+    console.log('Editar cliente:', cliente.clinom);
+    // Aquí irá la lógica para editar cliente
+  };
+
+  const handleEditPoliza = (poliza: any) => {
+    console.log('Editar póliza:', poliza.conpol || poliza.numero);
+    // Aquí irá la lógica para editar póliza
+  };
+
+  const handleViewEndosos = (poliza: any) => {
+    console.log('Ver endosos de póliza:', poliza.conpol || poliza.numero);
+    // Aquí irá la lógica para ver endosos
+  };
+
   // Búsqueda con debounce
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -75,23 +102,23 @@ const Dashboard: React.FC = () => {
   }, [filtroCliente]);
 
   // Filtros
-const polizasFiltradas = polizasCliente.filter(poliza => {
-  if (!filtroPoliza.trim()) return true;
-  
-  const filtro = filtroPoliza.toLowerCase();
-  
-  const numero = poliza.conpol || poliza.numero || '';
-  const compania = poliza.com_alias || poliza.compania || '';
-  const ramo = poliza.ramo || '';
-  const cobertura = poliza.contpocob || '';
-  
-  return (
-    numero.toString().toLowerCase().includes(filtro) ||
-    compania.toLowerCase().includes(filtro) ||
-    ramo.toLowerCase().includes(filtro) ||
-    cobertura.toLowerCase().includes(filtro)
-  );
-});
+  const polizasFiltradas = polizasCliente.filter(poliza => {
+    if (!filtroPoliza.trim()) return true;
+    
+    const filtro = filtroPoliza.toLowerCase();
+    
+    const numero = String(poliza.conpol || poliza.numero || '');
+    const compania = String(poliza.com_alias || poliza.compania || '');
+    const ramo = String(poliza.ramo || '');
+    const cobertura = String(poliza.contpocob || '');
+    
+    return (
+      numero.toLowerCase().includes(filtro) ||
+      compania.toLowerCase().includes(filtro) ||
+      ramo.toLowerCase().includes(filtro) ||
+      cobertura.toLowerCase().includes(filtro)
+    );
+  });
 
   const handleNewPoliza = () => {
     if (!clienteSeleccionado) {
@@ -114,25 +141,25 @@ const polizasFiltradas = polizasCliente.filter(poliza => {
     }
   };
 
-const getEstadoColor = (estado: string | undefined) => {
-  if (!estado) return 'bg-gray-100 text-gray-800';
-  
-  switch (estado.toLowerCase()) {
-    case 'vigente':
-    case 'activo':
-      return 'bg-green-100 text-green-800';
-    case 'vencida':
-    case 'vencido':
-      return 'bg-red-100 text-red-800';
-    case 'cancelada':
-    case 'cancelado':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'pendiente':
-      return 'bg-blue-100 text-blue-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
+  const getEstadoColor = (estado: string | undefined) => {
+    if (!estado) return 'bg-gray-100 text-gray-800';
+    
+    switch (estado.toLowerCase()) {
+      case 'vigente':
+      case 'activo':
+        return 'bg-green-100 text-green-800';
+      case 'vencida':
+      case 'vencido':
+        return 'bg-red-100 text-red-800';
+      case 'cancelada':
+      case 'cancelado':
+        return 'bg-yellow-100 text-yellow-800';
+      case 'pendiente':
+        return 'bg-blue-100 text-blue-800';
+      default:
+        return 'bg-gray-100 text-gray-800';
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-50">
@@ -262,29 +289,29 @@ const getEstadoColor = (estado: string | undefined) => {
               </div>
             </div>
             
-              {loading ? (
-                <div className="p-12 text-center">
-                  <div className="relative mb-6">
-                    <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
-                    <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-blue-400 rounded-full animate-spin animation-delay-75 mx-auto"></div>
-                  </div>
-                  
-                  <h3 className="text-lg font-medium text-gray-900 mb-2">
-                    Cargando clientes desde Velneo
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4">
-                    Descargando información de {loading ? '2,000+' : ''} clientes...
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    💾 Esto puede tardar 1-2 minutos debido al volumen de datos
-                  </p>
-                  
-                  {/* Barra de progreso animada */}
-                  <div className="w-64 bg-gray-200 rounded-full h-2 mt-4 mx-auto overflow-hidden">
-                    <div className="h-2 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full animate-pulse"></div>
-                  </div>
+            {loading ? (
+              <div className="p-12 text-center">
+                <div className="relative mb-6">
+                  <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto"></div>
+                  <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-r-blue-400 rounded-full animate-spin animation-delay-75 mx-auto"></div>
                 </div>
-              ) : !hasClientes ? (
+                
+                <h3 className="text-lg font-medium text-gray-900 mb-2">
+                  Cargando clientes desde Velneo
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Descargando información de {loading ? '2,000+' : ''} clientes...
+                </p>
+                <p className="text-xs text-gray-500">
+                  💾 Esto puede tardar 1-2 minutos debido al volumen de datos
+                </p>
+                
+                {/* Barra de progreso animada */}
+                <div className="w-64 bg-gray-200 rounded-full h-2 mt-4 mx-auto overflow-hidden">
+                  <div className="h-2 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full animate-pulse"></div>
+                </div>
+              </div>
+            ) : !hasClientes ? (
               <div className="p-8 text-center text-gray-500">
                 <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p className="text-lg font-medium mb-2">No hay clientes</p>
@@ -294,85 +321,96 @@ const getEstadoColor = (estado: string | undefined) => {
               <div>
                 {/* Tabla de clientes */}
                 <div className="overflow-x-auto">
-  <table className="w-full">
-    <thead className="bg-gray-50">
-      <tr>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Cliente
-        </th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Documento
-        </th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Contacto
-        </th>
-        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-          Estado
-        </th>
-      </tr>
-    </thead>
-    <tbody className="bg-white divide-y divide-gray-200">
-      {clientes.map((cliente) => (
-        <tr 
-          key={cliente.id}
-          onClick={() => selectCliente(cliente)}
-          className={`cursor-pointer transition-colors ${
-            clienteSeleccionado?.id === cliente.id 
-              ? 'bg-blue-50 border-blue-200' 
-              : 'hover:bg-gray-50'
-          }`}
-        >
-          <td className="px-6 py-4 whitespace-nowrap">
-            <div>
-              <div className="text-sm font-medium text-gray-900">
-                {cliente.clinom || 'Sin nombre'}
-              </div>
-              {cliente.clidir && (
-                <div className="text-sm text-gray-500 truncate max-w-xs">
-                  {cliente.clidir}
-                </div>
-              )}
-            </div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap">
-            <div>
-              <div className="text-sm text-gray-900">
-                {cliente.cliced || cliente.cliruc || 'Sin documento'}
-              </div>
-              <div className="text-xs text-gray-500">
-                {cliente.cliced ? 'CI' : cliente.cliruc ? 'RUC' : ''}
-              </div>
-            </div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap">
-            <div>
-              {cliente.clitelcel && (
-                <div className="text-sm text-gray-900">{cliente.clitelcel}</div>
-              )}
-              {cliente.cliemail && (
-                <div className="text-sm text-gray-500">{cliente.cliemail}</div>
-              )}
-              {!cliente.clitelcel && !cliente.cliemail && (
-                <div className="text-sm text-gray-400">Sin contacto</div>
-              )}
-            </div>
-          </td>
-          <td className="px-6 py-4 whitespace-nowrap">
-            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
-              cliente.activo 
-                ? 'bg-green-100 text-green-800' 
-                : 'bg-red-100 text-red-800'
-            }`}>
-              {cliente.activo ? 'Activo' : 'Inactivo'}
-            </span>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Cliente
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Documento
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Contacto
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Estado
+                        </th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Acciones
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {clientes.map((cliente) => (
+                        <tr 
+                          key={cliente.id}
+                          className={`transition-colors ${
+                            clienteSeleccionado?.id === cliente.id 
+                              ? 'bg-blue-50 border-blue-200' 
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">
+                                {cliente.clinom}
+                              </div>
+                              {cliente.clidir && (
+                                <div className="text-sm text-gray-500 truncate max-w-xs">
+                                  {cliente.clidir}
+                                </div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div className="text-sm text-gray-900">{cliente.cliced}</div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <div>
+                              {cliente.telefono && (
+                                <div className="text-sm text-gray-900">{cliente.telefono}</div>
+                              )}
+                              {cliente.cliemail && (
+                                <div className="text-sm text-gray-500">{cliente.cliemail}</div>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                              cliente.activo ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                            }`}>
+                              {cliente.activo ? 'Activo' : 'Inactivo'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                            <div className="flex space-x-2">
+                              {/* 🆕 BOTÓN VER (ABRE MODAL) */}
+                              <button
+                                onClick={() => openClienteModal(cliente)}
+                                className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                                title="Ver detalles"
+                              >
+                                <Eye className="w-4 h-4 text-white" />
+                                <span className="text-white">Ver</span>
+                              </button>
+                              {/* BOTÓN SELECCIONAR (FUNCIONALIDAD ORIGINAL) */}
+                              <button
+                                onClick={() => selectCliente(cliente)}
+                                className="text-white"
+                                title="Seleccionar para ver pólizas"
+                              >
+                                Seleccionar
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
                 
-                {/* Controles de Paginación usando el componente reutilizable */}
+                {/* Controles de Paginación */}
                 <Pagination
                   currentPage={pagination.currentPage}
                   totalPages={pagination.totalPages}
@@ -432,7 +470,7 @@ const getEstadoColor = (estado: string | undefined) => {
               </div>
             </div>
             
-              {!clienteSeleccionado ? (
+            {!clienteSeleccionado ? (
               <div className="p-8 text-center text-gray-500">
                 <FileText className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                 <p className="text-lg font-medium mb-2">Selecciona un cliente</p>
@@ -478,6 +516,9 @@ const getEstadoColor = (estado: string | undefined) => {
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Estado
+                      </th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Acciones
                       </th>
                     </tr>
                   </thead>
@@ -533,12 +574,23 @@ const getEstadoColor = (estado: string | undefined) => {
                             {poliza.estado || 'Activo'}
                           </span>
                         </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          {/* 🆕 BOTÓN VER (ABRE MODAL DE PÓLIZA) */}
+                          <button
+                            onClick={() => openPolizaModal(poliza)}
+                            className="text-blue-600 hover:text-blue-900 flex items-center space-x-1"
+                            title="Ver detalles"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>Ver</span>
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
                 
-                {/* ✅ Información de paginación */}
+                {/* Información de paginación */}
                 {polizasCliente.length > 0 && (
                   <div className="px-6 py-3 border-t border-gray-200 bg-gray-50">
                     <p className="text-sm text-gray-600">
@@ -549,6 +601,9 @@ const getEstadoColor = (estado: string | undefined) => {
                 )}
               </div>
             )}
+          </div>
+        </div>
+      </div>
 
       {/* Modal para Nueva Póliza */}
       {showNewPolizaModal && (
@@ -614,11 +669,24 @@ const getEstadoColor = (estado: string | undefined) => {
             </div>
           </div>
         </div>
-          )}
-        </div>
-      </div>
+      )}
+
+      {/* 🆕 MODALES DE DETALLES */}
+      <ClienteModal
+        cliente={selectedClienteForModal}
+        isOpen={clienteModalOpen}
+        onClose={closeClienteModal}
+        onEdit={handleEditCliente}
+      />
+
+      <PolizaModal
+        poliza={selectedPolizaForModal}
+        isOpen={polizaModalOpen}
+        onClose={closePolizaModal}
+        onEdit={handleEditPoliza}
+        onViewEndosos={handleViewEndosos}
+      />
     </div>
-  </div>
   );
 };
 

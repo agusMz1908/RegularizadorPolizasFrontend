@@ -1,12 +1,10 @@
 export interface Poliza {
-  // Propiedades principales que pueden venir como string o number
   id?: number;
-  conpol?: string | number;     // 🆕 Permitir number también
-  conend?: string | number;     // 🆕 Permitir number también
-  numero?: string | number;     // 🆕 Permitir number también
-  endoso?: string | number;     // 🆕 Permitir number también
+  conpol?: string | number;
+  conend?: string | number;
+  numero?: string | number;
+  endoso?: string | number;
   
-  // Campos de Velneo - todos opcionales y flexibles
   com_alias?: string;
   compania?: string;
   Com_alias?: string;
@@ -28,9 +26,32 @@ export interface Poliza {
   fechaHasta?: string | Date;
   prima?: number;
   moneda?: string;
+
+  asegurado?: string;
+  cliente?: string;
+  nombreAsegurado?: string;
+  suma?: number;
+  sumaAsegurada?: number;
+  consum?: number;
+  Consum?: number;
+  tipoSeguro?: string;
+  rama?: string;
+  clienteId?: number;
+  clinom?: string;
+
+  vehiculo?: {
+    marca: string;
+    modelo: string;
+    año: number;
+    patente: string;
+  };
   
-  // Permitir cualquier propiedad adicional del backend
   [key: string]: any;
+}
+
+export interface PolizaConEndosos extends Poliza {
+  totalEndosos?: number;
+  endosos?: any[];
 }
 
 export interface PolizaFormData {
@@ -128,19 +149,8 @@ export class PolizaMapper {
       moncod: poliza.moncod || (poliza.moneda === 'USD' ? 2 : 1),
       ramo: poliza.ramo,
       estado: poliza.estado,
-      clienteId: poliza.clienteId,
+      clienteId: poliza.clienteId || 0,
       id: poliza.id,
     };
   }
-}
-
-export interface PolizaConEndosos extends Poliza {
-  totalEndosos?: number;
-  endosos?: any[]; 
-  
-  // Normalizar campos principales como string
-  conpol: string;
-  conend: string;
-  numero: string;
-  endoso: string;
 }

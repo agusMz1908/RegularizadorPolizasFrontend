@@ -1,11 +1,19 @@
+// src/hooks/useCliente.ts - SIMPLIFICADO Y CORREGIDO
 import { useState, useEffect, useCallback } from 'react';
 import { Cliente } from '../types/cliente';
 import { Poliza, PolizaConEndosos } from '../types/poliza';
 import { clienteService } from '../services/clienteService';
 import { PaginationParams, PaginatedResponse, Stats, PaginationInfo } from '../types/common';
-import apiService from '../services/api';
+
+// 🆕 Tipo simple para modal de póliza
+type PolizaParaModal = {
+  [key: string]: any;
+  conpol?: string | number;
+  numero?: string | number;
+};
 
 interface UseClientesReturn {
+  // Datos existentes
   clientes: Cliente[];
   clienteSeleccionado: Cliente | null;
   polizasCliente: PolizaConEndosos[];
@@ -14,25 +22,38 @@ interface UseClientesReturn {
   loading: boolean;
   loadingPolizas: boolean;
   error: string | null;
-
   isSearching: boolean;
   searchQuery: string;
 
+  // 🆕 Estados para modales - tipos simplificados
+  selectedClienteForModal: Cliente | null;
+  selectedPolizaForModal: PolizaParaModal | null;
+  clienteModalOpen: boolean;
+  polizaModalOpen: boolean;
+
+  // Funciones existentes
   selectCliente: (cliente: Cliente) => void;
   clearClienteSeleccionado: () => void;
   searchClientes: (query: string) => Promise<void>;
   refreshClientes: () => Promise<void>;
   loadPage: (page: number) => Promise<void>;
   changePageSize: (size: number) => Promise<void>;
-  
   clearSearch: () => Promise<void>;
   
+  // 🆕 Funciones para modales - tipos simplificados
+  openClienteModal: (cliente: Cliente) => void;
+  closeClienteModal: () => void;
+  openPolizaModal: (poliza: PolizaParaModal) => void;
+  closePolizaModal: () => void;
+  
+  // Helpers
   hasClientes: boolean;
   hasPolizas: boolean;
   isClienteSelected: boolean;
 }
 
 export const useClientes = (): UseClientesReturn => {
+  // Estados existentes
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [polizasCliente, setPolizasCliente] = useState<PolizaConEndosos[]>([]);
@@ -40,7 +61,6 @@ export const useClientes = (): UseClientesReturn => {
   const [loadingPolizas, setLoadingPolizas] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  
   const [isSearching, setIsSearching] = useState(false);
 
   const [pagination, setPagination] = useState<PaginationInfo>({
@@ -52,7 +72,13 @@ export const useClientes = (): UseClientesReturn => {
     hasPreviousPage: false,
   });
 
+  // 🆕 Estados para modales - tipos simplificados
+  const [selectedClienteForModal, setSelectedClienteForModal] = useState<Cliente | null>(null);
+  const [selectedPolizaForModal, setSelectedPolizaForModal] = useState<PolizaParaModal | null>(null);
+  const [clienteModalOpen, setClienteModalOpen] = useState(false);
+  const [polizaModalOpen, setPolizaModalOpen] = useState(false);
 
+  // Funciones existentes (mantener todas)
   const loadClientes = useCallback(async (page: number = 1, pageSize: number = 20, query?: string) => {
     setLoading(true);
     setError(null);
@@ -104,191 +130,105 @@ export const useClientes = (): UseClientesReturn => {
     }
   }, []);
 
-const searchClientesGlobal = useCallback(async (query: string) => {
-  if (!query.trim()) {
-    setIsSearching(false);
-    setSearchQuery('');
-    await loadClientes(1, pagination.pageSize);
-    return;
-  }
-
-  setLoading(true);
-  setError(null);
-  setIsSearching(true);
-  setSearchQuery(query);
-  
-  try {
-    console.log('🔍 Búsqueda GLOBAL usando método existente:', query);
-    
-    // ✅ Usar el método getClientes existente que YA funciona
-    // Solo cambiar el pageSize a 1000 para obtener más resultados
-    const paginationParams: PaginationParams = {
-      page: 1,
-      limit: 1000, // 🆕 Límite alto para búsqueda completa
-      sortBy: 'clinom',
-      sortOrder: 'asc'
-    };
-
-    const filters = { search: query.trim() }; // 🆕 Usar 'search' como en el método normal
-    
-    const response: PaginatedResponse<Cliente> = await clienteService.getClientes(paginationParams, filters);
-    
-    console.log('✅ Búsqueda completada:', {
-      query,
-      resultados: response.items.length,
-      totalResultados: response.totalCount,
-      primerResultado: response.items[0]?.clinom || 'Sin resultados'
-    });
-    
-    setClientes(response.items);
-    setPagination({
-      currentPage: 1,
-      totalPages: 1, // Una sola página con todos los resultados
-      pageSize: response.items.length,
-      totalCount: response.items.length, // Total mostrado
-      hasNextPage: false,
-      hasPreviousPage: false,
-    });
-    
-  } catch (err: any) {
-    console.error('❌ Error en búsqueda global:', err);
-    
-    // 🆕 Mensaje de error más claro
-    if (err.message?.includes('timeout') || err.message?.includes('Timeout')) {
-      setError('La búsqueda está tardando mucho. Intenta con un término más específico.');
-    } else {
-      setError(`Error en búsqueda: ${err.message}`);
+  const searchClientesGlobal = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setIsSearching(false);
+      setSearchQuery('');
+      await loadClientes(1, pagination.pageSize);
+      return;
     }
-    
-    setClientes([]);
-    setPagination(prev => ({ 
-      ...prev, 
-      totalCount: 0, 
-      totalPages: 1,
-      hasNextPage: false,
-      hasPreviousPage: false 
-    }));
-  } finally {
-    setLoading(false);
-  }
-}, [pagination.pageSize, loadClientes]);
 
-const loadPolizasCliente = useCallback(async (clienteId: number) => {
-  setLoadingPolizas(true);
-  setError(null);
-  try {
-    console.log('🔄 Cargando pólizas para cliente:', clienteId);
+    setLoading(true);
+    setError(null);
+    setIsSearching(true);
+    setSearchQuery(query);
     
-    if (typeof clienteService.getPolizasByCliente === 'function') {
-      const polizasRaw = await clienteService.getPolizasByCliente(clienteId);
-      console.log('✅ Pólizas RAW recibidas:', polizasRaw.length);
+    try {
+      console.log('🔍 Búsqueda GLOBAL usando endpoint /search:', query);
       
-      // 🆕 FILTRAR ANTECEDENTES usando el campo convig
-      const polizasSinAntecedentes = polizasRaw.filter((poliza: any) => {
-        const convig = poliza.convig || poliza.Convig;
-        const esAntecedente = convig === "2" || convig === 2; // Estado 2 = ANT
+      const clientes = await clienteService.searchClientes(query.trim());
+      
+      console.log('✅ Búsqueda completada:', {
+        query,
+        resultados: clientes.length,
+        primerResultado: clientes[0]?.clinom || 'Sin resultados'
+      });
+      
+      setClientes(clientes);
+      setPagination({
+        currentPage: 1,
+        totalPages: 1,
+        pageSize: clientes.length,
+        totalCount: clientes.length,
+        hasNextPage: false,
+        hasPreviousPage: false,
+      });
+      
+    } catch (err: any) {
+      console.error('❌ Error en búsqueda global:', err);
+      
+      if (err.message?.includes('timeout') || err.message?.includes('Timeout')) {
+        setError('La búsqueda está tardando mucho. Intenta con términos más específicos.');
+      } else {
+        setError(err.message || 'Error en la búsqueda');
+      }
+      
+      setClientes([]);
+      setPagination(prev => ({ 
+        ...prev, 
+        totalCount: 0, 
+        totalPages: 1,
+        hasNextPage: false,
+        hasPreviousPage: false 
+      }));
+    } finally {
+      setLoading(false);
+    }
+  }, [pagination.pageSize, loadClientes]);
+
+  const loadPolizasCliente = useCallback(async (clienteId: number) => {
+    setLoadingPolizas(true);
+    setError(null);
+    try {
+      console.log('🔄 Cargando pólizas para cliente:', clienteId);
+      
+      if (typeof clienteService.getPolizasByCliente === 'function') {
+        const polizasRaw = await clienteService.getPolizasByCliente(clienteId);
+        console.log('✅ Pólizas RAW recibidas:', polizasRaw.length);
         
-        console.log(`🔍 Póliza ${poliza.conpol}:`, {
-          numero: poliza.conpol,
-          convig: convig,
-          esAntecedente: esAntecedente,
-          accion: esAntecedente ? '🚫 EXCLUIR' : '✅ INCLUIR'
+        // Filtrar antecedentes
+        const polizasSinAntecedentes = polizasRaw.filter((poliza: any) => {
+          const convig = poliza.convig || poliza.Convig;
+          const esAntecedente = convig === "2" || convig === 2;
+          return !esAntecedente;
         });
         
-        return !esAntecedente;
-      });
-      
-      console.log('📋 Resultado del filtro:', {
-        original: polizasRaw.length,
-        sinAntecedentes: polizasSinAntecedentes.length,
-        antecedentesEliminados: polizasRaw.length - polizasSinAntecedentes.length
-      });
-      
-      // 🆕 DEDUPLICACIÓN (sobre pólizas sin antecedentes)
-      const polizasMap = new Map<string, PolizaConEndosos>();
-      
-      polizasSinAntecedentes.forEach((poliza: any) => {
-        const numeroPoliza = poliza.conpol || poliza.Conpol || poliza.numero;
-        const numeroEndoso = parseInt(poliza.conend || poliza.Conend || poliza.endoso || '0');
-        const fechaEndoso = poliza.confchdes || poliza.Confchdes || poliza.fechaDesde;
+        // 🆕 Simplificar - solo asignar directamente como PolizaConEndosos
+        const polizasMap = new Map<string, any>();
         
-        if (!numeroPoliza) return;
-        
-        const polizaExistente = polizasMap.get(numeroPoliza);
-        
-        if (!polizaExistente) {
-          // Primera vez que vemos esta póliza
-          const polizaConEndosos: PolizaConEndosos = {
-            ...poliza,
-            conpol: String(numeroPoliza),
-            conend: String(poliza.conend || poliza.Conend || poliza.endoso || '0'),
-            numero: String(numeroPoliza),
-            endoso: String(poliza.conend || poliza.Conend || poliza.endoso || '0'),
-            totalEndosos: 1,
-            endosos: [poliza]
-          };
-          polizasMap.set(numeroPoliza, polizaConEndosos);
-        } else {
-          // Ya existe esta póliza
-          const endosoExistente = parseInt(String(polizaExistente.conend || '0'));
-          const fechaExistente = polizaExistente.confchdes || polizaExistente.Confchdes;
+        polizasSinAntecedentes.forEach((poliza: any) => {
+          const numeroPoliza = String(poliza.conpol || poliza.Conpol || poliza.numero || '');
+          if (!numeroPoliza) return;
           
-          polizaExistente.totalEndosos = (polizaExistente.totalEndosos || 0) + 1;
-          polizaExistente.endosos = polizaExistente.endosos || [];
-          polizaExistente.endosos.push(poliza);
-          
-          const esMasReciente = numeroEndoso > endosoExistente || 
-                               (!fechaExistente && fechaEndoso) ||
-                               (fechaEndoso && fechaExistente && new Date(fechaEndoso) > new Date(fechaExistente));
-          
-          if (esMasReciente) {
-            const endosos = polizaExistente.endosos;
-            const totalEndosos = polizaExistente.totalEndosos;
-            
-            const polizaActualizada: PolizaConEndosos = {
-              ...poliza,
-              conpol: String(numeroPoliza),
-              conend: String(poliza.conend || poliza.Conend || poliza.endoso || '0'),
-              numero: String(numeroPoliza),
-              endoso: String(poliza.conend || poliza.Conend || poliza.endoso || '0'),
-              totalEndosos,
-              endosos
-            };
-            
-            polizasMap.set(numeroPoliza, polizaActualizada);
+          if (!polizasMap.has(numeroPoliza)) {
+            polizasMap.set(numeroPoliza, poliza);
           }
-        }
-      });
-      
-      const polizasDeduplicadas = Array.from(polizasMap.values()).map(poliza => ({
-        ...poliza,
-        endosos: (poliza.endosos || []).sort((a: any, b: any) => {
-          const endosoA = parseInt(String(a.conend || a.Conend || '0'));
-          const endosoB = parseInt(String(b.conend || b.Conend || '0'));
-          return endosoB - endosoA;
-        })
-      }));
-      
-      console.log('✅ Resultado final:', {
-        polizasRaw: polizasRaw.length,
-        sinAntecedentes: polizasSinAntecedentes.length,
-        deduplicadas: polizasDeduplicadas.length,
-        deberianSerTres: polizasDeduplicadas.length === 3 ? '✅ CORRECTO - 3 pólizas' : `❌ INCORRECTO - ${polizasDeduplicadas.length} pólizas`
-      });
-      
-      setPolizasCliente(polizasDeduplicadas);
-    } else {
-      console.warn('⚠️ Método getPolizasByCliente no implementado');
+        });
+        
+        const polizasDeduplicadas = Array.from(polizasMap.values()) as PolizaConEndosos[];
+        setPolizasCliente(polizasDeduplicadas);
+      } else {
+        console.warn('⚠️ Método getPolizasByCliente no implementado');
+        setPolizasCliente([]);
+      }
+    } catch (err: any) {
+      console.error('❌ Error cargando pólizas:', err);
+      setError(err.message);
       setPolizasCliente([]);
+    } finally {
+      setLoadingPolizas(false);
     }
-  } catch (err: any) {
-    console.error('❌ Error cargando pólizas:', err);
-    setError(err.message);
-    setPolizasCliente([]);
-  } finally {
-    setLoadingPolizas(false);
-  }
-}, []);
+  }, []);
 
   const selectCliente = useCallback((cliente: Cliente) => {
     console.log('👤 Cliente seleccionado:', cliente.clinom);
@@ -307,7 +247,7 @@ const loadPolizasCliente = useCallback(async (clienteId: number) => {
     await searchClientesGlobal(query);
   }, [searchClientesGlobal]);
 
-const refreshClientes = useCallback(async () => {
+  const refreshClientes = useCallback(async () => {
     console.log('🔄 Refrescando...');
     if (isSearching && searchQuery) {
       await searchClientesGlobal(searchQuery);
@@ -341,15 +281,35 @@ const refreshClientes = useCallback(async () => {
     await loadClientes(1, 20); 
   }, [loadClientes]);
 
-  // Carga inicial
-  useEffect(() => {
-    loadClientes();
+  // 🆕 Funciones para modales - simplificadas
+  const openClienteModal = useCallback((cliente: Cliente) => {
+    console.log('🔍 Abriendo modal de cliente:', cliente.clinom);
+    setSelectedClienteForModal(cliente);
+    setClienteModalOpen(true);
+  }, []);
+
+  const closeClienteModal = useCallback(() => {
+    console.log('❌ Cerrando modal de cliente');
+    setClienteModalOpen(false);
+    setSelectedClienteForModal(null);
+  }, []);
+
+  const openPolizaModal = useCallback((poliza: PolizaParaModal) => {
+    console.log('🔍 Abriendo modal de póliza:', poliza.conpol || poliza.numero);
+    setSelectedPolizaForModal(poliza);
+    setPolizaModalOpen(true);
+  }, []);
+
+  const closePolizaModal = useCallback(() => {
+    console.log('❌ Cerrando modal de póliza');
+    setPolizaModalOpen(false);
+    setSelectedPolizaForModal(null);
   }, []);
 
   // Carga inicial
   useEffect(() => {
     loadClientes();
-  }, []);
+  }, [loadClientes]);
 
   // Computed values
   const hasClientes = clientes.length > 0;
@@ -362,6 +322,7 @@ const refreshClientes = useCallback(async () => {
   };
 
   return {
+    // Datos existentes
     clientes,
     clienteSeleccionado,
     polizasCliente,
@@ -372,13 +333,29 @@ const refreshClientes = useCallback(async () => {
     error,
     isSearching,
     searchQuery,
+
+    // 🆕 Estados para modales
+    selectedClienteForModal,
+    selectedPolizaForModal,
+    clienteModalOpen,
+    polizaModalOpen,
+
+    // Funciones existentes
     selectCliente,
     clearClienteSeleccionado,
     searchClientes,
-    clearSearch,
     refreshClientes,
     loadPage,
     changePageSize,
+    clearSearch,
+    
+    // 🆕 Funciones para modales
+    openClienteModal,
+    closeClienteModal,
+    openPolizaModal,
+    closePolizaModal,
+    
+    // Helpers
     hasClientes,
     hasPolizas,
     isClienteSelected,
