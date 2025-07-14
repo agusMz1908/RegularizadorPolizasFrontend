@@ -1,13 +1,15 @@
-// src/components/auth/LoginForm.tsx
 import React, { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { LoginDto } from '../../types/auth';
+import { Eye, EyeOff, Shield, Loader2, AlertCircle, FileText, CheckCircle } from 'lucide-react';
 
-export default function LoginForm() {
+// Importa tu hook real
+import { useAuth } from '../../context/AuthContext';
+
+const LoginForm: React.FC = () => {
   const { login, isLoading, error, clearError } = useAuth();
-  const [formData, setFormData] = useState<LoginDto>({
-    nombre: 'superadmin', // ✅ Pre-llenar para debug
-    password: '',
+  
+  const [formData, setFormData] = useState({
+    nombre: 'superadmin',
+    password: '1ara1709',
   });
   const [showPassword, setShowPassword] = useState(false);
 
@@ -19,123 +21,222 @@ export default function LoginForm() {
     }
 
     try {
-      console.log('📝 Form submitting login...');
       await login(formData);
-      console.log('✅ Login form completed successfully');
-    } catch (error) {
-      console.error('❌ Login form error:', error);
+    } catch (error: any) {
+      // Error manejado por AuthContext
     }
   };
 
-  const handleInputChange = (field: keyof LoginDto, value: string) => {
+  const handleInputChange = (field: string, value: string) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     if (error) {
-      clearError();
+      clearError?.();
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            RegularizadorPólizas
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Inicia sesión en tu cuenta
-          </p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 flex items-center justify-center p-4">
+      <div className="w-full max-w-4xl flex bg-white rounded-3xl shadow-2xl overflow-hidden">
         
-        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="space-y-4">
-            <div>
-              <label htmlFor="nombre" className="block text-sm font-medium text-gray-700">
-                Usuario
-              </label>
-              <input
-                id="nombre"
-                name="nombre"
-                type="text"
-                required
-                value={formData.nombre}
-                onChange={(e) => handleInputChange('nombre', e.target.value)}
-                className="mt-1 appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-                placeholder="Nombre de usuario"
-                disabled={isLoading}
-              />
+        {/* Panel Izquierdo - Branding */}
+        <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 relative p-12 flex-col justify-center">
+          <div className="relative z-10">
+            <div className="flex items-center mb-8">
+              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mr-4">
+                <Shield className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-white">RegularizadorPólizas</h1>
+                <p className="text-blue-100 text-sm">Procesamiento Inteligente</p>
+              </div>
             </div>
             
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                Contraseña
-              </label>
-              <div className="mt-1 relative">
+            <h2 className="text-3xl font-bold text-white mb-6 leading-tight">
+              Automatiza el procesamiento de documentos de seguros
+            </h2>
+            
+            <div className="space-y-4 mb-8">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-300 mr-3 flex-shrink-0" />
+                <span className="text-blue-100">Extracción automática con IA</span>
+              </div>
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-300 mr-3 flex-shrink-0" />
+                <span className="text-blue-100">Integración directa con Velneo</span>
+              </div>
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-300 mr-3 flex-shrink-0" />
+                <span className="text-blue-100">Reducción de 45 min a 30 segundos</span>
+              </div>
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-green-300 mr-3 flex-shrink-0" />
+                <span className="text-blue-100">Soporte multi-compañía</span>
+              </div>
+            </div>
+            
+            <div className="bg-white/10 rounded-lg p-4 backdrop-blur-sm">
+              <p className="text-sm text-blue-100">
+                💡 <strong className="text-white">Tip:</strong> Comienza procesando documentos de BSE 
+                y expande gradualmente a otras compañías aseguradoras.
+              </p>
+            </div>
+          </div>
+          
+          {/* Pattern de fondo */}
+          <div className="absolute inset-0 opacity-10">
+            <div className="absolute transform rotate-45 -translate-x-1/2 -translate-y-1/2">
+              {[...Array(10)].map((_, i) => (
+                <div key={i} className="flex">
+                  {[...Array(10)].map((_, j) => (
+                    <FileText key={j} className="w-8 h-8 m-6 text-white" />
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Panel Derecho - Formulario */}
+        <div className="w-full lg:w-1/2 p-8 lg:p-12 flex flex-col justify-center">
+          
+          {/* Header móvil */}
+          <div className="lg:hidden text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl mb-4">
+              <Shield className="w-8 h-8 text-white" />
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900">RegularizadorPólizas</h1>
+            <p className="text-gray-600 mt-1">Procesamiento inteligente de documentos</p>
+          </div>
+
+          <div className="max-w-sm mx-auto w-full">
+            {/* Header del formulario */}
+            <div className="text-center mb-8">
+              <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                Bienvenido de vuelta
+              </h2>
+              <p className="text-gray-600">
+                Inicia sesión para acceder al sistema
+              </p>
+            </div>
+
+            {/* Formulario */}
+            <div className="space-y-6">
+              {/* Campo Usuario */}
+              <div>
+                <label htmlFor="nombre" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Usuario
+                </label>
                 <input
-                  id="password"
-                  name="password"
-                  type={showPassword ? 'text' : 'password'}
+                  id="nombre"
+                  name="nombre"
+                  type="text"
                   required
-                  value={formData.password}
-                  onChange={(e) => handleInputChange('password', e.target.value)}
-                  className="appearance-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm pr-10"
-                  placeholder="Contraseña"
+                  value={formData.nombre}
+                  onChange={(e) => handleInputChange('nombre', e.target.value)}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+                  placeholder="Ingresa tu usuario"
                   disabled={isLoading}
                 />
-                <button
-                  type="button"
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading}
-                >
-                  {showPassword ? (
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                  ) : (
-                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
-                    </svg>
-                  )}
-                </button>
               </div>
-            </div>
-          </div>
 
-          {/* ✅ Mostrar errores */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-md p-4">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                  </svg>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
+              {/* Campo Contraseña */}
+              <div>
+                <label htmlFor="password" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    id="password"
+                    name="password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    value={formData.password}
+                    onChange={(e) => handleInputChange('password', e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSubmit(e as any);
+                      }
+                    }}
+                    className="w-full px-4 py-3 pr-12 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-gray-50 focus:bg-white"
+                    placeholder="Ingresa tu contraseña"
+                    disabled={isLoading}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
+                    className="absolute inset-y-0 right-0 pr-4 flex items-center hover:text-gray-600 transition-colors"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5 text-gray-400" />
+                    ) : (
+                      <Eye className="h-5 w-5 text-gray-400" />
+                    )}
+                  </button>
                 </div>
               </div>
-            </div>
-          )}
 
-          <div>
-            <button
-              type="submit"
-              disabled={isLoading || !formData.nombre.trim() || !formData.password.trim()}
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-400 disabled:cursor-not-allowed"
-            >
-              {isLoading ? (
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                  Iniciando sesión...
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                  <div className="flex items-start">
+                    <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-red-800">Error de autenticación</p>
+                      <p className="text-sm text-red-700 mt-1">{error}</p>
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                'Iniciar Sesión'
               )}
-            </button>
+
+              {/* Botón Submit */}
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isLoading || !formData.nombre.trim() || !formData.password.trim()}
+                className="w-full flex items-center justify-center py-3 px-4 border border-transparent rounded-xl text-base font-semibold text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl"
+              >
+                {isLoading ? (
+                  <div className="flex items-center">
+                    <Loader2 className="animate-spin h-5 w-5 mr-2" />
+                    <span>Iniciando sesión...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center">
+                    <Shield className="w-5 h-5 mr-2" />
+                    <span>Iniciar Sesión</span>
+                  </div>
+                )}
+              </button>
+            </div>
+
+            {/* Información adicional */}
+            <div className="mt-8 pt-6 border-t border-gray-100">
+              <div className="bg-blue-50 rounded-xl p-4">
+                <div className="flex items-start">
+                  <FileText className="h-5 w-5 text-blue-600 flex-shrink-0 mt-0.5" />
+                  <div className="ml-3">
+                    <p className="text-sm font-medium text-blue-900">Sistema de Procesamiento</p>
+                    <p className="text-xs text-blue-700 mt-1">
+                      Automatiza el procesamiento de documentos de pólizas con IA y 
+                      envío directo a Velneo
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-        </form>
+
+          {/* Footer */}
+          <div className="mt-8 text-center">
+            <p className="text-xs text-gray-500">
+              © 2025 RegularizadorPólizas. Sistema de procesamiento inteligente.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default LoginForm

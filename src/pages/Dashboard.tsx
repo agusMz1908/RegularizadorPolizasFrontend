@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { CompanyStats } from '../types/companyStats'
-import { RecentActivity } from '../types/recentActivity'
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAuth } from '../context/AuthContext';
+import { CompanyStats } from '../types/companyStats';
+import { RecentActivity } from '../types/recentActivity';
 import { 
   FileText, 
   TrendingUp, 
@@ -16,14 +17,21 @@ import {
   Scan,
   Settings,
   Menu,
-  X
+  X,
+  LogOut,
+  User,
+  Shield,
+  Loader2
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
+  const { user, logout } = useAuth();
+  
   const [companyStats, setCompanyStats] = useState<CompanyStats[]>([]);
   const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
   const [loading, setLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState<'dashboard' | 'scanner' | 'settings'>('dashboard');
 
   useEffect(() => {
     const mockStats: CompanyStats[] = [
@@ -39,6 +47,7 @@ const Dashboard: React.FC = () => {
         avgProcessingTime: 45,
         lastProcessed: '2025-07-14T10:30:00Z'
       }
+      // Solo BSE por ahora - se agregarán dinámicamente
     ];
 
     const mockActivity: RecentActivity[] = [
@@ -79,6 +88,7 @@ const Dashboard: React.FC = () => {
     setLoading(false);
   }, []);
 
+  // Datos consolidados de todas las compañías activas
   const totalStats = companyStats.reduce((acc, company) => ({
     documentsToday: acc.documentsToday + company.documentsToday,
     documentsMonth: acc.documentsMonth + company.documentsMonth,
@@ -97,6 +107,7 @@ const Dashboard: React.FC = () => {
     avgProcessingTime: 0
   });
 
+  // Función para obtener color del estado
   const getStatusColor = (status: RecentActivity['status']) => {
     switch (status) {
       case 'completed': return 'bg-green-100 text-green-800';
@@ -156,22 +167,93 @@ const Dashboard: React.FC = () => {
         {/* Navigation */}
         <nav className="flex-1 p-4">
           <div className="space-y-2">
-            <div className="flex items-center p-3 rounded-lg bg-blue-50 border-r-4 border-blue-500">
-              <Home className="w-5 h-5 text-blue-600" />
-              {sidebarOpen && <span className="ml-3 font-medium text-blue-900">Dashboard</span>}
+            <div 
+              className={`flex items-center p-3 rounded-lg transition-colors cursor-pointer ${
+                currentPage === 'dashboard' 
+                  ? 'bg-blue-50 border-r-4 border-blue-500' 
+                  : 'hover:bg-gray-50'
+              }`}
+              onClick={() => setCurrentPage('dashboard')}
+            >
+              <Home className={`w-5 h-5 ${currentPage === 'dashboard' ? 'text-blue-600' : 'text-gray-600'}`} />
+              {sidebarOpen && (
+                <span className={`ml-3 font-medium ${
+                  currentPage === 'dashboard' ? 'text-blue-900' : 'text-gray-700'
+                }`}>Dashboard</span>
+              )}
             </div>
             
-            <div className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-              <Scan className="w-5 h-5 text-gray-600" />
-              {sidebarOpen && <span className="ml-3 text-gray-700">Escanear Documentos</span>}
+            <div 
+              className={`flex items-center p-3 rounded-lg transition-colors cursor-pointer ${
+                currentPage === 'scanner' 
+                  ? 'bg-green-50 border-r-4 border-green-500' 
+                  : 'hover:bg-gray-50'
+              }`}
+              onClick={() => setCurrentPage('scanner')}
+            >
+              <Scan className={`w-5 h-5 ${currentPage === 'scanner' ? 'text-green-600' : 'text-gray-600'}`} />
+              {sidebarOpen && (
+                <span className={`ml-3 font-medium ${
+                  currentPage === 'scanner' ? 'text-green-900' : 'text-gray-700'
+                }`}>Escanear Documentos</span>
+              )}
             </div>
             
-            <div className="flex items-center p-3 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer">
-              <Settings className="w-5 h-5 text-gray-600" />
-              {sidebarOpen && <span className="ml-3 text-gray-700">Configuración</span>}
+            <div 
+              className={`flex items-center p-3 rounded-lg transition-colors cursor-pointer ${
+                currentPage === 'settings' 
+                  ? 'bg-gray-50 border-r-4 border-gray-500' 
+                  : 'hover:bg-gray-50'
+              }`}
+              onClick={() => setCurrentPage('settings')}
+            >
+              <Settings className={`w-5 h-5 ${currentPage === 'settings' ? 'text-gray-700' : 'text-gray-600'}`} />
+              {sidebarOpen && (
+                <span className={`ml-3 font-medium ${
+                  currentPage === 'settings' ? 'text-gray-900' : 'text-gray-700'
+                }`}>Configuración</span>
+              )}
             </div>
           </div>
         </nav>
+        
+        {/* Footer del Sidebar con Usuario y Logout */}
+        <div className="p-4 border-t border-gray-200">
+          {sidebarOpen ? (
+            <div className="space-y-2">
+              {/* Info del usuario */}
+              <div className="flex items-center p-2 text-sm text-gray-600">
+                <User className="w-4 h-4 mr-2" />
+                <span className="truncate">{user?.nombre || 'Usuario'}</span>
+              </div>
+              
+              {/* Botón Logout */}
+              <button
+                onClick={logout}
+                className="w-full flex items-center p-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                <span>Cerrar Sesión</span>
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col space-y-2">
+              {/* Usuario colapsado */}
+              <div className="flex items-center justify-center p-2 text-gray-600" title={user?.nombre || 'Usuario'}>
+                <User className="w-5 h-5" />
+              </div>
+              
+              {/* Logout colapsado */}
+              <button
+                onClick={logout}
+                className="flex items-center justify-center p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                title="Cerrar Sesión"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Content */}
@@ -283,6 +365,10 @@ const Dashboard: React.FC = () => {
                       Seleccionar Archivo
                     </button>
                   </div>
+                </div>
+                
+                <div className="mt-4 text-sm text-gray-500">
+                  Costo: $2 USD por documento procesado
                 </div>
               </div>
             </div>
