@@ -1,4 +1,3 @@
-// src/services/api.ts - UNIFICADO
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
 import { ApiResponse, LoginRequest, LoginResponse } from '../types/api';
 
@@ -18,10 +17,8 @@ class ApiService {
   }
 
   private setupInterceptors(): void {
-    // Request interceptor para agregar el token CORRECTO
     this.client.interceptors.request.use(
       (config) => {
-        // LEER EL TOKEN DEL MISMO LUGAR QUE AuthService
         const token = this.getTokenFromAuthService();
         
         if (token) {
@@ -39,7 +36,6 @@ class ApiService {
       }
     );
 
-    // Response interceptor para manejar errores
     this.client.interceptors.response.use(
       (response) => {
         console.log('✅ API Response OK:', response.config.url);
@@ -52,7 +48,6 @@ class ApiService {
           console.log('🚪 401 detectado - token inválido, limpiando datos...');
           this.clearAuthData();
           
-          // Recargar la página para forzar el login
           window.location.reload();
         }
         
@@ -61,17 +56,13 @@ class ApiService {
     );
   }
 
-  /**
-   * Obtener token del mismo storage que AuthService
-   */
   private getTokenFromAuthService(): string | null {
     try {
       const stored = localStorage.getItem('regularizador_auth');
       if (!stored) return null;
 
       const authData = JSON.parse(stored);
-      
-      // Verificar expiración
+
       if (authData.expiration && new Date(authData.expiration) < new Date()) {
         console.log('⏰ Token expirado en ApiService');
         this.clearAuthData();
@@ -85,18 +76,12 @@ class ApiService {
     }
   }
 
-  /**
-   * Limpiar datos de autenticación
-   */
   private clearAuthData(): void {
     localStorage.removeItem('regularizador_auth');
-    localStorage.removeItem('auth_token'); // Por compatibilidad
+    localStorage.removeItem('auth_token');
     localStorage.removeItem('refresh_token');
   }
 
-  /**
-   * Métodos HTTP con mejor manejo de errores
-   */
   public async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
     try {
       console.log('📡 GET Request:', url);
@@ -157,9 +142,7 @@ class ApiService {
     }
   }
 
-  /**
-   * Manejo centralizado de errores
-   */
+
   private handleError<T>(error: any): ApiResponse<T> {
     console.error('🚨 API Error Details:', {
       url: error.config?.url,
@@ -173,7 +156,6 @@ class ApiService {
     let statusCode = 500;
 
     if (error.response) {
-      // El servidor respondió con un código de error
       statusCode = error.response.status;
       
       switch (statusCode) {
@@ -196,11 +178,9 @@ class ApiService {
           message = error.response.data?.message || `Error ${statusCode}`;
       }
     } else if (error.request) {
-      // La solicitud se hizo pero no hubo respuesta
       message = 'Error de conexión - verifica tu conexión a internet';
       statusCode = 0;
     } else {
-      // Error en la configuración de la solicitud
       message = error.message || 'Error configurando la solicitud';
     }
 
@@ -211,9 +191,6 @@ class ApiService {
     };
   }
 
-  /**
-   * Métodos de autenticación
-   */
   public async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     return this.post<LoginResponse>('/auth/login', credentials);
   }
@@ -221,7 +198,6 @@ class ApiService {
   public async logout(): Promise<ApiResponse<void>> {
     const response = await this.post<void>('/auth/logout');
     
-    // Limpiar tokens después del logout
     this.clearAuthData();
     
     return response;
@@ -241,22 +217,15 @@ class ApiService {
     return this.post<LoginResponse>('/auth/refresh', { refreshToken });
   }
 
-  /**
-   * Verificar si el cliente está autenticado
-   */
   public isAuthenticated(): boolean {
     const token = this.getTokenFromAuthService();
     return !!token;
   }
 
-  /**
-   * Obtener el token actual
-   */
   public getCurrentToken(): string | null {
     return this.getTokenFromAuthService();
   }
 }
 
-// Exportar instancia singleton
 export const apiService = new ApiService();
 export default apiService;
