@@ -1,25 +1,19 @@
 import React, { useState } from 'react';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import { 
   Home,
   Scan,
-  Settings,
+  Settings as SettingsIcon,
   Menu,
   X,
   LogOut,
   User
 } from 'lucide-react';
 
-const useLocation = () => ({ pathname: '/dashboard' });
-const useNavigate = () => (path: string) => console.log(`Navigate to: ${path}`);
-
-const useAuth = () => ({
-  user: { nombre: 'Admin' },
-  logout: () => console.log('Logout clicked')
-});
-
 const Layout: React.FC = () => {
   const { user, logout } = useAuth();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -45,7 +39,7 @@ const Layout: React.FC = () => {
       subtitle: 'Procesamiento inteligente de documentos de seguros'
     },
     scanner: {
-      title: 'Escanear Documentos',
+      title: 'Escanear Documentos', 
       subtitle: 'Sube documentos PDF para procesamiento automático'
     },
     settings: {
@@ -121,7 +115,7 @@ const Layout: React.FC = () => {
               }`}
               onClick={() => navigateTo('settings')}
             >
-              <Settings className={`w-5 h-5 ${currentPage === 'settings' ? 'text-gray-700' : 'text-gray-600'}`} />
+              <SettingsIcon className={`w-5 h-5 ${currentPage === 'settings' ? 'text-gray-700' : 'text-gray-600'}`} />
               {sidebarOpen && (
                 <span className={`ml-3 font-medium ${
                   currentPage === 'settings' ? 'text-gray-900' : 'text-gray-700'
@@ -188,19 +182,9 @@ const Layout: React.FC = () => {
           </div>
         </header>
 
-        {/* Content Area - Aquí se renderizan las páginas */}
-        <main>
-          {/* Placeholder para Outlet - reemplazar con <Outlet /> en tu implementación real */}
-          <div className="p-8">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                Contenido de la Página: {pages[currentPage as keyof typeof pages]?.title}
-              </h3>
-              <p className="text-gray-600">
-                Aquí se renderizará el contenido específico de cada página usando React Router Outlet
-              </p>
-            </div>
-          </div>
+        {/* Content Area - Aquí se renderizan las páginas con Outlet */}
+        <main className="p-8">
+          <Outlet />
         </main>
       </div>
     </div>
