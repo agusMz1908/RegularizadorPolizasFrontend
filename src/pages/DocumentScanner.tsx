@@ -71,7 +71,7 @@ const DocumentScanner: React.FC = () => {
     ));
   };
 
-  const processDocument = async () => {
+const processDocument = async () => {
     if (!uploadedFile) return;
 
     setProcessing(true);
@@ -99,6 +99,23 @@ const DocumentScanner: React.FC = () => {
         }
       );
 
+      // ✅ DEBUG: Mostrar qué devuelve el backend
+      console.log('🔍 RESPUESTA COMPLETA DEL BACKEND:', response);
+      console.log('🔍 TIPO DE RESPUESTA:', typeof response);
+      console.log('🔍 CLAVES DE LA RESPUESTA:', Object.keys(response));
+      
+      // Verificar campos específicos:
+      console.log('🔍 CAMPOS ESPECÍFICOS:');
+      console.log('- documentId:', response.documentId);
+      console.log('- numeroPoliza:', response.numeroPoliza);  
+      console.log('- asegurado:', response.asegurado);
+      console.log('- vigenciaDesde:', response.vigenciaDesde);
+      console.log('- vigenciaHasta:', response.vigenciaHasta);
+      console.log('- prima:', response.prima);
+      console.log('- compania:', response.compania);
+      console.log('- extractedFields:', response.extractedFields);
+      console.log('- nivelConfianza:', response.nivelConfianza);
+
       updateStep('extract', 'completed', 'Información extraída correctamente');
       setCurrentStep('validate');
       updateStep('validate', 'processing');
@@ -108,18 +125,68 @@ const DocumentScanner: React.FC = () => {
 
       // Crear resultado basado en la respuesta real del backend
       const processedResult: ProcessingResult = {
-        documentId: response.documentId || `doc_${Date.now()}`,
+        documentId: response.resumen?.numeroPolizaExtraido || `doc_${Date.now()}`,
         fileName: uploadedFile.name,
-        extractedFields: response.extractedFields || [
-          { field: 'Número de Póliza', value: response.numeroPoliza || 'No detectado', confidence: 0.95, needsReview: !response.numeroPoliza },
-          { field: 'Asegurado', value: response.asegurado || 'No detectado', confidence: 0.90, needsReview: !response.asegurado },
-          { field: 'Vigencia Desde', value: response.vigenciaDesde || 'No detectado', confidence: 0.85, needsReview: !response.vigenciaDesde },
-          { field: 'Vigencia Hasta', value: response.vigenciaHasta || 'No detectado', confidence: 0.85, needsReview: !response.vigenciaHasta },
-          { field: 'Prima Total', value: response.prima ? `$${response.prima}` : 'No detectado', confidence: 0.88, needsReview: !response.prima },
-          { field: 'Compañía', value: response.compania || 'No detectado', confidence: 0.92, needsReview: !response.compania }
+        extractedFields: [
+          { 
+            field: 'Número de Póliza', 
+            value: response.datosFormateados?.numeroPoliza || 'No detectado', 
+            confidence: 0.95, 
+            needsReview: !response.datosFormateados?.numeroPoliza 
+          },
+          { 
+            field: 'Asegurado', 
+            value: response.datosFormateados?.asegurado || 'No detectado', 
+            confidence: 0.90, 
+            needsReview: !response.datosFormateados?.asegurado || response.datosFormateados?.asegurado === ""
+          },
+          { 
+            field: 'Vigencia Desde', 
+            value: response.datosFormateados?.vigenciaDesde ? 
+              new Date(response.datosFormateados.vigenciaDesde).toLocaleDateString() : 'No detectado', 
+            confidence: 0.85, 
+            needsReview: !response.datosFormateados?.vigenciaDesde 
+          },
+          { 
+            field: 'Vigencia Hasta', 
+            value: response.datosFormateados?.vigenciaHasta ? 
+              new Date(response.datosFormateados.vigenciaHasta).toLocaleDateString() : 'No detectado', 
+            confidence: 0.85, 
+            needsReview: !response.datosFormateados?.vigenciaHasta 
+          },
+          { 
+            field: 'Prima Total', 
+            value: response.datosFormateados?.primaComercial ? 
+              `${response.datosFormateados.primaComercial.toLocaleString()}` : 'No detectado', 
+            confidence: 0.88, 
+            needsReview: !response.datosFormateados?.primaComercial 
+          },
+          { 
+            field: 'Vehículo', 
+            value: response.datosFormateados?.vehiculo || 'No detectado', 
+            confidence: 0.92, 
+            needsReview: !response.datosFormateados?.vehiculo 
+          },
+          { 
+            field: 'Corredor', 
+            value: response.datosFormateados?.corredor || 'No detectado', 
+            confidence: 0.90, 
+            needsReview: !response.datosFormateados?.corredor 
+          }
         ],
-        polizaData: response.polizaData || response,
-        readyForVelneo: response.readyForVelneo || false
+        polizaData: {
+          numeroPoliza: response.datosFormateados?.numeroPoliza,
+          asegurado: response.datosFormateados?.asegurado,
+          vigenciaDesde: response.datosFormateados?.vigenciaDesde,
+          vigenciaHasta: response.datosFormateados?.vigenciaHasta,
+          prima: response.datosFormateados?.primaComercial,
+          vehiculo: response.datosFormateados?.vehiculo,
+          corredor: response.datosFormateados?.corredor,
+          email: response.datosFormateados?.email,
+          chasis: response.datosFormateados?.chasis,
+          motor: response.datosFormateados?.motor
+        },
+        readyForVelneo: response.listoParaVelneo || false
       };
 
       setResult(processedResult);

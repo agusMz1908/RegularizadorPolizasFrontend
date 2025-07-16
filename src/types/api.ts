@@ -49,6 +49,9 @@ export interface DocumentProcessRequest {
 
 // Estructura que devuelve tu backend
 export interface DocumentProcessResponse {
+  listoParaVelneo: boolean;
+  datosFormateados: any;
+  resumen: any;
   documentId: string;
   nombreArchivo: string;
   estadoProcesamiento: string;
