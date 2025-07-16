@@ -1,4 +1,3 @@
-// src/App.tsx - Actualizado con el PolizaWizard
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -6,11 +5,10 @@ import LoginForm from './components/auth/LoginForm';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import DocumentScanner from './pages/DocumentScanner';
-import PolizaWizard from './components/wizard/PolizaWizard'; // NUEVO: Importar el wizard
 import Settings from './pages/Settings';
 import ProtectedRoute from './components/auth/ProtectedRoutes';
+import PolizaWizard from './components/wizard/PolizaWizard';
 
-// Componente que maneja la autenticación y routing
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading, user, logout } = useAuth();
 
@@ -23,7 +21,6 @@ const AppContent: React.FC = () => {
     });
   }, [isAuthenticated, isLoading, user]);
 
-  // Escuchar eventos de logout desde apiService
   useEffect(() => {
     const handleAuthLogout = () => {
       console.log('🔐 Auth logout event received, logging out...');
@@ -36,7 +33,6 @@ const AppContent: React.FC = () => {
     };
   }, [logout]);
 
-  // Mostrar loading mientras se verifica autenticación
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -48,7 +44,6 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Si no está autenticado, mostrar solo login
   if (!isAuthenticated) {
     return (
       <Routes>
@@ -57,46 +52,29 @@ const AppContent: React.FC = () => {
     );
   }
 
-  // Si está autenticado, mostrar rutas protegidas
   return (
     <Routes>
-      {/* Ruta raíz redirige al dashboard */}
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
       
-      {/* Rutas principales con Layout */}
       <Route path="/" element={<Layout />}>
-        {/* Dashboard */}
         <Route path="dashboard" element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
         } />
         
-        {/* NUEVA RUTA: PolizaWizard */}
-        <Route path="wizard" element={
-          <ProtectedRoute>
-            <PolizaWizard 
-              onComplete={(result) => {
-                console.log('✅ Póliza creada exitosamente:', result);
-                // Navegar al DocumentScanner para ver el resultado
-                window.location.href = '/scanner';
-              }}
-              onCancel={() => {
-                // Volver al dashboard si cancela
-                window.location.href = '/dashboard';
-              }}
-            />
-          </ProtectedRoute>
-        } />
-        
-        {/* Tu DocumentScanner existente */}
         <Route path="scanner" element={
           <ProtectedRoute>
             <DocumentScanner />
           </ProtectedRoute>
         } />
+
+        <Route path="wizard" element={
+          <ProtectedRoute>
+            <PolizaWizard />
+          </ProtectedRoute>
+        } />
         
-        {/* Settings */}
         <Route path="settings" element={
           <ProtectedRoute>
             <Settings />
@@ -104,7 +82,6 @@ const AppContent: React.FC = () => {
         } />
       </Route>
 
-      {/* Ruta 404 */}
       <Route path="*" element={<Navigate to="/dashboard" replace />} />
     </Routes>
   );

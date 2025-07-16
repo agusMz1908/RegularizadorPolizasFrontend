@@ -1,66 +1,7 @@
+// src/services/wizardService.ts - MAPEO CORREGIDO
 import { apiService } from './api';
-
-export interface Cliente {
-  id: number;
-  clinom: string;
-  cliced?: string;
-  cliruc?: string;
-  telefono?: string;
-  cliemail?: string;
-  clidir?: string;
-  activo: boolean;
-}
-
-export interface Company {
-  id: number;
-  comnom: string;
-  comalias: string;
-  cod_srvcompanias?: string;
-  broker: boolean;
-  activo: boolean;
-}
-
-export interface DocumentProcessResult {
-  primaComercial: string;
-  premioTotal: string;
-  plan: string;
-  moneda: string;
-  vehiculo: string;
-  marca: string;
-  modelo: string;
-  anio: string;
-  matricula: string;
-  motor: string;
-  chasis: string;
-  combustible: string;
-  email: string;
-  direccion: string;
-  localidad: string;
-  departamento: string;
-  telefono: string;
-  corredor: string;
-  documentId: string;
-  nombreArchivo: string;
-  estadoProcesamiento: string;
-  numeroPoliza?: string;
-  asegurado?: string;
-  vigenciaDesde?: string;
-  vigenciaHasta?: string;
-  prima?: number;
-  compania?: string;
-  nivelConfianza?: number;
-  requiereVerificacion?: boolean;
-  readyForVelneo?: boolean;
-  polizaData?: any;
-  extractedFields?: ExtractedField[];
-}
-
-export interface ExtractedField {
-  field: string;
-  value: string;
-  confidence: number;
-  needsReview: boolean;
-}
+import { Cliente, Company, DocumentProcessResult, ExtractedField } from '../types/wizard';
+import { AzureProcessResponse } from '../types/azure-document';
 
 export interface PolizaCreateRequest {
   comcod: number;
@@ -69,7 +10,12 @@ export interface PolizaCreateRequest {
   confchdes?: string;
   confchhas?: string;
   conpremio?: number;
-  // Agregar otros campos según tu PolizaDto
+  asegurado?: string;
+  observaciones?: string;
+  moneda?: string;
+  documentoId?: string;
+  archivoOriginal?: string;
+  procesadoConIA?: boolean;
 }
 
 class WizardService {
@@ -120,7 +66,7 @@ class WizardService {
   }
 
   /**
-   * Procesar documento con Azure Document Intelligence usando tu endpoint existente
+   * Procesar documento con Azure Document Intelligence
    */
   async processDocument(file: File): Promise<DocumentProcessResult> {
     try {
@@ -151,13 +97,79 @@ class WizardService {
         throw new Error(`Error ${response.status}: ${errorData || response.statusText}`);
       }
 
-      const result = await response.json();
-      console.log('✅ Document processed successfully');
-      return result;
+      const azureResponse: AzureProcessResponse = await response.json();
+      console.log('✅ Azure response received:', azureResponse);
+
+      // **MAPEO CORREGIDO**: Convertir AzureProcessResponse a DocumentProcessResult
+      const documentResult: DocumentProcessResult = {
+        documentId: `doc_${Date.now()}`,
+        nombreArchivo: file.name,
+        estadoProcesamiento: azureResponse.estado || 'PROCESADO',
+        
+        // Mapear datos principales desde datosFormateados
+        numeroPoliza: azureResponse.datosFormateados?.numeroPoliza || '',
+        asegurado: azureResponse.datosFormateados?.asegurado || '',
+        vigenciaDesde: azureResponse.datosFormateados?.vigenciaDesde || '',
+        vigenciaHasta: azureResponse.datosFormateados?.vigenciaHasta || '',
+        prima: azureResponse.datosFormateados?.primaComercial || 0,
+        compania: azureResponse.datosFormateados?.compania || '',
+        
+        // Metadatos
+        nivelConfianza: 0.85, // Valor por defecto
+        requiereVerificacion: azureResponse.requiereIntervencion || false,
+        readyForVelneo: azureResponse.listoParaVelneo || false,
+        
+        // Guardar toda la respuesta de Azure como polizaData para uso posterior
+        polizaData: azureResponse,
+        
+        // Crear extractedFields para el display
+        extractedFields: this.createExtractedFields(azureResponse.datosFormateados)
+      };
+
+      console.log('🔄 Mapped to DocumentProcessResult:', documentResult);
+      return documentResult;
     } catch (error) {
       console.error('❌ Error processing document:', error);
       throw error;
     }
+  }
+
+  /**
+   * Crear extractedFields desde los datos formateados de Azure
+   */
+  private createExtractedFields(datosFormateados: any): ExtractedField[] {
+    if (!datosFormateados) return [];
+
+    const fields: ExtractedField[] = [];
+
+    // Función helper para agregar campo si existe
+    const addField = (field: string, value: any, confidence: number = 0.85) => {
+      if (value !== null && value !== undefined && value !== '') {
+        fields.push({
+          field,
+          value: String(value),
+          confidence,
+          needsReview: confidence < 0.8
+        });
+      }
+    };
+
+    // Mapear campos principales
+    addField('Número de Póliza', datosFormateados.numeroPoliza, 0.95);
+    addField('Asegurado', datosFormateados.asegurado, 0.90);
+    addField('Vigencia Desde', datosFormateados.vigenciaDesde, 0.85);
+    addField('Vigencia Hasta', datosFormateados.vigenciaHasta, 0.85);
+    addField('Prima Comercial', datosFormateados.primaComercial, 0.88);
+    addField('Premio Total', datosFormateados.premioTotal, 0.88);
+    addField('Vehículo', datosFormateados.vehiculo, 0.92);
+    addField('Marca', datosFormateados.marca, 0.90);
+    addField('Modelo', datosFormateados.modelo, 0.90);
+    addField('Matrícula', datosFormateados.matricula, 0.85);
+    addField('Corredor', datosFormateados.corredor, 0.90);
+    addField('Email', datosFormateados.email, 0.80);
+    addField('Dirección', datosFormateados.direccion, 0.75);
+
+    return fields;
   }
 
   /**
@@ -177,96 +189,35 @@ class WizardService {
         throw new Error(response.error || 'Error al crear póliza');
       }
     } catch (error) {
-      console.error('❌ Error creating poliza in Velneo:', error);
-      throw new Error('Error al crear póliza en Velneo');
+      console.error('❌ Error creating poliza:', error);
+      throw error;
     }
   }
 
   /**
-   * Verificar estado de la conexión con Velneo
-   */
-  async testVelneoConnection(): Promise<boolean> {
-    try {
-      // Si tienes un endpoint de health check, usarlo aquí
-      const response = await apiService.get<any>('/health'); // o el endpoint que tengas
-      return response.success;
-    } catch (error) {
-      console.error('❌ Error testing Velneo connection:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Obtener cliente por ID usando tu endpoint existente
-   */
-  async getClienteById(id: number): Promise<Cliente | null> {
-    try {
-      const response = await apiService.get<Cliente>(`/clientes/${id}`);
-      
-      if (response.success && response.data) {
-        return response.data;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('❌ Error getting cliente by ID:', error);
-      throw new Error('Error al obtener cliente');
-    }
-  }
-
-  /**
-   * Obtener compañía por ID usando tu endpoint existente
-   */
-  async getCompanyById(id: number): Promise<Company | null> {
-    try {
-      const response = await apiService.get<Company>(`/companies/${id}`);
-      
-      if (response.success && response.data) {
-        return response.data;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('❌ Error getting company by ID:', error);
-      throw new Error('Error al obtener compañía');
-    }
-  }
-
-  /**
-   * Validar que el archivo sea un PDF válido
+   * Validar archivo PDF
    */
   validatePdfFile(file: File): { isValid: boolean; error?: string } {
-    const maxSize = 10 * 1024 * 1024; // 10MB
-    
     if (!file) {
       return { isValid: false, error: 'No se ha seleccionado ningún archivo' };
     }
-    
+
     if (file.type !== 'application/pdf') {
       return { isValid: false, error: 'El archivo debe ser un PDF' };
     }
-    
-    if (file.size > maxSize) {
-      return { isValid: false, error: 'El archivo no puede superar los 10MB' };
-    }
-    
-    return { isValid: true };
-  }
 
-  /**
-   * Formatear datos extraídos para el formulario
-   */
-  formatExtractedData(extractedData: any): any {
-    return {
-      numeroPoliza: extractedData?.numeroPoliza || '',
-      vigenciaDesde: extractedData?.vigenciaDesde || '',
-      vigenciaHasta: extractedData?.vigenciaHasta || '',
-      prima: extractedData?.prima || 0,
-      asegurado: extractedData?.asegurado || '',
-      moneda: extractedData?.moneda || 'UYU',
-      // Agregar más campos según necesites
-    };
+    // Máximo 10MB
+    const maxSize = 10 * 1024 * 1024;
+    if (file.size > maxSize) {
+      return { isValid: false, error: 'El archivo no puede ser mayor a 10MB' };
+    }
+
+    return { isValid: true };
   }
 }
 
+// Exportar instancia singleton
 export const wizardService = new WizardService();
+
+// También exportar la clase para testing
+export default WizardService;
