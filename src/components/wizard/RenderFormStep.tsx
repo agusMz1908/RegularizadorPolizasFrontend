@@ -1,64 +1,71 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  User, Building2, Upload, FileText, Eye, Check, 
+  User, Building2, FileText, Eye, Check, 
   Car, DollarSign, Calendar, MapPin, Mail, Phone,
-  Edit3, Save, X, CheckCircle, AlertTriangle, Loader2
+  Edit3, Save, CheckCircle, AlertTriangle, Loader2
 } from 'lucide-react';
-import { usePolizaWizard } from '../../hooks/usePolizaWizard';
 
-interface PolizaWizardProps {
-  onComplete?: (result: any) => void;  // ← Hacer opcional
-  onCancel?: () => void;               // ← Hacer opcional
+interface PolizaWizardFormStepProps {
+  wizard: any; // Usar el mismo tipo que tu usePolizaWizard
+  formData: any;
+  setFormData: (data: any) => void;
 }
 
-const PolizaWizard: React.FC = () => {
-  const wizard = usePolizaWizard();
-  
-  // Estado para todos los campos del formulario
-  const [formData, setFormData] = useState<any>({});
+const PolizaWizardFormStep: React.FC<PolizaWizardFormStepProps> = ({ 
+  wizard, 
+  formData, 
+  setFormData 
+}) => {
   const [saving, setSaving] = useState(false);
 
-  // Llenar formulario con datos extraídos
+  // Llenar formulario con datos extraídos REALES
   useEffect(() => {
     if (wizard.extractedData) {
-      setFormData({
+      console.log('🔍 DATOS REALES EXTRAÍDOS:', wizard.extractedData);
+      
+      // Acceder a los datos según la estructura real de tu backend
+      // Puede ser wizard.extractedData.datosFormateados o directamente wizard.extractedData
+      const datos = wizard.extractedData.datosFormateados || wizard.extractedData;
+      
+      setFormData((prev: any) => ({
+        ...prev,
         // Datos básicos
-        numeroPoliza: wizard.extractedData.numeroPoliza || '',
-        asegurado: wizard.extractedData.asegurado || '',
-        vigenciaDesde: wizard.extractedData.vigenciaDesde || '',
-        vigenciaHasta: wizard.extractedData.vigenciaHasta || '',
+        numeroPoliza: datos?.numeroPoliza || '',
+        asegurado: datos?.asegurado || wizard.selectedCliente?.clinom || '',
+        vigenciaDesde: datos?.vigenciaDesde || '',
+        vigenciaHasta: datos?.vigenciaHasta || '',
         
         // Datos financieros
-        primaComercial: wizard.extractedData.primaComercial || '',
-        premioTotal: wizard.extractedData.premioTotal || '',
-        plan: wizard.extractedData.plan || '',
-        moneda: wizard.extractedData.moneda || 'UYU',
+        primaComercial: datos?.primaComercial || datos?.prima || '',
+        premioTotal: datos?.premioTotal || '',
+        plan: datos?.plan || '',
+        moneda: datos?.moneda || 'UYU',
         
         // Datos del vehículo
-        vehiculo: wizard.extractedData.vehiculo || '',
-        marca: wizard.extractedData.marca || '',
-        modelo: wizard.extractedData.modelo || '',
-        anio: wizard.extractedData.anio || '',
-        matricula: wizard.extractedData.matricula || '',
-        motor: wizard.extractedData.motor || '',
-        chasis: wizard.extractedData.chasis || '',
-        combustible: wizard.extractedData.combustible || '',
+        vehiculo: datos?.vehiculo || '',
+        marca: datos?.marca || '',
+        modelo: datos?.modelo || '',
+        anio: datos?.anio || '',
+        matricula: datos?.matricula || '',
+        motor: datos?.motor || '',
+        chasis: datos?.chasis || '',
+        combustible: datos?.combustible || '',
         
         // Datos de contacto
-        email: wizard.extractedData.email || '',
-        direccion: wizard.extractedData.direccion || '',
-        localidad: wizard.extractedData.localidad || '',
-        departamento: wizard.extractedData.departamento || '',
-        telefono: wizard.extractedData.telefono || '',
+        email: datos?.email || '',
+        direccion: datos?.direccion || '',
+        localidad: datos?.localidad || '',
+        departamento: datos?.departamento || '',
+        telefono: datos?.telefono || '',
         
         // Datos del corredor
-        corredor: wizard.extractedData.corredor || '',
+        corredor: datos?.corredor || '',
         
-        // Campo adicional
-        observaciones: `Procesado automáticamente con Azure AI. Confianza: ${Math.round((wizard.extractedData.nivelConfianza || 0) * 100)}%`
-      });
+        // Observaciones
+        observaciones: prev.observaciones || `Procesado automáticamente con Azure AI.`
+      }));
     }
-  }, [wizard.extractedData]);
+  }, [wizard.extractedData, wizard.selectedCliente, setFormData]);
 
   const handleInputChange = (field: string, value: string | number) => {
     setFormData((prev: any) => ({
@@ -72,9 +79,10 @@ const PolizaWizard: React.FC = () => {
     setSaving(true);
     
     try {
+      console.log('🚀 Enviando datos completos a Velneo:', formData);
       await wizard.createPoliza(formData);
     } catch (error) {
-      console.error('Error:', error);
+      console.error('❌ Error creando póliza:', error);
     } finally {
       setSaving(false);
     }
@@ -109,7 +117,7 @@ const PolizaWizard: React.FC = () => {
         <div className="relative">
           <input
             type={type}
-            value={value}
+            value={value || ''}
             onChange={(e) => handleInputChange(field, e.target.value)}
             placeholder={placeholder}
             className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${status.bgColor}`}
@@ -120,6 +128,23 @@ const PolizaWizard: React.FC = () => {
     );
   };
 
+  // Verificar si no hay datos extraídos
+  if (!wizard.extractedData) {
+    return (
+      <div className="max-w-4xl mx-auto p-6 text-center">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <AlertTriangle className="w-8 h-8 text-yellow-600 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-yellow-800 mb-2">
+            No hay datos extraídos
+          </h3>
+          <p className="text-yellow-700">
+            Primero procesa un documento para poder completar el formulario.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-6xl mx-auto p-6">
       {/* Header */}
@@ -128,15 +153,7 @@ const PolizaWizard: React.FC = () => {
           <Eye className="w-8 h-8 text-purple-600" />
         </div>
         <h2 className="text-3xl font-bold text-gray-900 mb-2">Revisar y Completar Información</h2>
-        <p className="text-gray-600">Verifica los datos extraídos automáticamente por Azure AI y completa la información faltante</p>
-        
-        {/* Confianza AI */}
-        <div className="mt-4 inline-flex items-center px-4 py-2 bg-green-50 rounded-full">
-          <CheckCircle className="w-4 h-4 text-green-600 mr-2" />
-          <span className="text-sm font-medium text-green-800">
-            Confianza AI: {Math.round((wizard.extractedData?.nivelConfianza || 0) * 100)}%
-          </span>
-        </div>
+        <p className="text-gray-600">Verifica los datos extraídos automáticamente por Azure AI</p>
       </div>
 
       {/* Resumen del contexto */}
@@ -146,17 +163,17 @@ const PolizaWizard: React.FC = () => {
             <div className="flex items-center">
               <User className="w-4 h-4 text-purple-600 mr-2" />
               <span className="text-sm font-medium text-purple-900">Cliente:</span>
-              <span className="text-sm text-purple-800 ml-1">{wizard.selectedCliente?.clinom}</span>
+              <span className="text-sm text-purple-800 ml-1">{wizard.selectedCliente?.clinom || 'No seleccionado'}</span>
             </div>
             <div className="flex items-center">
               <Building2 className="w-4 h-4 text-purple-600 mr-2" />
               <span className="text-sm font-medium text-purple-900">Compañía:</span>
-              <span className="text-sm text-purple-800 ml-1">{wizard.selectedCompany?.comnom}</span>
+              <span className="text-sm text-purple-800 ml-1">{wizard.selectedCompany?.comnom || 'No seleccionada'}</span>
             </div>
             <div className="flex items-center">
               <FileText className="w-4 h-4 text-purple-600 mr-2" />
               <span className="text-sm font-medium text-purple-900">Archivo:</span>
-              <span className="text-sm text-purple-800 ml-1">{wizard.uploadedFile?.name}</span>
+              <span className="text-sm text-purple-800 ml-1">{wizard.uploadedFile?.name || 'Sin archivo'}</span>
             </div>
           </div>
         </div>
@@ -178,26 +195,26 @@ const PolizaWizard: React.FC = () => {
             <InputField
               label="Número de Póliza"
               field="numeroPoliza"
-              value={formData.numeroPoliza || ''}
+              value={formData.numeroPoliza}
               required
               icon={FileText}
             />
             <InputField
               label="Asegurado"
               field="asegurado"
-              value={formData.asegurado || ''}
+              value={formData.asegurado}
               required
               icon={User}
             />
             <InputField
               label="Plan de Seguro"
               field="plan"
-              value={formData.plan || ''}
+              value={formData.plan}
             />
             <InputField
               label="Vigencia Desde"
               field="vigenciaDesde"
-              value={formData.vigenciaDesde || ''}
+              value={formData.vigenciaDesde}
               type="date"
               required
               icon={Calendar}
@@ -205,7 +222,7 @@ const PolizaWizard: React.FC = () => {
             <InputField
               label="Vigencia Hasta"
               field="vigenciaHasta"
-              value={formData.vigenciaHasta || ''}
+              value={formData.vigenciaHasta}
               type="date"
               required
               icon={Calendar}
@@ -241,14 +258,14 @@ const PolizaWizard: React.FC = () => {
             <InputField
               label="Prima Comercial"
               field="primaComercial"
-              value={formData.primaComercial || ''}
+              value={formData.primaComercial}
               type="number"
               icon={DollarSign}
             />
             <InputField
               label="Premio Total"
               field="premioTotal"
-              value={formData.premioTotal || ''}
+              value={formData.premioTotal}
               type="number"
               icon={DollarSign}
             />
@@ -269,46 +286,41 @@ const PolizaWizard: React.FC = () => {
               <InputField
                 label="Descripción Completa del Vehículo"
                 field="vehiculo"
-                value={formData.vehiculo || ''}
+                value={formData.vehiculo}
                 icon={Car}
               />
             </div>
             <InputField
               label="Marca"
               field="marca"
-              value={formData.marca || ''}
+              value={formData.marca}
               icon={Car}
             />
             <InputField
               label="Modelo"
               field="modelo"
-              value={formData.modelo || ''}
+              value={formData.modelo}
             />
             <InputField
               label="Año"
               field="anio"
-              value={formData.anio || ''}
+              value={formData.anio}
               type="number"
             />
             <InputField
               label="Matrícula"
               field="matricula"
-              value={formData.matricula || ''}
+              value={formData.matricula}
             />
             <InputField
               label="Motor"
               field="motor"
-              value={formData.motor || ''}
+              value={formData.motor}
             />
             <InputField
               label="Chasis"
               field="chasis"
-              value={formData.chasis || ''}
-            />
-            <InputField
-              label="Combustible"
-              field="combustible"
-              value={formData.combustible || ''}
+              value={formData.chasis}
             />
           </div>
         </div>
@@ -326,39 +338,39 @@ const PolizaWizard: React.FC = () => {
             <InputField
               label="Email"
               field="email"
-              value={formData.email || ''}
+              value={formData.email}
               type="email"
               icon={Mail}
             />
             <InputField
               label="Teléfono"
               field="telefono"
-              value={formData.telefono || ''}
+              value={formData.telefono}
               type="tel"
               icon={Phone}
             />
             <InputField
               label="Dirección"
               field="direccion"
-              value={formData.direccion || ''}
+              value={formData.direccion}
               icon={MapPin}
             />
             <InputField
               label="Departamento"
               field="departamento"
-              value={formData.departamento || ''}
+              value={formData.departamento}
               icon={MapPin}
             />
             <InputField
               label="Localidad"
               field="localidad"
-              value={formData.localidad || ''}
+              value={formData.localidad}
               icon={MapPin}
             />
             <InputField
               label="Corredor"
               field="corredor"
-              value={formData.corredor || ''}
+              value={formData.corredor}
               icon={Building2}
             />
           </div>
@@ -418,15 +430,4 @@ const PolizaWizard: React.FC = () => {
   );
 };
 
-export default PolizaWizard;
-
-// Ejemplo de uso en tu PolizaWizard.tsx actual:
-/*
-// En tu renderFormStep(), reemplaza el contenido actual por:
-
-const renderFormStep = () => (
-  <WizardFormCompleto wizard={wizard} />
-);
-
-// Donde 'wizard' es tu hook usePolizaWizard() actual
-*/
+export default PolizaWizardFormStep;
