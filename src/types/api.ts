@@ -1,3 +1,4 @@
+// src/types/api.ts - CORREGIDO
 export interface ApiResponse<T = any> {
   success: boolean;
   data?: T;
@@ -38,19 +39,51 @@ export interface LoginResponse {
   expiresIn: number;
 }
 
-// Document processing types
+// Document processing types - CORREGIDOS
 export interface DocumentProcessRequest {
   file: File;
-  clienteId: number;
-  companiaId: number;
-  ramoId: number;
+  clienteId?: number;
+  companiaId?: number;
+  ramoId?: number;
 }
 
+// Estructura que devuelve tu backend
 export interface DocumentProcessResponse {
-  documentResult: DocumentResult;
-  polizaData: PolizaFormData;
-  processingTime: number;
+  documentId: string;
+  nombreArchivo: string;
+  estadoProcesamiento: string;
+  mensajeError?: string;
+  
+  // Campos extraídos por Azure Document Intelligence
+  numeroPoliza?: string;
+  asegurado?: string;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  prima?: number;
+  compania?: string;
+  
+  // Metadata del procesamiento
+  nivelConfianza?: number;
+  tiempoProcesamiento?: number;
+  requiereVerificacion?: boolean;
+  readyForVelneo?: boolean;
+  
+  // Datos estructurados para el formulario
+  polizaData?: any;
+  
+  // Campos extraídos en formato para mostrar
+  extractedFields?: ExtractedField[];
+  
+  // URLs y archivos
+  pdfViewerUrl?: string;
+  rutaArchivo?: string;
+}
+
+export interface ExtractedField {
+  field: string;
+  value: string;
   confidence: number;
+  needsReview: boolean;
 }
 
 export interface DocumentResult {
