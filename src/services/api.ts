@@ -19,13 +19,22 @@ class ApiService {
   private setupInterceptors(): void {
     this.client.interceptors.request.use(
       (config) => {
-        const token = this.getTokenFromAuthService();
+        const token = this.getTokenFromStorage();
         
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
-          console.log('🔐 Token agregado a request:', config.url);
+          console.log('🔐 Token agregado a request:', {
+            url: config.url,
+            tokenLength: token.length,
+            tokenStart: token.substring(0, 20) + '...'
+          });
         } else {
           console.log('⚠️ No hay token disponible para:', config.url);
+          console.log('⚠️ Revisando storage:', {
+            regularizador_auth: !!localStorage.getItem('regularizador_auth'),
+            auth_token: !!localStorage.getItem('auth_token'),
+            regularizador_token: !!localStorage.getItem('regularizador_token')
+          });
         }
         
         return config;
@@ -42,13 +51,19 @@ class ApiService {
         return response;
       },
       async (error) => {
-        console.error('❌ API Error:', error.config?.url, error.response?.status);
+        console.error('❌ API Error:', {
+          url: error.config?.url,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data
+        });
         
         if (error.response?.status === 401) {
-          console.log('🚪 401 detectado - token inválido, limpiando datos...');
+          console.log('🚪 401 detectado - token inválido o expirado');
           this.clearAuthData();
           
-          window.location.reload();
+          // Disparar evento de logout
+          window.dispatchEvent(new CustomEvent('auth:logout'));
         }
         
         return Promise.reject(error);
@@ -56,20 +71,47 @@ class ApiService {
     );
   }
 
-  private getTokenFromAuthService(): string | null {
+  private getTokenFromStorage(): string | null {
     try {
-      const stored = localStorage.getItem('regularizador_auth');
-      if (!stored) return null;
+      // Intentar múltiples fuentes de token
+      const sources = [
+        'regularizador_auth',    // AuthContext
+        'auth_token',            // Backup
+        'regularizador_token'    // Variable de entorno
+      ];
 
-      const authData = JSON.parse(stored);
+      for (const source of sources) {
+        const stored = localStorage.getItem(source);
+        if (!stored) continue;
 
-      if (authData.expiration && new Date(authData.expiration) < new Date()) {
-        console.log('⏰ Token expirado en ApiService');
-        this.clearAuthData();
-        return null;
+        if (source === 'regularizador_auth') {
+          // Formato del AuthContext
+          try {
+            const authData = JSON.parse(stored);
+            
+            // Verificar expiración
+            if (authData.expiration && new Date(authData.expiration) < new Date()) {
+              console.log('⏰ Token expirado en:', source);
+              continue;
+            }
+
+            if (authData.token) {
+              console.log('✅ Token encontrado en:', source);
+              return authData.token;
+            }
+          } catch (e) {
+            console.error('❌ Error parseando auth data:', e);
+            continue;
+          }
+        } else {
+          // Token directo
+          console.log('✅ Token encontrado en:', source);
+          return stored;
+        }
       }
 
-      return authData.token || null;
+      console.log('❌ No se encontró token válido en ninguna fuente');
+      return null;
     } catch (error) {
       console.error('❌ Error leyendo token:', error);
       return null;
@@ -77,9 +119,18 @@ class ApiService {
   }
 
   private clearAuthData(): void {
-    localStorage.removeItem('regularizador_auth');
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('refresh_token');
+    const keys = [
+      'regularizador_auth',
+      'auth_token', 
+      'refresh_token',
+      'regularizador_token',
+      'regularizador_user'
+    ];
+    
+    keys.forEach(key => {
+      localStorage.removeItem(key);
+      console.log('🗑️ Removed:', key);
+    });
   }
 
   public async get<T>(url: string, config?: AxiosRequestConfig): Promise<ApiResponse<T>> {
@@ -142,88 +193,55 @@ class ApiService {
     }
   }
 
-
-  private handleError<T>(error: any): ApiResponse<T> {
-    console.error('🚨 API Error Details:', {
-      url: error.config?.url,
-      method: error.config?.method,
-      status: error.response?.status,
-      statusText: error.response?.statusText,
-      data: error.response?.data,
-    });
-
-    let message = 'Error desconocido';
-    let statusCode = 500;
-
+  private handleError(error: any): ApiResponse<any> {
     if (error.response) {
-      statusCode = error.response.status;
-      
-      switch (statusCode) {
-        case 400:
-          message = 'Solicitud inválida';
-          break;
-        case 401:
-          message = 'No autorizado - token inválido o expirado';
-          break;
-        case 403:
-          message = 'Acceso denegado';
-          break;
-        case 404:
-          message = 'Recurso no encontrado';
-          break;
-        case 500:
-          message = 'Error interno del servidor';
-          break;
-        default:
-          message = error.response.data?.message || `Error ${statusCode}`;
-      }
-    } else if (error.request) {
-      message = 'Error de conexión - verifica tu conexión a internet';
-      statusCode = 0;
-    } else {
-      message = error.message || 'Error configurando la solicitud';
-    }
+      console.error('❌ Error Response:', {
+        status: error.response.status,
+        statusText: error.response.statusText,
+        data: error.response.data,
+        url: error.config?.url
+      });
 
-    return {
-      success: false,
-      error: message,
-      statusCode,
-    };
-  }
-
-  public async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    return this.post<LoginResponse>('/auth/login', credentials);
-  }
-
-  public async logout(): Promise<ApiResponse<void>> {
-    const response = await this.post<void>('/auth/logout');
-    
-    this.clearAuthData();
-    
-    return response;
-  }
-
-  public async refreshToken(): Promise<ApiResponse<LoginResponse>> {
-    const refreshToken = localStorage.getItem('refresh_token');
-    
-    if (!refreshToken) {
       return {
         success: false,
-        error: 'No hay refresh token disponible',
-        statusCode: 401,
+        error: error.response.data?.message || error.response.statusText || 'Error del servidor',
+        statusCode: error.response.status,
+      };
+    } else if (error.request) {
+      console.error('❌ Error Request:', error.request);
+      return {
+        success: false,
+        error: 'No se pudo conectar con el servidor',
+        statusCode: 0,
+      };
+    } else {
+      console.error('❌ Error:', error.message);
+      return {
+        success: false,
+        error: error.message || 'Error desconocido',
+        statusCode: 0,
       };
     }
-
-    return this.post<LoginResponse>('/auth/refresh', { refreshToken });
   }
 
-  public isAuthenticated(): boolean {
-    const token = this.getTokenFromAuthService();
+  // Método para verificar si hay token disponible
+  public hasValidToken(): boolean {
+    const token = this.getTokenFromStorage();
     return !!token;
   }
 
+  // Método para obtener el token actual (para debugging)
   public getCurrentToken(): string | null {
-    return this.getTokenFromAuthService();
+    return this.getTokenFromStorage();
+  }
+
+  // Método para debug del estado de autenticación
+  public debugAuthState(): void {
+    console.log('🔍 DEBUG AUTH STATE:');
+    console.log('- regularizador_auth:', localStorage.getItem('regularizador_auth'));
+    console.log('- auth_token:', localStorage.getItem('auth_token'));
+    console.log('- regularizador_token:', localStorage.getItem('regularizador_token'));
+    console.log('- Current token:', this.getCurrentToken()?.substring(0, 20) + '...');
   }
 }
 
