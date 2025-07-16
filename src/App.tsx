@@ -1,4 +1,4 @@
-// src/App.tsx - Con React Router
+// src/App.tsx - Actualizado con el PolizaWizard
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -6,6 +6,7 @@ import LoginForm from './components/auth/LoginForm';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
 import DocumentScanner from './pages/DocumentScanner';
+import PolizaWizard from './components/wizard/PolizaWizard'; // NUEVO: Importar el wizard
 import Settings from './pages/Settings';
 import ProtectedRoute from './components/auth/ProtectedRoutes';
 
@@ -64,18 +65,38 @@ const AppContent: React.FC = () => {
       
       {/* Rutas principales con Layout */}
       <Route path="/" element={<Layout />}>
+        {/* Dashboard */}
         <Route path="dashboard" element={
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
         } />
         
+        {/* NUEVA RUTA: PolizaWizard */}
+        <Route path="wizard" element={
+          <ProtectedRoute>
+            <PolizaWizard 
+              onComplete={(result) => {
+                console.log('✅ Póliza creada exitosamente:', result);
+                // Navegar al DocumentScanner para ver el resultado
+                window.location.href = '/scanner';
+              }}
+              onCancel={() => {
+                // Volver al dashboard si cancela
+                window.location.href = '/dashboard';
+              }}
+            />
+          </ProtectedRoute>
+        } />
+        
+        {/* Tu DocumentScanner existente */}
         <Route path="scanner" element={
           <ProtectedRoute>
             <DocumentScanner />
           </ProtectedRoute>
         } />
         
+        {/* Settings */}
         <Route path="settings" element={
           <ProtectedRoute>
             <Settings />
