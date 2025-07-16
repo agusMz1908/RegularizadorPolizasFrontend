@@ -1,12 +1,3 @@
-// src/index.ts - CORREGIDO
-
-import { Cliente } from './types/cliente';
-import { Compania } from './types/compania';
-import { Ramo } from './types/ramo';
-
-// ================================
-// TYPES
-// ================================
 export type {
   // Cliente types
   Cliente,
@@ -50,13 +41,31 @@ export type {
   BreadcrumbItem,
 } from './types/common';
 
+export type {
+  // Azure Document Intelligence types
+  AzureProcessResponse,
+  AzureBatchResponse,
+  AzureModelInfoResponse,
+  AzureErrorResponse,
+  AzureDatosFormateados,
+  AzureClienteInfo,
+  AzureClienteMatch,
+  AzureBusquedaCliente,
+  AzureResumen,
+  AzureBatchError,
+  AzureBatchEstadisticas,
+  AzureModelHealth,
+  DatosClienteExtraidos,
+  AzureDocumentRequest,
+} from './types/azure-document';
+
 // ================================
 // SERVICES
 // ================================
 export { apiService } from './services/api';
+
+// ✅ NUEVO SERVICIO AZURE
 export { azureDocumentService, AzureDocumentService } from './services/azureDocumentService';
-export { velneoService, VelneoService } from './services/velneoService';
-export { clienteService, ClienteService } from './services/clienteService';
 
 // ================================
 // HOOKS
@@ -64,16 +73,22 @@ export { clienteService, ClienteService } from './services/clienteService';
 export { useFileUpload } from './hooks/useFileUpload';
 export { useDocumentProcessing } from './hooks/useDocumentProcessing';
 export { usePolizaForm } from './hooks/usePolizaForm';
-export { useClientes } from './hooks/useCliente';
-export { useVelneo } from './hooks/useVelneo';
-export { useAuth, useAuthProvider } from './hooks/useAuth';
+
+// ✅ NUEVO HOOK AZURE
+export { useAzureDocumentProcessing } from './hooks/useAzureDocumentProcessing';
+export type { DocumentProcessingState } from './hooks/useAzureDocumentProcessing';
+
+// ================================
+// UTILS
+// ================================
+// ✅ NUEVAS UTILIDADES AZURE
+export { AzureDocumentUtils } from './utils/azure-document-utils';
 
 // ================================
 // COMMON COMPONENTS
 // ================================
 export { Header } from './components/common/Header';
 export { Sidebar } from './components/common/Sidebar';
-export { LoadingSpinner } from './components/common/LoadingSpinner';
 export { ErrorMessage } from './components/common/ErrorMessage';
 export { ProgressBar } from './components/common/ProgressBar';
 export { Modal } from './components/common/Modal';
@@ -81,209 +96,61 @@ export { Table } from './components/common/Table';
 export { SearchInput } from './components/common/SearchInput';
 
 // ================================
+// AZURE COMPONENTS
+// ================================
+// ✅ NUEVOS COMPONENTES AZURE
+export { AzureDocumentProcessor } from './components/azure/AzureDocumentProcessor';
+
+// ================================
 // POLIZA COMPONENTS
 // ================================
-export { FileUpload } from './components/poliza/FileUpload';
 export { PolizaForm } from './components/poliza/PolizaForm';
-export { PdfViewer } from './components/poliza/PdfViewer';
-export { ProcessingStates } from './components/poliza/ProcessingStates';
-export { NewPolizaModal } from './components/poliza/NewPolizaModal';
+/* 
+=================================================================
+📋 NUEVAS EXPORTACIONES AGREGADAS:
+=================================================================
 
-// ================================
-// CLIENTE COMPONENTS
-// ================================
-export { ClienteTable } from './components/cliente/ClienteTable';
-export { PolizaTable } from './components/cliente/PolizaTable';
-export { ClienteForm } from './components/cliente/ClienteForm';
-export { ClienteStats } from './components/cliente/ClienteStats';
-export { ClienteFilters } from './components/cliente/ClienteFilters';
+✅ TIPOS AZURE:
+• AzureProcessResponse - Respuesta principal del procesamiento
+• AzureBatchResponse - Respuesta de procesamiento en lote
+• AzureModelInfoResponse - Información del modelo
+• AzureErrorResponse - Manejo de errores
+• Todos los sub-tipos relacionados
 
-// ================================
-// PAGES
-// ================================
-export { default as Dashboard } from './pages/Dashboard';
-export { default as ProcesarPoliza } from './pages/ProcesarPoliza';
+✅ SERVICIO AZURE:
+• azureDocumentService - Instancia del servicio
+• AzureDocumentService - Clase del servicio
 
-// ================================
-// UTILS & CONSTANTS
-// ================================
+✅ HOOK AZURE:
+• useAzureDocumentProcessing - Hook principal
+• DocumentProcessingState - Tipo del estado
 
-// Utilidades para validación
-export const validateEmail = (email: string): boolean => {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-};
+✅ UTILIDADES AZURE:
+• AzureDocumentUtils - Utilidades para procesamiento
 
-export const validateCI = (ci: string): boolean => {
-  // Validación básica de CI uruguaya
-  const cleaned = ci.replace(/[.\-\s]/g, '');
-  return /^\d{7,8}$/.test(cleaned);
-};
+✅ COMPONENTES AZURE:
+• AzureDocumentProcessor - Componente principal
 
-export const validateRUT = (rut: string): boolean => {
-  // Validación básica de RUT uruguayo
-  const cleaned = rut.replace(/[.\-\s]/g, '');
-  return /^\d{12}$/.test(cleaned);
-};
+=================================================================
+🎯 USO EN APLICACIONES:
+=================================================================
 
-// Utilidades para formateo
-export const formatCurrency = (amount: number, currency: string = 'UYU'): string => {
-  return new Intl.NumberFormat('es-UY', {
-    style: 'currency',
-    currency: currency === 'UYU' ? 'UYU' : 'USD',
-    minimumFractionDigits: 0,
-  }).format(amount);
-};
+// Importación básica
+import { 
+  azureDocumentService, 
+  useAzureDocumentProcessing,
+  AzureDocumentProcessor,
+  AzureDocumentUtils 
+} from '@regularizador/shared';
 
-export const formatDate = (date: string | Date): string => {
-  const dateObj = typeof date === 'string' ? new Date(date) : date;
-  return dateObj.toLocaleDateString('es-UY', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  });
-};
+// Uso del hook
+const { processDocument, result, isProcessing } = useAzureDocumentProcessing();
 
-export const formatFileSize = (bytes: number): string => {
-  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-  if (bytes === 0) return '0 Bytes';
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
-};
+// Uso del servicio
+const result = await azureDocumentService.processDocument(file);
 
-// Constants
-export const PROCESSING_STATES = {
-  IDLE: 'idle' as const,
-  UPLOADING: 'uploading' as const,
-  PROCESSING: 'processing' as const,
-  FORM_READY: 'form-ready' as const,
-  SENDING_VELNEO: 'sending-velneo' as const,
-  SENT_SUCCESS: 'sent-success' as const,
-  VERIFICATION: 'verification' as const,
-  COMPLETED: 'completed' as const,
-  ERROR: 'error' as const,
-};
+// Uso del componente
+<AzureDocumentProcessor onDocumentProcessed={handleResult} />
 
-export const POLIZA_ESTADOS = {
-  VIGENTE: 'Vigente' as const,
-  VENCIDA: 'Vencida' as const,
-  CANCELADA: 'Cancelada' as const,
-  PENDIENTE: 'Pendiente' as const,
-};
-
-export const RAMO_CODES = {
-  AUTO: 'AUTO' as const,
-  INCENDIO: 'INC' as const,
-  RESPONSABILIDAD_CIVIL: 'RC' as const,
-  VIDA: 'VIDA' as const,
-};
-
-export const FILE_TYPES = {
-  PDF: 'application/pdf' as const,
-};
-
-export const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-
-// Error codes
-export const ERROR_CODES = {
-  FILE_TOO_LARGE: 'FILE_TOO_LARGE',
-  INVALID_FILE_TYPE: 'INVALID_FILE_TYPE',
-  NETWORK_ERROR: 'NETWORK_ERROR',
-  VALIDATION_ERROR: 'VALIDATION_ERROR',
-  AUTH_ERROR: 'AUTH_ERROR',
-  SERVER_ERROR: 'SERVER_ERROR',
-} as const;
-
-// ================================
-// CONFIGURATION - CORREGIDO para Vite
-// ================================
-export const APP_CONFIG = {
-  API_BASE_URL: import.meta.env.VITE_API_URL || 'https://localhost:7191/api',
-  AZURE_DOCUMENT_ENDPOINT: import.meta.env.VITE_AZURE_DOC_ENDPOINT || '',
-  VELNEO_ENDPOINT: import.meta.env.VITE_VELNEO_ENDPOINT || '',
-  MAX_UPLOAD_SIZE: MAX_FILE_SIZE,
-  SUPPORTED_FILE_TYPES: [FILE_TYPES.PDF],
-  DEBOUNCE_DELAY: 300,
-  TOKEN_STORAGE_KEY: 'auth_token',
-  REFRESH_TOKEN_STORAGE_KEY: 'refresh_token',
-} as const;
-
-// ================================
-// MOCK DATA (for development)
-// ================================
-
-
-export const MOCK_DATA = {
-  companias: [
-    { id: 1, nombre: 'Banco de Seguros del Estado', codigo: 'BSE' },
-    { id: 2, nombre: 'Sura Seguros', codigo: 'SURA' },
-    { id: 3, nombre: 'Mapfre Seguros', codigo: 'MAPFRE' },
-    { id: 4, nombre: 'La República Seguros', codigo: 'LRS' },
-  ] as Compania[],
-
-  ramos: [
-    { id: 1, nombre: 'Automóviles', codigo: 'AUTO' },
-    { id: 2, nombre: 'Incendio', codigo: 'INC' },
-    { id: 3, nombre: 'Responsabilidad Civil', codigo: 'RC' },
-    { id: 4, nombre: 'Vida', codigo: 'VIDA' },
-  ] as Ramo[],
-
-  clientes: [
-    {
-      id: 1,
-      nombre: 'AVALA GENTA OMAR MANUEL',
-      documento: 'CI 989.333-3',
-      telefono: '2514 3055',
-      email: '',
-      direccion: 'AVELLANEDA 4639',
-      activo: true,
-    },
-    {
-      id: 2,
-      nombre: 'CUSTODIA DE VAL MOBIL SOC DE BOLSA S.A.',
-      documento: '332651-3',
-      telefono: '2345765',
-      email: '',
-      direccion: 'JUAN CARLOS GOMEZ 1348 AP 401',
-      activo: true,
-    },
-  ] as Cliente[],
-} as const;
-
-// ================================
-// VERSION INFO
-// ================================
-export const VERSION = '1.0.0';
-export const BUILD_DATE = new Date().toISOString();
-
-// ================================
-// DEVELOPMENT HELPERS - CORREGIDO para Vite
-// ================================
-export const isDevelopment = import.meta.env.MODE === 'development';
-export const isProduction = import.meta.env.MODE === 'production';
-
-// Logger for development
-export const devLog = (...args: any[]) => {
-  if (isDevelopment) {
-    console.log('[RegularizadorPolizas]', ...args);
-  }
-};
-
-export const devError = (...args: any[]) => {
-  if (isDevelopment) {
-    console.error('[RegularizadorPolizas Error]', ...args);
-  }
-};
-
-// ================================
-// DEFAULT EXPORT
-// ================================
-export default {
-  VERSION,
-  BUILD_DATE,
-  APP_CONFIG,
-  MOCK_DATA,
-  PROCESSING_STATES,
-  POLIZA_ESTADOS,
-  RAMO_CODES,
-  ERROR_CODES,
-};
+================================================================
+*/
