@@ -1,5 +1,5 @@
 import { apiService } from './api';
-import { Cliente, Company, DocumentProcessResult, ExtractedField } from '../types/wizard';
+import { Cliente, Company, DocumentProcessResult, PolizaFormDataExtended } from '../types/wizard';
 import { AzureProcessResponse } from '../types/azure-document';
 
 export interface PolizaCreateRequest {
@@ -15,9 +15,52 @@ export interface PolizaCreateRequest {
   documentoId?: string;
   archivoOriginal?: string;
   procesadoConIA?: boolean;
+  
+  // 🔧 CAMPOS EXTENDIDOS PARA VEHÍCULO
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
+  combustible?: string;
+  anio?: string | number;
+  
+  // 🔧 CAMPOS EXTENDIDOS FINANCIEROS
+  primaComercial?: number;
+  premioTotal?: number;
+  
+  // 🔧 OTROS CAMPOS
+  corredor?: string;
+  plan?: string;
+  ramo?: string;
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
 }
 
 class WizardService {
+  /**
+   * Validar archivo PDF
+   */
+  validatePdfFile(file: File): { isValid: boolean; error?: string } {
+    // Validar tipo de archivo
+    if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
+      return { isValid: false, error: 'Solo se permiten archivos PDF' };
+    }
+    
+    // Validar tamaño (10MB máximo)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      return { isValid: false, error: 'El archivo es demasiado grande. Máximo 10MB' };
+    }
+    
+    return { isValid: true };
+  }
+
   /**
    * Buscar clientes por nombre, CI o RUC usando tu apiService existente
    */
@@ -69,158 +112,219 @@ class WizardService {
    */
   async processDocument(file: File): Promise<DocumentProcessResult> {
     try {
-      console.log('📄 Processing document:', file.name);
+      console.log('📄 Processing document with Azure:', file.name);
       
+      // Crear FormData para enviar el archivo
       const formData = new FormData();
       formData.append('file', file);
-
-      // Usar tu configuración existente de API
-      const API_BASE = import.meta.env.VITE_API_URL || 'https://localhost:7191/api';
       
-      // Obtener token de tu sistema existente
-      const token = localStorage.getItem(import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token');
-      if (!token) {
-        throw new Error('No se encontró token de autenticación');
-      }
-
-      const response = await fetch(`${API_BASE}/azuredocument/process`, {
-        method: 'POST',
+      console.log('📤 Sending request to Azure endpoint...');
+      
+      // Usar tu endpoint existente de Azure Document Intelligence
+      const response = await apiService.post<AzureProcessResponse>('/azure-document/process', formData, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data',
         },
-        body: formData,
+        // Timeout más largo para procesamiento de documentos
+        timeout: 120000, // 2 minutos
       });
-
-      if (!response.ok) {
-        const errorData = await response.text();
-        throw new Error(`Error ${response.status}: ${errorData || response.statusText}`);
-      }
-
-      const azureResponse: AzureProcessResponse = await response.json();
-      console.log('✅ Azure response received:', azureResponse);
-
-      // **MAPEO CORREGIDO**: Convertir AzureProcessResponse a DocumentProcessResult
-      const documentResult: DocumentProcessResult = {
-        documentId: `doc_${Date.now()}`,
-        nombreArchivo: file.name,
-        estadoProcesamiento: azureResponse.estado || 'PROCESADO',
-        
-        // Mapear datos principales desde datosFormateados
-        numeroPoliza: azureResponse.datosFormateados?.numeroPoliza || '',
-        asegurado: azureResponse.datosFormateados?.asegurado || '',
-        vigenciaDesde: azureResponse.datosFormateados?.vigenciaDesde || '',
-        vigenciaHasta: azureResponse.datosFormateados?.vigenciaHasta || '',
-        prima: azureResponse.datosFormateados?.primaComercial || 0,
-        compania: azureResponse.datosFormateados?.compania || '',
-        
-        // Metadatos
-        nivelConfianza: 0.85, // Valor por defecto
-        requiereVerificacion: azureResponse.requiereIntervencion || false,
-        readyForVelneo: azureResponse.listoParaVelneo || false,
-        
-        // Guardar toda la respuesta de Azure como polizaData para uso posterior
-        polizaData: azureResponse,
-        
-        // Crear extractedFields para el display
-        extractedFields: this.createExtractedFields(azureResponse.datosFormateados)
-      };
-
-      console.log('🔄 Mapped to DocumentProcessResult:', documentResult);
-      return documentResult;
-    } catch (error) {
-      console.error('❌ Error processing document:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Crear extractedFields desde los datos formateados de Azure
-   */
-  private createExtractedFields(datosFormateados: any): ExtractedField[] {
-    if (!datosFormateados) return [];
-
-    const fields: ExtractedField[] = [];
-
-    // Función helper para agregar campo si existe
-    const addField = (field: string, value: any, confidence: number = 0.85) => {
-      if (value !== null && value !== undefined && value !== '') {
-        fields.push({
-          field,
-          value: String(value),
-          confidence,
-          needsReview: confidence < 0.8
-        });
-      }
-    };
-
-    // Mapear campos principales
-    addField('Número de Póliza', datosFormateados.numeroPoliza, 0.95);
-    addField('Asegurado', datosFormateados.asegurado, 0.90);
-    addField('Vigencia Desde', datosFormateados.vigenciaDesde, 0.85);
-    addField('Vigencia Hasta', datosFormateados.vigenciaHasta, 0.85);
-    addField('Prima Comercial', datosFormateados.primaComercial, 0.88);
-    addField('Premio Total', datosFormateados.premioTotal, 0.88);
-    addField('Vehículo', datosFormateados.vehiculo, 0.92);
-    addField('Marca', datosFormateados.marca, 0.90);
-    addField('Modelo', datosFormateados.modelo, 0.90);
-    addField('Matrícula', datosFormateados.matricula, 0.85);
-    addField('Corredor', datosFormateados.corredor, 0.90);
-    addField('Email', datosFormateados.email, 0.80);
-    addField('Dirección', datosFormateados.direccion, 0.75);
-    
-    // CAMPOS ESPECÍFICOS CON ETIQUETAS DE AZURE
-    addField('asegurado.localidad', datosFormateados['asegurado.localidad'] || datosFormateados.localidad, 0.80);
-    addField('asegurado.departamento', datosFormateados['asegurado.departamento'] || datosFormateados.departamento, 0.80);
-
-    return fields;
-  }
-
-  /**
-   * Crear póliza en Velneo usando tu apiService existente
-   */
-  async createPolizaInVelneo(polizaData: PolizaCreateRequest): Promise<any> {
-    try {
-      console.log('📋 Creating poliza in Velneo:', polizaData);
       
-      // Usar tu endpoint existente de pólizas
-      const response = await apiService.post<any>('/polizas', polizaData);
+      console.log('📥 Azure response:', response);
       
       if (response.success && response.data) {
-        console.log('✅ Poliza created successfully');
-        return response.data;
-      } else {
-        throw new Error(response.error || 'Error al crear póliza');
+        // Mapear respuesta de Azure a DocumentProcessResult
+        const azureData = response.data;
+        
+        const result: DocumentProcessResult = {
+          documentId: azureData.datosFormateados?.numeroPoliza || `doc_${Date.now()}`,
+          nombreArchivo: file.name,
+          estadoProcesamiento: azureData.estado || 'PROCESADO',
+          timestamp: azureData.timestamp,
+          
+          // Mapear datos básicos
+          numeroPoliza: azureData.datosFormateados?.numeroPoliza || '',
+          asegurado: azureData.datosFormateados?.asegurado || '',
+          vigenciaDesde: azureData.datosFormateados?.vigenciaDesde || '',
+          vigenciaHasta: azureData.datosFormateados?.vigenciaHasta || '',
+          
+          // 🔧 MAPEAR DATOS DEL VEHÍCULO
+          vehiculo: azureData.datosFormateados?.vehiculo || '',
+          marca: azureData.datosFormateados?.marca || '',
+          modelo: azureData.datosFormateados?.modelo || '',
+          motor: azureData.datosFormateados?.motor || '',
+          chasis: azureData.datosFormateados?.chasis || '',
+          matricula: azureData.datosFormateados?.matricula || '',
+          // combustible: azureData.datosFormateados?.combustible || '',
+          // anio: azureData.datosFormateados?.anio || '',
+          
+          // 🔧 MAPEAR DATOS FINANCIEROS
+          prima: azureData.datosFormateados?.primaComercial || 0,
+          primaComercial: azureData.datosFormateados?.primaComercial || 0,
+          premioTotal: azureData.datosFormateados?.premioTotal || 0,
+          moneda: 'UYU',
+          
+          // 🔧 OTROS CAMPOS
+          corredor: azureData.datosFormateados?.corredor || '',
+          plan: azureData.datosFormateados?.plan || '',
+          ramo: azureData.datosFormateados?.ramo || 'AUTOMOVILES',
+          compania: azureData.datosFormateados?.compania || '',
+          
+          // Datos del cliente
+          // documento: azureData.datosFormateados?.documento || '',
+          email: azureData.datosFormateados?.email || '',
+          telefono: azureData.datosFormateados?.telefono?.toString() || '',
+          direccion: azureData.datosFormateados?.direccion || '',
+          localidad: azureData.datosFormateados?.localidad || '',
+          departamento: azureData.datosFormateados?.departamento || '',
+          
+          // Metadatos
+          nivelConfianza: 85, // Valor por defecto
+          requiereRevision: !azureData.resumen?.listoParaVelneo,
+          listoParaVelneo: azureData.resumen?.listoParaVelneo || false,
+          
+          // Conservar datos originales
+          extractedFields: azureData,
+          originalResponse: azureData
+        };
+        
+        console.log('✅ Document processed successfully:', result);
+        return result;
       }
-    } catch (error) {
-      console.error('❌ Error creating poliza:', error);
-      throw error;
+      
+      throw new Error('No se recibieron datos válidos del procesamiento');
+      
+    } catch (error: any) {
+      console.error('❌ Error processing document:', error);
+      
+      // Mejorar el mensaje de error
+      let errorMessage = 'Error al procesar el documento';
+      if (error.response?.status === 413) {
+        errorMessage = 'El archivo es demasiado grande';
+      } else if (error.response?.status === 400) {
+        errorMessage = 'El archivo no es válido o no se puede procesar';
+      } else if (error.response?.status === 500) {
+        errorMessage = 'Error interno del servidor';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 
   /**
-   * Validar archivo PDF
+   * 🔧 CREAR PÓLIZA EN VELNEO CON TIPOS EXTENDIDOS
    */
-  validatePdfFile(file: File): { isValid: boolean; error?: string } {
-    if (!file) {
-      return { isValid: false, error: 'No se ha seleccionado ningún archivo' };
+  async createPolizaInVelneo(
+    formData: PolizaFormDataExtended, 
+    clienteId: number, 
+    companyId: number
+  ): Promise<any> {
+    try {
+      console.log('📋 Creating poliza in Velneo...');
+      console.log('🎯 Form data received:', formData);
+      console.log('👤 Cliente ID:', clienteId);
+      console.log('🏢 Company ID:', companyId);
+      
+      // Mapear PolizaFormDataExtended a PolizaCreateRequest
+      const polizaData: PolizaCreateRequest = {
+        // IDs de relaciones
+        comcod: companyId,
+        clinro: clienteId,
+        
+        // Datos básicos de la póliza
+        conpol: formData.numeroPoliza,
+        confchdes: formData.vigenciaDesde,
+        confchhas: formData.vigenciaHasta,
+        conpremio: typeof formData.prima === 'string' ? parseFloat(formData.prima) : formData.prima,
+        asegurado: formData.asegurado,
+        observaciones: formData.observaciones,
+        moneda: formData.moneda,
+        
+        // 🔧 DATOS EXTENDIDOS DEL VEHÍCULO
+        vehiculo: formData.vehiculo,
+        marca: formData.marca,
+        modelo: formData.modelo,
+        motor: formData.motor,
+        chasis: formData.chasis,
+        matricula: formData.matricula,
+        combustible: formData.combustible,
+        anio: formData.anio,
+        
+        // 🔧 DATOS FINANCIEROS EXTENDIDOS
+        primaComercial: typeof formData.primaComercial === 'string' ? 
+          parseFloat(formData.primaComercial) : formData.primaComercial,
+        premioTotal: typeof formData.premioTotal === 'string' ? 
+          parseFloat(formData.premioTotal) : formData.premioTotal,
+        
+        // 🔧 OTROS CAMPOS EXTENDIDOS
+        corredor: formData.corredor,
+        plan: formData.plan,
+        ramo: formData.ramo,
+        documento: formData.documento,
+        email: formData.email,
+        telefono: formData.telefono,
+        direccion: formData.direccion,
+        localidad: formData.localidad,
+        departamento: formData.departamento,
+        
+        // Metadatos del procesamiento
+        procesadoConIA: true,
+      };
+      
+      console.log('📤 Sending poliza data to Velneo:', polizaData);
+      
+      // Enviar al endpoint de creación de pólizas
+      const response = await apiService.post<any>('/polizas/create', polizaData);
+      
+      if (response.success && response.data) {
+        console.log('✅ Poliza created successfully in Velneo:', response.data);
+        return response.data;
+      }
+      
+      throw new Error('No se pudo crear la póliza en Velneo');
+      
+    } catch (error: any) {
+      console.error('❌ Error creating poliza in Velneo:', error);
+      
+      let errorMessage = 'Error al crear póliza en Velneo';
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      throw new Error(errorMessage);
     }
+  }
 
-    if (file.type !== 'application/pdf') {
-      return { isValid: false, error: 'El archivo debe ser un PDF' };
-    }
-
-    // Máximo 10MB
-    const maxSize = 10 * 1024 * 1024;
-    if (file.size > maxSize) {
-      return { isValid: false, error: 'El archivo no puede ser mayor a 10MB' };
-    }
-
-    return { isValid: true };
+  /**
+   * MÉTODO ALTERNATIVO: Crear póliza con formato legacy
+   */
+  async createPolizaInVelneoLegacy(
+    formData: any, 
+    clienteId: number, 
+    companyId: number
+  ): Promise<any> {
+    console.log('📋 Using legacy create method...');
+    
+    const legacyData = {
+      comcod: companyId,
+      clinro: clienteId,
+      conpol: formData.numeroPoliza,
+      confchdes: formData.vigenciaDesde,
+      confchhas: formData.vigenciaHasta,
+      conpremio: formData.prima,
+      asegurado: formData.asegurado,
+      observaciones: formData.observaciones,
+      moneda: formData.moneda,
+      documentoId: formData.documentoId,
+      archivoOriginal: formData.archivoOriginal,
+      procesadoConIA: true,
+    };
+    
+    return this.createPolizaInVelneo(legacyData as any, clienteId, companyId);
   }
 }
 
-// Exportar instancia singleton
 export const wizardService = new WizardService();
-
-// También exportar la clase para testing
-export default WizardService;

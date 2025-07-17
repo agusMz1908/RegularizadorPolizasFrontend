@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginForm from './components/auth/LoginForm';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
-import DocumentScanner from './pages/DocumentScanner';
 import Settings from './pages/Settings';
 import ProtectedRoute from './components/auth/ProtectedRoutes';
 import PolizaWizard from './components/wizard/PolizaWizard';
@@ -63,17 +62,15 @@ const AppContent: React.FC = () => {
           </ProtectedRoute>
         } />
         
-        <Route path="scanner" element={
-          <ProtectedRoute>
-            <DocumentScanner />
-          </ProtectedRoute>
-        } />
-
+        {/* HERRAMIENTA PRINCIPAL: Wizard */}
         <Route path="wizard" element={
           <ProtectedRoute>
             <PolizaWizard />
           </ProtectedRoute>
         } />
+
+        {/* REDIRECCIÓN: /scanner → /wizard para compatibilidad */}
+        <Route path="scanner" element={<Navigate to="/wizard" replace />} />
         
         <Route path="settings" element={
           <ProtectedRoute>

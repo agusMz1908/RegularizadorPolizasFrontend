@@ -1,6 +1,6 @@
-// src/hooks/usePolizaWizard.ts
 import { useState, useEffect, useCallback } from 'react';
-import { wizardService, Cliente, Company, DocumentProcessResult } from '../services/wizardService';
+import { wizardService } from '../services/wizardService';
+import { Cliente, Company, DocumentProcessResult, PolizaFormDataExtended } from '../types/wizard';
 
 export type WizardStep = 'cliente' | 'company' | 'upload' | 'extract' | 'form' | 'success';
 
@@ -26,7 +26,7 @@ export interface WizardActions {
   
   // Procesamiento
   processDocument: () => Promise<void>;
-  createPoliza: (formData: any) => Promise<void>;
+  createPoliza: (formData: PolizaFormDataExtended) => Promise<void>;
   
   // Estados de carga
   loading: boolean;
@@ -202,43 +202,326 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
     }
   }, []);
 
-  // Procesamiento de documento
+  // 🔧 FUNCIÓN HELPER PARA BUSCAR CAMPOS EN MÚLTIPLES UBICACIONES
+  const buscarCampo = useCallback((mainData: any, extractedFields: any, possibleKeys: string[]): string => {
+    for (const key of possibleKeys) {
+      // Buscar en datos principales
+      if (mainData && mainData[key] && mainData[key] !== '') {
+        return String(mainData[key]).trim();
+      }
+      
+      // Buscar en extracted fields
+      if (extractedFields && extractedFields[key] && extractedFields[key] !== '') {
+        return String(extractedFields[key]).trim();
+      }
+    }
+    
+    return '';
+  }, []);
+
+  // 🔧 FUNCIÓN PARA CREAR DATOS VACÍOS EN CASO DE ERROR
+  const crearDatosVacios = useCallback((): DocumentProcessResult => ({
+    documentId: `empty_${Date.now()}`,
+    estadoProcesamiento: 'VACIO',
+    numeroPoliza: '', 
+    asegurado: '', 
+    vigenciaDesde: '', 
+    vigenciaHasta: '',
+    vehiculo: '', 
+    marca: '', 
+    modelo: '', 
+    motor: '', 
+    chasis: '', 
+    matricula: '', 
+    anio: '',
+    prima: 0, 
+    primaComercial: 0, 
+    premioTotal: 0, 
+    moneda: 'UYU',
+    corredor: '', 
+    plan: '', 
+    ramo: 'AUTOMOVILES',
+    documento: '', 
+    email: '', 
+    telefono: '', 
+    direccion: '', 
+    localidad: '', 
+    departamento: '',
+    nivelConfianza: 0, 
+    requiereRevision: true, 
+    listoParaVelneo: false,
+    timestamp: new Date().toISOString(), 
+    extractedFields: {}
+  }), []);
+
+  // 🔧 FUNCIÓN PARA NORMALIZAR LA RESPUESTA DEL BACKEND
+  const normalizarRespuestaBackend = useCallback((response: any): DocumentProcessResult => {
+    console.log('🔄 Normalizando respuesta del backend...');
+    console.log('📄 Response recibida:', response);
+    
+    if (!response || typeof response !== 'object') {
+      console.warn('⚠️ Respuesta inválida del backend:', response);
+      return crearDatosVacios();
+    }
+
+    // Extraer campos desde diferentes posibles ubicaciones
+    const extractedFields = response.extractedFields || response.camposExtraidos || {};
+    const mainData = response;
+    
+    console.log('📋 Extracted fields encontrados:', extractedFields);
+    console.log('📋 Main data keys:', Object.keys(mainData));
+
+    const datosNormalizados: DocumentProcessResult = {
+      // Metadatos
+      documentId: response.documentId || `doc_${Date.now()}`,
+      estadoProcesamiento: response.estadoProcesamiento || 'PROCESADO',
+      nivelConfianza: response.nivelConfianza || response.confidence || 0,
+      requiereRevision: response.requiereRevision !== undefined ? response.requiereRevision : true,
+      listoParaVelneo: response.listoParaVelneo !== undefined ? response.listoParaVelneo : false,
+      timestamp: response.timestamp || new Date().toISOString(),
+      
+      // Información básica de la póliza
+      numeroPoliza: buscarCampo(mainData, extractedFields, [
+        'numeroPoliza', 'policyNumber', 'numero_poliza', 'poliza.numero', 'poliza_numero'
+      ]),
+      
+      anio: buscarCampo(mainData, extractedFields, [
+        'anio', 'año', 'year', 'poliza.año', 'vehiculo.año', 'vehiculo_año'
+      ]),
+      
+      vigenciaDesde: buscarCampo(mainData, extractedFields, [
+        'vigenciaDesde', 'validFrom', 'fecha_desde', 'vigencia.desde', 'poliza.vigencia.desde'
+      ]),
+      
+      vigenciaHasta: buscarCampo(mainData, extractedFields, [
+        'vigenciaHasta', 'validTo', 'fecha_hasta', 'vigencia.hasta', 'poliza.vigencia.hasta'
+      ]),
+      
+      plan: buscarCampo(mainData, extractedFields, [
+        'plan', 'coveragePlan', 'poliza.plan', 'tipo_plan', 'cobertura'
+      ]),
+      
+      ramo: buscarCampo(mainData, extractedFields, [
+        'ramo', 'branch', 'poliza.ramo', 'tipo_seguro'
+      ]) || 'AUTOMOVILES',
+      
+      // Datos del asegurado
+      asegurado: buscarCampo(mainData, extractedFields, [
+        'asegurado', 'cliente', 'insured', 'cliente_nombre', 'asegurado.nombre'
+      ]),
+      
+      documento: buscarCampo(mainData, extractedFields, [
+        'documento', 'documentNumber', 'cliente_documento', 'asegurado.documento'
+      ]),
+      
+      email: buscarCampo(mainData, extractedFields, [
+        'email', 'emailAddress', 'cliente_email', 'asegurado.email'
+      ]),
+      
+      telefono: buscarCampo(mainData, extractedFields, [
+        'telefono', 'phone', 'cliente_telefono', 'asegurado.telefono'
+      ]),
+      
+      direccion: buscarCampo(mainData, extractedFields, [
+        'direccion', 'address', 'cliente_direccion', 'asegurado.direccion'
+      ]),
+      
+      localidad: buscarCampo(mainData, extractedFields, [
+        'localidad', 'city', 'cliente_localidad', 'asegurado.localidad'
+      ]),
+      
+      departamento: buscarCampo(mainData, extractedFields, [
+        'departamento', 'state', 'cliente_departamento', 'asegurado.departamento'
+      ]),
+      
+      // 🚗 DATOS DEL VEHÍCULO (LOS CAMPOS QUE AGREGASTE)
+      vehiculo: buscarCampo(mainData, extractedFields, [
+        'vehiculo', 'vehicle', 'vehicleDescription', 'vehiculo_descripcion'
+      ]),
+      
+      marca: buscarCampo(mainData, extractedFields, [
+        'marca', 'brand', 'vehicleBrand', 'vehiculo_marca', 'vehiculo.marca'
+      ]),
+      
+      modelo: buscarCampo(mainData, extractedFields, [
+        'modelo', 'model', 'vehicleModel', 'vehiculo_modelo', 'vehiculo.modelo'
+      ]),
+      
+      motor: buscarCampo(mainData, extractedFields, [
+        'motor', 'engine', 'engineNumber', 'vehiculo_motor', 'vehiculo.motor', 'numero_motor'
+      ]),
+      
+      chasis: buscarCampo(mainData, extractedFields, [
+        'chasis', 'chassis', 'chassisNumber', 'vehiculo_chasis', 'vehiculo.chasis', 'numero_chasis'
+      ]),
+      
+      matricula: buscarCampo(mainData, extractedFields, [
+        'matricula', 'plate', 'plateNumber', 'vehiculo_matricula', 'vehiculo.matricula', 'placa'
+      ]),
+      
+      combustible: buscarCampo(mainData, extractedFields, [
+        'combustible', 'fuel', 'fuelType', 'vehiculo_combustible', 'vehiculo.combustible'
+      ]),
+      
+      // 💰 DATOS FINANCIEROS (LOS OTROS CAMPOS QUE AGREGASTE)
+      prima: parseFloat(buscarCampo(mainData, extractedFields, [
+        'prima', 'premium', 'primaComercial', 'prima_comercial', 'financiero.prima'
+      ]) || '0'),
+      
+      primaComercial: parseFloat(buscarCampo(mainData, extractedFields, [
+        'primaComercial', 'commercialPremium', 'prima_comercial', 'financiero.prima_comercial'
+      ]) || '0'),
+      
+      premioTotal: parseFloat(buscarCampo(mainData, extractedFields, [
+        'premioTotal', 'totalPremium', 'premio_total', 'financiero.premio_total', 'total'
+      ]) || '0'),
+      
+      moneda: buscarCampo(mainData, extractedFields, [
+        'moneda', 'currency', 'financiero.moneda'
+      ]) || 'UYU',
+      
+      // Datos del corredor
+      corredor: buscarCampo(mainData, extractedFields, [
+        'corredor', 'broker', 'brokerName', 'corredor_nombre', 'corredor.nombre'
+      ]),
+      
+      // Conservar datos originales
+      extractedFields: extractedFields,
+      originalResponse: response
+    };
+    
+    console.log('✅ Datos normalizados generados:', datosNormalizados);
+    console.log('🎯 Campos de vehículo mapeados:');
+    console.log('- Marca:', datosNormalizados.marca);
+    console.log('- Modelo:', datosNormalizados.modelo);
+    console.log('- Motor:', datosNormalizados.motor);
+    console.log('- Chasis:', datosNormalizados.chasis);
+    console.log('- Matrícula:', datosNormalizados.matricula);
+    
+    return datosNormalizados;
+  }, [buscarCampo, crearDatosVacios]);
+
+  // 🔧 PROCESAMIENTO DE DOCUMENTO MEJORADO
   const processDocument = useCallback(async () => {
     if (!state.uploadedFile) {
       setError('No hay archivo seleccionado');
       return;
     }
 
+    console.log('='.repeat(60));
+    console.log('🚀 INICIANDO PROCESAMIENTO DE DOCUMENTO');
+    console.log('='.repeat(60));
+    console.log('📄 Archivo:', state.uploadedFile.name);
+    console.log('📏 Tamaño:', state.uploadedFile.size, 'bytes');
+    
     setProcessing(true);
     setError(null);
 
     try {
-      console.log('📄 Processing document:', state.uploadedFile.name);
+      // TIMEOUT para evitar que se quede colgado
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Timeout: El procesamiento tardó más de 90 segundos')), 90000);
+      });
       
-      // Cambiar a step de procesamiento
-      setState((prev: WizardState) => ({ ...prev, currentStep: 'extract' }));
+      // Promesa del procesamiento real
+      console.log('⏱️  Enviando archivo al backend...');
+      const processPromise = wizardService.processDocument(state.uploadedFile);
       
-      const result = await wizardService.processDocument(state.uploadedFile);
+      // Race entre timeout y procesamiento
+      const rawResult = await Promise.race([processPromise, timeoutPromise]);
       
-      console.log('✅ Document processed successfully:', result);
+      console.log('📥 RESPUESTA CRUDA DEL BACKEND:');
+      console.log('- Tipo:', typeof rawResult);
+      console.log('- Claves:', Object.keys(rawResult || {}));
+      console.log('- Contenido completo:', rawResult);
+      
+      // 🔧 NORMALIZAR LA RESPUESTA
+      const normalizedResult = normalizarRespuestaBackend(rawResult);
+      
+      console.log('✅ RESULTADO NORMALIZADO:');
+      console.log('- Document ID:', normalizedResult.documentId);
+      console.log('- Número Póliza:', normalizedResult.numeroPoliza);
+      console.log('- Asegurado:', normalizedResult.asegurado);
+      console.log('- Marca vehículo:', normalizedResult.marca);
+      console.log('- Modelo vehículo:', normalizedResult.modelo);
+      console.log('- Prima:', normalizedResult.prima);
+      
+      // Validar que el resultado tiene datos mínimos
+      if (!normalizedResult.documentId && !normalizedResult.numeroPoliza) {
+        console.warn('⚠️ Resultado insuficiente, creando datos por defecto...');
+        const datosDefecto = crearDatosVacios();
+        datosDefecto.documentId = `processed_${Date.now()}`;
+        datosDefecto.estadoProcesamiento = 'PROCESADO_PARCIAL';
+        
+        setState((prev: WizardState) => ({ 
+          ...prev, 
+          extractedData: datosDefecto, 
+          currentStep: 'form' 
+        }));
+        
+        console.log('✅ Avanzando al formulario con datos por defecto');
+        return;
+      }
+      
+      // Guardar datos normalizados
+      setState((prev: WizardState) => ({ 
+        ...prev, 
+        extractedData: normalizedResult, 
+        currentStep: 'form' 
+      }));
+      
+      console.log('✅ Estado actualizado, avanzando al paso del formulario');
+      
+    } catch (err: any) {
+      console.error('❌ ERROR EN PROCESAMIENTO:', err);
+      console.error('❌ Detalles del error:', {
+        message: err.message,
+        stack: err.stack,
+        response: err.response?.data
+      });
+      
+      let errorMessage = 'Error al procesar el documento';
+      
+      // Mejorar mensajes de error según el tipo
+      if (err.message.includes('timeout') || err.message.includes('Timeout')) {
+        errorMessage = 'El procesamiento está tardando más de lo esperado. Por favor, intenta con un archivo más pequeño o verifica tu conexión.';
+      } else if (err.message.includes('401')) {
+        errorMessage = 'Error de autenticación. Por favor, vuelve a iniciar sesión.';
+      } else if (err.message.includes('413')) {
+        errorMessage = 'El archivo es demasiado grande. El tamaño máximo es 10MB.';
+      } else if (err.message.includes('400')) {
+        errorMessage = 'El archivo no es válido o no se puede procesar. Asegúrate de que sea un PDF de una póliza.';
+      } else if (err.message.includes('500')) {
+        errorMessage = 'Error interno del servidor. Por favor, intenta nuevamente en unos minutos.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
+      
+      // Crear datos de error para que el formulario no se rompa
+      const errorData = crearDatosVacios();
+      errorData.documentId = `error_${Date.now()}`;
+      errorData.estadoProcesamiento = 'ERROR';
+      errorData.errorMessage = err.message;
       
       setState((prev: WizardState) => ({ 
         ...prev, 
-        extractedData: result, 
-        currentStep: 'form' 
+        extractedData: errorData,
+        currentStep: 'form' // Avanzar igual para que el usuario pueda llenar manualmente
       }));
-    } catch (err: any) {
-      console.error('❌ Error processing document:', err);
-      setError('Error al procesar el documento: ' + err.message);
-      // Volver al step de upload en caso de error
-      setState((prev: WizardState) => ({ ...prev, currentStep: 'upload' }));
+      
+      console.log('⚠️ Avanzando al formulario con datos de error para llenar manualmente');
+      
     } finally {
       setProcessing(false);
+      console.log('🏁 Procesamiento completado');
+      console.log('='.repeat(60));
     }
-  }, [state.uploadedFile]);
+  }, [state.uploadedFile, normalizarRespuestaBackend, crearDatosVacios]);
 
-  // Creación de póliza
-  const createPoliza = useCallback(async (formData: any) => {
+  // Creación de póliza - ACTUALIZADO CON TIPOS CORREGIDOS
+  const createPoliza = useCallback(async (formData: PolizaFormDataExtended) => {
     if (!state.selectedCliente || !state.selectedCompany) {
       setError('Faltan datos del cliente o compañía');
       return;
@@ -248,31 +531,17 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
     setError(null);
 
     try {
-      console.log('📋 Creating poliza in Velneo...');
+      console.log('📋 Creating poliza in Velneo with extended types...');
+      console.log('🎯 Form data:', formData);
+      console.log('👤 Cliente:', state.selectedCliente);
+      console.log('🏢 Company:', state.selectedCompany);
       
-      const polizaData = {
-        // Datos de relaciones
-        comcod: state.selectedCompany.id,
-        clinro: state.selectedCliente.id,
-        
-        // Datos del formulario
-        conpol: formData.numeroPoliza,
-        confchdes: formData.vigenciaDesde,
-        confchhas: formData.vigenciaHasta,
-        conpremio: formData.prima,
-        
-        // Datos adicionales
-        asegurado: formData.asegurado,
-        observaciones: formData.observaciones,
-        moneda: formData.moneda,
-        
-        // Metadatos del procesamiento
-        documentoId: state.extractedData?.documentId,
-        archivoOriginal: state.uploadedFile?.name,
-        procesadoConIA: true,
-      };
-
-      const result = await wizardService.createPolizaInVelneo(polizaData);
+      // Usar el método adaptado para PolizaFormDataExtended
+      const result = await wizardService.createPolizaInVelneo(
+        formData, 
+        state.selectedCliente.id, 
+        state.selectedCompany.id
+      );
       
       console.log('✅ Poliza created successfully:', result);
       
@@ -290,7 +559,7 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
     } finally {
       setProcessing(false);
     }
-  }, [state.selectedCliente, state.selectedCompany, state.extractedData, state.uploadedFile]);
+  }, [state.selectedCliente, state.selectedCompany]);
 
   return {
     // Estado

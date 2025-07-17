@@ -1,1130 +1,1011 @@
-// src/components/wizard/PolizaWizard.tsx - FORMULARIO COMPLETO COMO DOCUMENTSCANNER
 import React, { useState, useEffect } from 'react';
 import { 
   User, Building2, Upload, FileText, Eye, Check, 
   Car, DollarSign, Calendar, MapPin, Mail, Phone,
   Edit3, Save, X, CheckCircle, AlertTriangle, Loader2,
-  ArrowLeft, ArrowRight, Search, FileCheck, Building, Hash
+  ArrowLeft, ArrowRight, Search, FileCheck, Building, Hash,
+  Settings, Shield, CreditCard, Navigation, Clock
 } from 'lucide-react';
 import { usePolizaWizard } from '../../hooks/usePolizaWizard';
-import { WizardResult, Cliente, Company } from '../../types/wizard';
+import { PolizaFormDataComplete, PolizaFormMapper } from '../../types/poliza-unified';
 
-// Props para el componente PolizaWizard usando los tipos existentes
+// Props para el componente
 interface PolizaWizardProps {
-  onComplete?: (result: WizardResult) => void;
+  onComplete?: (result: any) => void;
   onCancel?: () => void;
-}
-
-// Tipos extendidos para el formulario completo
-interface PolizaFormDataExtended {
-  // Información de la Póliza
-  numeroPoliza: string;
-  anio?: string | number;
-  vigenciaDesde: string;
-  vigenciaHasta: string;
-  plan?: string;
-  ramo?: string;
-  
-  // Datos del Cliente
-  asegurado: string;
-  documento?: string;
-  email?: string;
-  direccion?: string;
-  localidad?: string;
-  departamento?: string;
-  telefono?: string;
-  
-  // Datos del Vehículo
-  vehiculo?: string;
-  marca?: string;
-  modelo?: string;
-  motor?: string;
-  chasis?: string;
-  matricula?: string;
-  combustible?: string;
-  
-  // Información Financiera
-  prima: number | string;
-  primaComercial?: number | string;
-  premioTotal?: number | string;
-  moneda: string;
-  
-  // Corredor de Seguros
-  corredor?: string;
-  
-  // Observaciones
-  observaciones: string;
 }
 
 const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => {
   const wizard = usePolizaWizard();
   
-  // Estado para todos los campos del formulario extendido
-  const [formData, setFormData] = useState<PolizaFormDataExtended>({
+  // Estados para el formulario - USANDO TIPOS UNIFICADOS
+  const [formData, setFormData] = useState<PolizaFormDataComplete>({
     numeroPoliza: '',
     vigenciaDesde: '',
     vigenciaHasta: '',
     prima: 0,
     moneda: 'UYU',
     asegurado: '',
-    observaciones: 'Procesado automáticamente con Azure AI.'
+    estadoTramite: '1', 
+    estadoPoliza: '1',  
+    observaciones: 'Procesado automáticamente con Azure AI.',
+    ramo: 'AUTOMOVILES',
+    compania: ''
   });
+
+  const [activeTab, setActiveTab] = useState<string>('basicos');
+  const [showPreview, setShowPreview] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [isEditing, setIsEditing] = useState(false); // NUEVO: Estado de edición
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false); // NUEVO: Control de carga inicial
+  const [isEditing, setIsEditing] = useState(false);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
 
-  // Llenar formulario con datos extraídos SOLO UNA VEZ - ARREGLADO
-  useEffect(() => {
-    // CONDICIÓN ESTRICTA: Solo ejecutar si hay datos Y no se han cargado antes Y no está editando
-    if (wizard.extractedData && !initialDataLoaded && !isEditing) {
-      console.log('🔍 Cargando datos extraídos por primera vez:', wizard.extractedData);
-      
-      // Acceder a los datos de Azure (polizaData contiene la respuesta completa)
-      const azureData = wizard.extractedData.polizaData?.datosFormateados || {};
-      
-      // También buscar en extractedFields para los campos específicos
-      const extractedFields = wizard.extractedData.extractedFields || [];
-      
-      // Función helper para buscar un campo específico
-      const findFieldValue = (fieldName: string) => {
-        const field = extractedFields.find((f: { field: string; }) => f.field === fieldName);
-        return field?.value || '';
-      };
-      
-      // Función helper para formatear fechas de ISO a dd/mm/yyyy
-      const formatDate = (dateString: string): string => {
-        if (!dateString) return '';
-        
-        try {
-          // Si viene en formato ISO (2025-04-11T00:00:00)
-          if (dateString.includes('T')) {
-            const date = new Date(dateString);
-            if (!isNaN(date.getTime())) {
-              const day = date.getDate().toString().padStart(2, '0');
-              const month = (date.getMonth() + 1).toString().padStart(2, '0');
-              const year = date.getFullYear();
-              return `${day}/${month}/${year}`;
-            }
-          }
-          
-          // Si ya viene en formato correcto, devolverlo tal como está
-          return dateString;
-        } catch (error) {
-          // Si hay error, devolver el string original
-          return dateString;
-        }
-      };
+  // =================== STEPS DEL WIZARD ===================
 
-      // Función helper para extraer fechas con múltiples etiquetas - SIMPLIFICADO
-      const extractDateField = (etiquetas: string[]) => {
-        for (const etiqueta of etiquetas) {
-          const valor = azureData[etiqueta];
-          if (valor && valor !== '') {
-            return formatDate(String(valor)); // Formatear la fecha
-          }
-        }
-        return '';
-      };
-      
-      const newFormData = {
-        // Información de la Póliza
-        numeroPoliza: wizard.extractedData.numeroPoliza || azureData.numeroPoliza || '',
-        anio: azureData.anio || '',
-        
-        // FECHAS FORMATEADAS
-        vigenciaDesde: formatDate(wizard.extractedData.vigenciaDesde || '') || extractDateField([
-          'poliza.vigencia.desde', 'fecha_desde', 'vigencia_desde', 'start_date', 'fecha_inicio', 'vigenciaDesde', 'confchdes'
-        ]) || '',
-        vigenciaHasta: formatDate(wizard.extractedData.vigenciaHasta || '') || extractDateField([
-          'poliza.vigencia.hasta', 'fecha_hasta', 'vigencia_hasta', 'end_date', 'fecha_fin', 'vencimiento', 'vigenciaHasta', 'confchhas'
-        ]) || '',
-        
-        plan: azureData.plan || '',
-        ramo: azureData.ramo || '',
-        
-        // Datos del Cliente - USAR DATOS DEL CLIENTE SELECCIONADO Y Azure
-        asegurado: wizard.selectedCliente?.clinom || wizard.extractedData.asegurado || azureData.asegurado || '',
-        documento: wizard.selectedCliente?.cliced || wizard.selectedCliente?.cliruc || azureData.documento || '',
-        email: wizard.selectedCliente?.cliemail || azureData.email || '',
-        direccion: wizard.selectedCliente?.clidir || azureData.direccion || '',
-        
-        // LOCALIDAD Y DEPARTAMENTO con etiquetas específicas de Azure
-        localidad: azureData['asegurado.localidad'] || azureData.localidad || findFieldValue('asegurado.localidad') || '',
-        departamento: azureData['asegurado.departamento'] || azureData.departamento || findFieldValue('asegurado.departamento') || '',
-        
-        telefono: wizard.selectedCliente?.telefono || azureData.telefono || '',
-        
-        // Datos del Vehículo
-        vehiculo: azureData.vehiculo || '',
-        marca: azureData.marca || '',
-        modelo: azureData.modelo || '',
-        motor: azureData.motor || '',
-        chasis: azureData.chasis || '',
-        matricula: azureData.matricula || '',
-        combustible: azureData.combustible || '',
-        
-        // Información Financiera
-        prima: wizard.extractedData.prima || azureData.primaComercial || 0,
-        primaComercial: azureData.primaComercial || 0,
-        premioTotal: azureData.premioTotal || 0,
-        moneda: 'UYU',
-        
-        // Corredor de Seguros
-        corredor: azureData.corredor || '',
-        
-        // Observaciones
-        observaciones: 'Procesado automáticamente con Azure AI.'
-      };
-      
-      setFormData(newFormData);
-      setInitialDataLoaded(true); // Marcar que ya se cargaron los datos
-      
-      console.log('✅ Datos iniciales cargados correctamente (no se volverán a cargar)');
-    }
-  }, [wizard.extractedData, wizard.selectedCliente]); // REMOVER initialDataLoaded e isEditing de las dependencias
-
-  // Función para manejar cambios en los inputs
-  const handleInputChange = (field: keyof PolizaFormDataExtended, value: string | number) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: value
-    }));
-  };
-
-  // Funciones para manejar edición
-  const handleStartEditing = () => {
-    setIsEditing(true);
-  };
-
-  const handleCancelEditing = () => {
-    setIsEditing(false);
-    // Aquí podrías revertir los cambios si quisieras
-  };
-
-  const handleSaveChanges = () => {
-    setIsEditing(false);
-    console.log('💾 Cambios guardados:', formData);
-  };
-
-  // Función para manejar el envío del formulario
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    
-    try {
-      // Crear la póliza usando el wizard (convertir a formato básico)
-      const basicFormData = {
-        numeroPoliza: formData.numeroPoliza,
-        vigenciaDesde: formData.vigenciaDesde,
-        vigenciaHasta: formData.vigenciaHasta,
-        prima: formData.prima,
-        moneda: formData.moneda,
-        asegurado: formData.asegurado,
-        observaciones: formData.observaciones
-      };
-      
-      const polizaCreated = await wizard.createPoliza(basicFormData);
-      
-      // Crear el resultado según la interfaz WizardResult existente
-      if (onComplete && wizard.selectedCliente && wizard.selectedCompany && wizard.uploadedFile && wizard.extractedData) {
-        const result: WizardResult = {
-          cliente: wizard.selectedCliente,
-          company: wizard.selectedCompany,
-          file: wizard.uploadedFile,
-          extractedData: wizard.extractedData,
-          formData: basicFormData,
-          polizaCreated: polizaCreated
-        };
-        
-        onComplete(result);
-      }
-    } catch (error) {
-      console.error('Error creando póliza:', error);
-      wizard.setError('Error al crear la póliza. Por favor, intente nuevamente.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  // Función para manejar la cancelación
-  const handleCancel = () => {
-    if (onCancel) {
-      onCancel();
-    }
-  };
-
-  // Componente helper para inputs - CON CONTROL DE EDICIÓN
-  const InputField: React.FC<{
-    label: string;
-    field: keyof PolizaFormDataExtended;
-    value: any;
-    type?: string;
-    step?: string;
-    icon?: React.ComponentType<any>;
-    placeholder?: string;
-    required?: boolean;
-    className?: string;
-    readOnly?: boolean;
-    alwaysReadOnly?: boolean; // NUEVO: Para campos que nunca se pueden editar (cliente)
-  }> = ({ label, field, value, type = "text", step, icon: Icon, placeholder, required = false, className = "", readOnly = false, alwaysReadOnly = false }) => {
-    
-    const isFieldReadOnly = alwaysReadOnly || (!isEditing && !readOnly) || readOnly;
-    
-    return (
-      <div className={className}>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        <div className="relative">
-          {Icon && (
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon className="h-4 w-4 text-gray-400" />
-            </div>
-          )}
-          <input
-            type={type}
-            step={step}
-            value={value || ''}
-            onChange={(e) => handleInputChange(field, type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value)}
-            readOnly={isFieldReadOnly}
-            className={`w-full ${Icon ? 'pl-10' : 'pl-3'} pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-              isFieldReadOnly ? 'bg-gray-50 text-gray-700' : 'bg-white'
-            }`}
-            placeholder={placeholder || `Ingrese ${label.toLowerCase()}`}
-          />
-          {/* TICK EN ESQUINA SUPERIOR DERECHA PARA TODOS LOS CAMPOS */}
-          {value && value !== '' && value !== 0 && (
-            <div className="absolute -top-1 -right-1">
-              <CheckCircle className="h-4 w-4 text-green-500 bg-white rounded-full" />
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  // =================== FUNCIONES DE RENDERIZADO POR PASO ===================
-
-  // Paso 1: Selección de Cliente
+  // 1. PASO: Selección de Cliente
   const renderClienteStep = () => (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <User className="w-8 h-8 text-purple-600" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Seleccionar Cliente</h2>
-        <p className="text-gray-600">Busque y seleccione el cliente para la nueva póliza</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Seleccionar Cliente</h2>
+        <p className="text-gray-600">Busca y selecciona el cliente para crear la póliza</p>
       </div>
 
-      {/* Buscador de clientes */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        <div className="flex items-center mb-4">
-          <Search className="w-5 h-5 text-gray-400 mr-3" />
-          <input
-            type="text"
-            value={wizard.clienteSearch}
-            onChange={(e) => wizard.setClienteSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && wizard.clienteSearch.trim()) {
-                wizard.searchClientes(wizard.clienteSearch);
-              }
-            }}
-            placeholder="Buscar por nombre, cédula o RUT..."
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-          />
-          <button
-            type="button"
-            onClick={() => wizard.searchClientes(wizard.clienteSearch)}
-            disabled={wizard.loadingClientes || !wizard.clienteSearch.trim()}
-            className="ml-3 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
-          >
-            {wizard.loadingClientes ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buscar'}
-          </button>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Buscar Cliente
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+            <input
+              type="text"
+              value={wizard.clienteSearch}
+              onChange={(e) => {
+                wizard.setClienteSearch(e.target.value);
+                if (e.target.value.length >= 2) {
+                  wizard.searchClientes(e.target.value);
+                }
+              }}
+              placeholder="Nombre del cliente..."
+              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+            />
+          </div>
         </div>
 
-        {/* Resultados de búsqueda */}
+        {wizard.loadingClientes && (
+          <div className="text-center py-4">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto text-purple-600" />
+            <p className="text-sm text-gray-600 mt-2">Buscando clientes...</p>
+          </div>
+        )}
+
         {wizard.clienteResults.length > 0 && (
-          <div className="space-y-2 max-h-60 overflow-y-auto">
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium text-gray-700 mb-3">Resultados:</h3>
             {wizard.clienteResults.map((cliente) => (
               <div
                 key={cliente.id}
                 onClick={() => wizard.selectCliente(cliente)}
-                className="p-3 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 cursor-pointer transition-colors"
+                className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors"
               >
-                <div className="font-medium text-gray-900">{cliente.clinom}</div>
-                <div className="text-sm text-gray-600">
-                  {cliente.cliced && `CI: ${cliente.cliced} • `}
-                  {cliente.cliruc && `RUT: ${cliente.cliruc} • `}
-                  {cliente.cliemail && cliente.cliemail}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-medium text-gray-900">{cliente.clinom}</h4>
+                    <p className="text-sm text-gray-600">ID: {cliente.id}</p>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-gray-400" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // 2. PASO: Selección de Compañía
+  const renderCompanyStep = () => (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Seleccionar Compañía</h2>
+        <p className="text-gray-600">Elige la compañía aseguradora</p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {wizard.loadingCompanies ? (
+          <div className="text-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin mx-auto text-purple-600" />
+            <p className="text-sm text-gray-600 mt-2">Cargando compañías...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {wizard.companies.map((company) => (
+              <div
+                key={company.id}
+                onClick={() => wizard.selectCompany(company)}
+                className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-purple-50 hover:border-purple-300 transition-colors"
+              >
+                <div className="text-center">
+                  <Building2 className="w-8 h-8 mx-auto text-purple-600 mb-2" />
+                  <h4 className="font-medium text-gray-900">{company.comnom}</h4>
+                  <p className="text-sm text-gray-600">{company.comalias}</p>
                 </div>
               </div>
             ))}
           </div>
         )}
 
-        {wizard.error && (
-          <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700">
-            {wizard.error}
-          </div>
-        )}
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <button
+            onClick={() => wizard.goBack()}
+            className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver a selección de cliente
+          </button>
+        </div>
       </div>
     </div>
   );
 
-  // Paso 2: Selección de Compañía
-  const renderCompanyStep = () => (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Building2 className="w-8 h-8 text-green-600" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Seleccionar Compañía</h2>
-        <p className="text-gray-600">Elija la compañía aseguradora</p>
-      </div>
-
-      {/* Cliente seleccionado */}
-      {wizard.selectedCliente && (
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center">
-            <User className="w-4 h-4 text-purple-600 mr-2" />
-            <span className="text-sm font-medium text-purple-900">Cliente seleccionado:</span>
-            <span className="text-sm text-purple-800 ml-2">{wizard.selectedCliente.clinom}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Lista de compañías */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-        {wizard.loadingCompanies ? (
-          <div className="text-center py-8">
-            <Loader2 className="w-8 h-8 animate-spin mx-auto text-gray-400 mb-2" />
-            <p className="text-gray-600">Cargando compañías...</p>
-          </div>
-        ) : (
-          <div className="space-y-3 max-h-96 overflow-y-auto">
-            {wizard.companies.map((company) => (
-              <div
-                key={company.id}
-                onClick={() => wizard.selectCompany(company)}
-                className="p-4 border border-gray-200 rounded-lg hover:bg-green-50 hover:border-green-300 cursor-pointer transition-colors"
-              >
-                <div className="font-medium text-gray-900">{company.comnom}</div>
-                <div className="text-sm text-gray-600">{company.comalias}</div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Botón de retroceso */}
-      <div className="flex justify-start mt-6">
-        <button
-          type="button"
-          onClick={wizard.goBack}
-          className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver a selección de cliente
-        </button>
-      </div>
-    </div>
-  );
-
-  // Paso 3: Subir Archivo
+  // 3. PASO: Upload de Archivo
   const renderUploadStep = () => (
-    <div className="max-w-2xl mx-auto p-6">
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Upload className="w-8 h-8 text-blue-600" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Subir Documento</h2>
-        <p className="text-gray-600">Arrastre y suelte el PDF de la póliza</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Subir Documento PDF</h2>
+        <p className="text-gray-600">Sube la póliza en formato PDF para procesamiento automático</p>
       </div>
 
-      {/* Contexto seleccionado */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-6 border border-purple-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center">
-              <User className="w-4 h-4 text-purple-600 mr-2" />
-              <span className="text-sm font-medium text-purple-900">Cliente:</span>
-              <span className="text-sm text-purple-800 ml-1">{wizard.selectedCliente?.clinom}</span>
-            </div>
-            <div className="flex items-center">
-              <Building2 className="w-4 h-4 text-purple-600 mr-2" />
-              <span className="text-sm font-medium text-purple-900">Compañía:</span>
-              <span className="text-sm text-purple-800 ml-1">{wizard.selectedCompany?.comnom}</span>
-            </div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
+          <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+          <div className="space-y-2">
+            <p className="text-lg font-medium text-gray-900">
+              Arrastra tu archivo aquí o haz clic para seleccionar
+            </p>
+            <p className="text-sm text-gray-600">
+              Solo archivos PDF, máximo 10MB
+            </p>
           </div>
-        </div>
-      </div>
-
-      {/* Zona de drag & drop */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8">
-        <div 
-          className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-blue-400 transition-colors"
-          onDrop={(e) => {
-            e.preventDefault();
-            const files = Array.from(e.dataTransfer.files);
-            if (files[0] && files[0].type === 'application/pdf') {
-              wizard.setUploadedFile(files[0]);
-            }
-          }}
-          onDragOver={(e) => e.preventDefault()}
-        >
-          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <p className="text-lg font-medium text-gray-900 mb-2">
-            Arrastre su archivo PDF aquí
-          </p>
-          <p className="text-gray-600 mb-4">o haga clic para seleccionar</p>
+          
           <input
             type="file"
             accept=".pdf"
             onChange={(e) => {
               const file = e.target.files?.[0];
-              if (file) wizard.setUploadedFile(file);
+              if (file) {
+                wizard.setUploadedFile(file);
+              }
             }}
             className="hidden"
             id="file-upload"
           />
           <label
             htmlFor="file-upload"
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 cursor-pointer"
+            className="mt-4 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 cursor-pointer"
           >
             Seleccionar Archivo
           </label>
         </div>
-      </div>
 
-      {/* Botón de retroceso */}
-      <div className="flex justify-start mt-6">
-        <button
-          type="button"
-          onClick={wizard.goBack}
-          className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver a selección de compañía
-        </button>
-      </div>
-    </div>
-  );
-
-  // Paso 4: Extraer Datos
-  const renderExtractStep = () => (
-    <div className="max-w-2xl mx-auto p-6">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          {wizard.processing ? (
-            <Loader2 className="w-8 h-8 text-yellow-600 animate-spin" />
-          ) : (
-            <FileCheck className="w-8 h-8 text-yellow-600" />
-          )}
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">
-          {wizard.processing ? 'Procesando Documento' : 'Procesar Documento'}
-        </h2>
-        <p className="text-gray-600">
-          {wizard.processing 
-            ? 'Azure AI está extrayendo los datos de la póliza...'
-            : 'Haga clic para iniciar el procesamiento con Azure AI'
-          }
-        </p>
-      </div>
-
-      {/* Archivo seleccionado */}
-      {wizard.uploadedFile && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center">
-            <FileText className="w-4 h-4 text-blue-600 mr-2" />
-            <span className="text-sm font-medium text-blue-900">Archivo:</span>
-            <span className="text-sm text-blue-800 ml-2">{wizard.uploadedFile.name}</span>
+        {wizard.uploadedFile && (
+          <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center">
+              <FileText className="w-5 h-5 text-green-600 mr-2" />
+              <span className="font-medium text-green-800">{wizard.uploadedFile.name}</span>
+              <span className="ml-2 text-sm text-green-600">
+                ({(wizard.uploadedFile.size / 1024 / 1024).toFixed(2)} MB)
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Botón de procesamiento */}
-      {!wizard.processing && !wizard.extractedData && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
+        <div className="mt-6 pt-6 border-t border-gray-200 flex justify-between">
           <button
-            type="button"
-            onClick={wizard.processDocument}
-            className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-yellow-600 to-orange-600 text-white rounded-lg hover:from-yellow-700 hover:to-orange-700 transition-all shadow-lg"
+            onClick={() => wizard.goBack()}
+            className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
           >
-            <FileCheck className="w-5 h-5 mr-2" />
-            Procesar con Azure AI
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Volver a compañías
           </button>
-        </div>
-      )}
 
-      {/* Indicador de procesamiento */}
-      {wizard.processing && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-          <Loader2 className="w-12 h-12 animate-spin mx-auto text-yellow-600 mb-4" />
-          <p className="text-gray-600">Extrayendo datos del documento...</p>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-4">
-            <div className="bg-yellow-600 h-2 rounded-full animate-pulse" style={{ width: '65%' }}></div>
-          </div>
+          {wizard.uploadedFile && (
+            <button
+              onClick={() => wizard.processDocument()}
+              className="flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Procesar Documento
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </button>
+          )}
         </div>
-      )}
-
-      {/* Error de procesamiento */}
-      {wizard.error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center">
-            <AlertTriangle className="w-4 h-4 text-red-600 mr-2" />
-            <span className="text-sm text-red-800">{wizard.error}</span>
-          </div>
-        </div>
-      )}
-
-      {/* Botón de retroceso */}
-      <div className="flex justify-start mt-6">
-        <button
-          type="button"
-          onClick={wizard.goBack}
-          disabled={wizard.processing}
-          className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800 disabled:opacity-50"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Volver a subir archivo
-        </button>
       </div>
     </div>
   );
 
-  // Paso 5: Formulario Final Completo (como DocumentScanner)
-  const renderFormStep = () => (
-    <div className="max-w-6xl mx-auto p-6">
+  // 4. PASO: Procesamiento y Extracción
+  const renderExtractStep = () => (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Eye className="w-8 h-8 text-purple-600" />
-        </div>
-        <div className="flex items-center justify-center gap-4 mb-4">
-          <h2 className="text-3xl font-bold text-gray-900">Información Extraída de Póliza</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Procesando Documento</h2>
+        <p className="text-gray-600">Azure Document Intelligence está extrayendo los datos...</p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <div className="text-center">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
+            <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Procesando...</h3>
+          <p className="text-gray-600 mb-6">
+            Esto puede tomar unos segundos mientras extraemos los datos de la póliza
+          </p>
           
-          {/* BOTONES DE EDICIÓN */}
-          {!isEditing ? (
-            <button
-              type="button"
-              onClick={handleStartEditing}
-              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="bg-purple-600 h-2 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  // 5. PASO: Formulario con Tabs (solo se muestra cuando hay datos extraídos)
+  const renderFormStep = () => {
+    // Opciones para selects
+    const estadosTramite = [
+      { value: '1', label: 'Nuevo' },
+      { value: '2', label: 'Pendiente' },
+      { value: '3', label: 'Aprobado' },
+      { value: '4', label: 'Rechazado' }
+    ];
+
+    const estadosPoliza = [
+      { value: '1', label: 'VIGENTE' },
+      { value: '0', label: 'NO VIGENTE' },
+      { value: '2', label: 'CANCELADO' },
+      { value: '3', label: 'VENCIDA' },
+      { value: '4', label: 'ANTECEDENTE' }
+    ];
+
+    const formasPago = [
+      { value: 'CONTADO', label: 'Contado' },
+      { value: 'FINANCIADO', label: 'Financiado' },
+      { value: 'MENSUAL', label: 'Mensual' },
+      { value: 'TRIMESTRAL', label: 'Trimestral' },
+      { value: 'SEMESTRAL', label: 'Semestral' },
+      { value: 'ANUAL', label: 'Anual' }
+    ];
+
+    const monedas = [
+      { value: 'UYU', label: 'Pesos Uruguayos (UYU)' },
+      { value: 'USD', label: 'Dólares (USD)' },
+      { value: 'EUR', label: 'Euros (EUR)' }
+    ];
+
+    // Tabs de navegación
+    const tabs = [
+      { id: 'basicos', label: 'Datos Básicos', icon: FileText },
+      { id: 'cliente', label: 'Cliente', icon: User },
+      { id: 'vehiculo', label: 'Vehículo', icon: Car },
+      { id: 'financiero', label: 'Financiero', icon: DollarSign },
+      { id: 'cobertura', label: 'Cobertura', icon: Shield },
+      { id: 'gestion', label: 'Gestión', icon: Settings }
+    ];
+
+    // Función para actualizar campos - USANDO TIPOS UNIFICADOS
+    const updateFormData = (field: keyof PolizaFormDataComplete, value: any) => {
+      setFormData(prev => ({
+        ...prev,
+        [field]: value
+      }));
+    };
+
+    // Componente reutilizable para campos - USANDO TIPOS UNIFICADOS
+    const InputField: React.FC<{
+      label: string;
+      field: keyof PolizaFormDataComplete;
+      value: any;
+      type?: string;
+      placeholder?: string;
+      icon?: any;
+      required?: boolean;
+      options?: { value: string; label: string }[];
+      disabled?: boolean;
+    }> = ({ label, field, value, type = "text", placeholder, icon: Icon, required, options, disabled }) => {
+      
+      if (options) {
+        return (
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              {label} {required && <span className="text-red-500">*</span>}
+            </label>
+            <select
+              value={value || ''}
+              onChange={(e) => updateFormData(field, e.target.value)}
+              disabled={disabled}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100"
             >
-              <Edit3 className="w-4 h-4 mr-2" />
-              Revisar y Editar
-            </button>
-          ) : (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={handleSaveChanges}
-                className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-              >
-                <Check className="w-4 h-4 mr-2" />
-                Guardar
-              </button>
-              <button
-                type="button"
-                onClick={handleCancelEditing}
-                className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-              >
-                <X className="w-4 h-4 mr-2" />
-                Cancelar
-              </button>
-            </div>
-          )}
-        </div>
-        
-        <p className="text-gray-600">
-          Archivo: {wizard.uploadedFile?.name} • Procesado con Azure AI
-          {isEditing && <span className="text-blue-600 font-medium ml-2">• Modo edición activo</span>}
-        </p>
-      </div>
+              <option value="">Seleccionar...</option>
+              {options.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        );
+      }
 
-      {/* Resumen del contexto */}
-      <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-4 mb-8 border border-purple-200">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-6">
-            <div className="flex items-center">
-              <User className="w-4 h-4 text-purple-600 mr-2" />
-              <span className="text-sm font-medium text-purple-900">Cliente:</span>
-              <span className="text-sm text-purple-800 ml-1">{wizard.selectedCliente?.clinom}</span>
-            </div>
-            <div className="flex items-center">
-              <Building2 className="w-4 h-4 text-purple-600 mr-2" />
-              <span className="text-sm font-medium text-purple-900">Compañía:</span>
-              <span className="text-sm text-purple-800 ml-1">{wizard.selectedCompany?.comnom}</span>
-            </div>
-            <div className="flex items-center">
-              <FileText className="w-4 h-4 text-purple-600 mr-2" />
-              <span className="text-sm font-medium text-purple-900">Archivo:</span>
-              <span className="text-sm text-purple-800 ml-1">{wizard.uploadedFile?.name}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Métricas de procesamiento */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center">
-            <div className="bg-blue-100 p-2 rounded-lg">
-              <FileText className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-600">Campos Completos</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {Object.values(formData).filter(v => v && v !== '' && v !== 0).length}
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center">
-            <div className="bg-green-100 p-2 rounded-lg">
-              <CheckCircle className="w-5 h-5 text-green-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-600">% Completitud</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {Math.round((Object.values(formData).filter(v => v && v !== '' && v !== 0).length / Object.keys(formData).length) * 100)}%
-              </p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center">
-            <div className="bg-yellow-100 p-2 rounded-lg">
-              <Eye className="w-5 h-5 text-yellow-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-600">Estado</p>
-              <p className="text-lg font-semibold text-gray-900">Procesado</p>
-            </div>
-          </div>
-        </div>
-        
-        <div className="bg-white rounded-lg p-4 border border-gray-200">
-          <div className="flex items-center">
-            <div className="bg-purple-100 p-2 rounded-lg">
-              <Building className="w-5 h-5 text-purple-600" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-gray-600">Listo para Velneo</p>
-              <p className="text-lg font-semibold text-gray-900">
-                {formData.numeroPoliza && formData.asegurado ? 'Sí' : 'No'}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Formulario completo */}
-      <form onSubmit={handleSubmit} className="space-y-8">
-        
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Columna izquierda */}
-          <div className="space-y-6">
-            
-            {/* 1. INFORMACIÓN DE LA PÓLIZA */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                  Información de la Póliza
-                </h3>
+      return (
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            {label} {required && <span className="text-red-500">*</span>}
+          </label>
+          <div className="relative">
+            {Icon && (
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <Icon className="h-4 w-4 text-gray-400" />
               </div>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Número de Póliza"
-                    field="numeroPoliza"
-                    value={formData.numeroPoliza}
-                    icon={Hash}
-                    required
-                  />
-                  <InputField
-                    label="Año"
-                    field="anio"
-                    value={formData.anio}
-                    type="number"
-                    icon={Calendar}
-                  />
+            )}
+            <input
+              type={type}
+              value={value || ''}
+              onChange={(e) => updateFormData(field, type === 'number' ? Number(e.target.value) : e.target.value)}
+              placeholder={placeholder}
+              disabled={disabled}
+              className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent disabled:bg-gray-100 ${
+                Icon ? 'pl-10' : ''
+              }`}
+            />
+          </div>
+        </div>
+      );
+    };
+
+    const renderTabContent = () => {
+      switch (activeTab) {
+        case 'basicos':
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <FileText className="w-5 h-5 mr-2 text-blue-600" />
+                    Información Básica de la Póliza
+                  </h3>
                 </div>
-                
-                {/* AGREGAR CAMPO COMPAÑÍA CON TICK EN ESQUINA */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Compañía Aseguradora
-                  </label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <Building2 className="h-4 w-4 text-gray-400" />
-                    </div>
-                    <input
-                      type="text"
-                      value={wizard.selectedCompany?.comnom || ''}
-                      readOnly
-                      className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-700"
-                      placeholder="Compañía seleccionada"
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Número de Póliza"
+                      field="numeroPoliza"
+                      value={formData.numeroPoliza}
+                      icon={Hash}
+                      required
+                      placeholder="Ej: 9603235"
                     />
-                    {wizard.selectedCompany?.comnom && (
-                      <div className="absolute -top-1 -right-1">
-                        <CheckCircle className="h-4 w-4 text-green-500 bg-white rounded-full" />
-                      </div>
-                    )}
+                    <InputField
+                      label="Endoso"
+                      field="endoso"
+                      value={formData.endoso}
+                      placeholder="Opcional"
+                    />
                   </div>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Vigencia Desde"
-                    field="vigenciaDesde"
-                    value={formData.vigenciaDesde}
-                    type="text"
-                    icon={Calendar}
-                    placeholder="dd/mm/aaaa"
-                  />
-                  <InputField
-                    label="Vigencia Hasta"
-                    field="vigenciaHasta"
-                    value={formData.vigenciaHasta}
-                    type="text"
-                    icon={Calendar}
-                    placeholder="dd/mm/aaaa"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Plan"
-                    field="plan"
-                    value={formData.plan}
-                    placeholder="No detectado"
-                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Vigencia Desde"
+                      field="vigenciaDesde"
+                      value={formData.vigenciaDesde}
+                      type="date"
+                      icon={Calendar}
+                      required
+                    />
+                    <InputField
+                      label="Vigencia Hasta"
+                      field="vigenciaHasta"
+                      value={formData.vigenciaHasta}
+                      type="date"
+                      icon={Calendar}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Estado del Trámite"
+                      field="estadoTramite"
+                      value={formData.estadoTramite}
+                      options={estadosTramite}
+                      required
+                    />
+                    <InputField
+                      label="Estado de la Póliza"
+                      field="estadoPoliza"
+                      value={formData.estadoPoliza}
+                      options={estadosPoliza}
+                      required
+                    />
+                  </div>
+
                   <InputField
                     label="Ramo"
                     field="ramo"
                     value={formData.ramo}
-                    placeholder="No detectado"
+                    disabled
                   />
                 </div>
               </div>
             </div>
+          );
 
-            {/* 2. DATOS DEL CLIENTE */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <User className="w-5 h-5 mr-2 text-green-600" />
-                  Datos del Cliente
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <InputField
-                  label="Nombre del Asegurado"
-                  field="asegurado"
-                  value={formData.asegurado}
-                  icon={User}
-                  required
-                  alwaysReadOnly={true} // SIEMPRE BLOQUEADO - dato del cliente
-                />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Documento"
-                    field="documento"
-                    value={formData.documento}
-                    icon={Hash}
-                    placeholder="No detectado"
-                    alwaysReadOnly={true} // SIEMPRE BLOQUEADO - dato del cliente
-                  />
-                  <InputField
-                    label="Email"
-                    field="email"
-                    value={formData.email}
-                    type="email"
-                    icon={Mail}
-                    placeholder="No detectado"
-                    alwaysReadOnly={true} // SIEMPRE BLOQUEADO - dato del cliente
-                  />
+        case 'cliente':
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <User className="w-5 h-5 mr-2 text-green-600" />
+                    Datos del Cliente
+                  </h3>
                 </div>
-                
-                <InputField
-                  label="Dirección"
-                  field="direccion"
-                  value={formData.direccion}
-                  icon={MapPin}
-                  placeholder="No detectado"
-                  alwaysReadOnly={true} // SIEMPRE BLOQUEADO - dato del cliente
-                />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-6 space-y-4">
                   <InputField
-                    label="Localidad"
-                    field="localidad"
-                    value={formData.localidad}
+                    label="Nombre del Asegurado"
+                    field="asegurado"
+                    value={formData.asegurado}
+                    icon={User}
+                    required
+                    disabled
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Documento"
+                      field="documento"
+                      value={formData.documento}
+                      icon={Hash}
+                      placeholder="Cédula de identidad"
+                      disabled
+                    />
+                    <InputField
+                      label="Email"
+                      field="email"
+                      value={formData.email}
+                      type="email"
+                      icon={Mail}
+                      placeholder="correo@ejemplo.com"
+                      disabled
+                    />
+                  </div>
+
+                  <InputField
+                    label="Dirección (Domicilio)"
+                    field="direccion"
+                    value={formData.direccion}
                     icon={MapPin}
-                    placeholder="No detectado"
-                    alwaysReadOnly={true} // SIEMPRE BLOQUEADO - dato del cliente
+                    placeholder="Dirección completa"
+                    disabled
                   />
-                  <InputField
-                    label="Departamento"
-                    field="departamento"
-                    value={formData.departamento}
-                    icon={MapPin}
-                    placeholder="No detectado"
-                    alwaysReadOnly={true} // SIEMPRE BLOQUEADO - dato del cliente
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
 
-          {/* Columna derecha */}
-          <div className="space-y-6">
-            
-            {/* 3. DATOS DEL VEHÍCULO */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Car className="w-5 h-5 mr-2 text-purple-600" />
-                  Datos del Vehículo
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <InputField
-                  label="Descripción del Vehículo"
-                  field="vehiculo"
-                  value={formData.vehiculo}
-                  icon={Car}
-                  placeholder="No detectado"
-                />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Marca"
-                    field="marca"
-                    value={formData.marca}
-                    placeholder="No detectado"
-                  />
-                  <InputField
-                    label="Modelo"
-                    field="modelo"
-                    value={formData.modelo}
-                    placeholder="No detectado"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Motor"
-                    field="motor"
-                    value={formData.motor}
-                    placeholder="No detectado"
-                  />
-                  <InputField
-                    label="Chasis"
-                    field="chasis"
-                    value={formData.chasis}
-                    placeholder="No detectado"
-                  />
-                </div>
-                
-                <InputField
-                  label="Matrícula"
-                  field="matricula"
-                  value={formData.matricula}
-                  placeholder="No detectado"
-                />
-              </div>
-            </div>
-
-            {/* 4. INFORMACIÓN FINANCIERA */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <DollarSign className="w-5 h-5 mr-2 text-green-600" />
-                  Información Financiera
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Prima Comercial"
-                    field="primaComercial"
-                    value={formData.primaComercial}
-                    type="number"
-                    step="0.01"
-                    icon={DollarSign}
-                    placeholder="0.00"
-                  />
-                  <InputField
-                    label="Premio Total"
-                    field="premioTotal"
-                    value={formData.premioTotal}
-                    type="number"
-                    step="0.01"
-                    icon={DollarSign}
-                    placeholder="0.00"
-                  />
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Moneda
-                  </label>
-                  <div className="relative">
-                    <select
-                      value={formData.moneda || 'UYU'}
-                      onChange={(e) => handleInputChange('moneda', e.target.value)}
-                      disabled={!isEditing}
-                      className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                        !isEditing ? 'bg-gray-50 text-gray-700' : 'bg-white'
-                      }`}
-                    >
-                      <option value="UYU">UYU - Peso Uruguayo</option>
-                      <option value="USD">USD - Dólar Americano</option>
-                      <option value="EUR">EUR - Euro</option>
-                    </select>
-                    {formData.moneda && (
-                      <div className="absolute -top-1 -right-1">
-                        <CheckCircle className="h-4 w-4 text-green-500 bg-white rounded-full" />
-                      </div>
-                    )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Localidad"
+                      field="localidad"
+                      value={formData.localidad}
+                      icon={MapPin}
+                      disabled
+                    />
+                    <InputField
+                      label="Departamento"
+                      field="departamento"
+                      value={formData.departamento}
+                      icon={MapPin}
+                      disabled
+                    />
                   </div>
                 </div>
               </div>
             </div>
+          );
 
-            {/* 5. CORREDOR DE SEGUROS */}
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Building className="w-5 h-5 mr-2 text-orange-600" />
-                  Corredor de Seguros
-                </h3>
-              </div>
-              <div className="p-6">
-                <InputField
-                  label="Nombre del Corredor"
-                  field="corredor"
-                  value={formData.corredor}
-                  placeholder="No detectado"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 6. OBSERVACIONES */}
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-              <Edit3 className="w-5 h-5 mr-2 text-gray-600" />
-              Observaciones
-            </h3>
-          </div>
-          <div className="p-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Observaciones adicionales
-            </label>
-            <div className="relative">
-              <textarea
-                value={formData.observaciones || ''}
-                onChange={(e) => handleInputChange('observaciones', e.target.value)}
-                readOnly={!isEditing}
-                rows={4}
-                className={`w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none ${
-                  !isEditing ? 'bg-gray-50 text-gray-700' : 'bg-white'
-                }`}
-                placeholder="Información adicional sobre la póliza..."
-              />
-              {formData.observaciones && formData.observaciones.trim() !== '' && (
-                <div className="absolute -top-1 -right-1">
-                  <CheckCircle className="h-4 w-4 text-green-500 bg-white rounded-full" />
+        case 'vehiculo':
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Car className="w-5 h-5 mr-2 text-purple-600" />
+                    Datos del Vehículo
+                  </h3>
                 </div>
-              )}
+                <div className="p-6 space-y-4">
+                  <InputField
+                    label="Descripción del Vehículo"
+                    field="vehiculo"
+                    value={formData.vehiculo}
+                    icon={Car}
+                    placeholder="Descripción completa"
+                  />
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <InputField
+                      label="Marca"
+                      field="marca"
+                      value={formData.marca}
+                      placeholder="Ej: CHEVROLET"
+                    />
+                    <InputField
+                      label="Modelo"
+                      field="modelo"
+                      value={formData.modelo}
+                      placeholder="Ej: ONIX"
+                    />
+                    <InputField
+                      label="Año"
+                      field="anioVehiculo"
+                      value={formData.anioVehiculo}
+                      type="number"
+                      placeholder="2025"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Motor"
+                      field="motor"
+                      value={formData.motor}
+                      placeholder="Número de motor"
+                    />
+                    <InputField
+                      label="Chasis"
+                      field="chasis"
+                      value={formData.chasis}
+                      placeholder="Número de chasis"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Matrícula"
+                      field="matricula"
+                      value={formData.matricula}
+                      placeholder="Placa del vehículo"
+                    />
+                    <InputField
+                      label="Categoría"
+                      field="categoria"
+                      value={formData.categoria}
+                      type="number"
+                      placeholder="Código de categoría"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+
+        case 'financiero':
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <DollarSign className="w-5 h-5 mr-2 text-orange-600" />
+                    Información Financiera
+                  </h3>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <InputField
+                      label="Prima"
+                      field="prima"
+                      value={formData.prima}
+                      type="number"
+                      icon={DollarSign}
+                      required
+                      placeholder="0.00"
+                    />
+                    <InputField
+                      label="Premio Total"
+                      field="premioTotal"
+                      value={formData.premioTotal}
+                      type="number"
+                      icon={DollarSign}
+                      placeholder="0.00"
+                    />
+                    <InputField
+                      label="Moneda"
+                      field="moneda"
+                      value={formData.moneda}
+                      options={monedas}
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <InputField
+                      label="Forma de Pago"
+                      field="formaPago"
+                      value={formData.formaPago}
+                      options={formasPago}
+                    />
+                    <InputField
+                      label="Cantidad de Cuotas"
+                      field="cuotas"
+                      value={formData.cuotas}
+                      type="number"
+                      placeholder="1"
+                    />
+                    <InputField
+                      label="Valor por Cuota"
+                      field="valorCuota"
+                      value={formData.valorCuota}
+                      type="number"
+                      placeholder="0.00"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Bonif. Siniestros (%)"
+                      field="bonificacionSiniestros"
+                      value={formData.bonificacionSiniestros}
+                      type="number"
+                      placeholder="0"
+                    />
+                    <InputField
+                      label="Bonif. Antigüedad (%)"
+                      field="bonificacionAntiguedad"
+                      value={formData.bonificacionAntiguedad}
+                      type="number"
+                      placeholder="0"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+
+        case 'cobertura':
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Shield className="w-5 h-5 mr-2 text-indigo-600" />
+                    Cobertura y Riesgo
+                  </h3>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Cobertura"
+                      field="cobertura"
+                      value={formData.cobertura}
+                      placeholder="Tipo de cobertura"
+                    />
+                    <InputField
+                      label="Deducible"
+                      field="deducible"
+                      value={formData.deducible}
+                      type="number"
+                      placeholder="0"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Responsabilidad Civil"
+                      field="responsabilidadCivil"
+                      value={formData.responsabilidadCivil}
+                      type="number"
+                      placeholder="Monto RC"
+                    />
+                    <InputField
+                      label="Capital Asegurado"
+                      field="capitalAsegurado"
+                      value={formData.capitalAsegurado}
+                      type="number"
+                      placeholder="Capital total"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+
+        case 'gestion':
+          return (
+            <div className="space-y-6">
+              <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
+                <div className="px-6 py-4 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                    <Settings className="w-5 h-5 mr-2 text-gray-600" />
+                    Gestión y Observaciones
+                  </h3>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <InputField
+                      label="Gestor"
+                      field="gestor"
+                      value={formData.gestor}
+                      icon={User}
+                      placeholder="Nombre del gestor"
+                    />
+                    <InputField
+                      label="Fecha de Ingreso"
+                      field="fechaIngreso"
+                      value={formData.fechaIngreso}
+                      type="date"
+                      icon={Calendar}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">
+                      Observaciones
+                    </label>
+                    <textarea
+                      value={formData.observaciones}
+                      onChange={(e) => updateFormData('observaciones', e.target.value)}
+                      rows={4}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      placeholder="Observaciones y comentarios adicionales..."
+                    />
+                  </div>
+
+                  <InputField
+                    label="Motivo No Renovación"
+                    field="motivoNoRenovacion"
+                    value={formData.motivoNoRenovacion}
+                    placeholder="Solo si aplica"
+                  />
+                </div>
+              </div>
+            </div>
+          );
+
+        default:
+          return (
+            <div className="text-center py-8">
+              <p className="text-gray-600">Contenido del tab en construcción...</p>
+            </div>
+          );
+      }
+    };
+
+    return (
+      <div className="w-full min-h-screen bg-gray-50">
+        <div className="w-full min-h-full">
+          
+          {/* Header con información del proceso */}
+          <div className="bg-white border-b border-gray-200 shadow-sm">
+            <div className="w-full px-6 py-6">
+              
+              {/* Información del proceso */}
+              <div className="bg-purple-50 rounded-lg p-4 mb-6">
+                <div className="flex flex-wrap items-center gap-4 text-sm">
+                  <div className="flex items-center">
+                    <User className="w-4 h-4 text-purple-600 mr-2" />
+                    <span className="text-sm font-medium text-purple-900">Cliente:</span>
+                    <span className="text-sm text-purple-800 ml-1">{wizard.selectedCliente?.clinom}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <Building2 className="w-4 h-4 text-purple-600 mr-2" />
+                    <span className="text-sm font-medium text-purple-900">Compañía:</span>
+                    <span className="text-sm text-purple-800 ml-1">{wizard.selectedCompany?.comnom}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <FileText className="w-4 h-4 text-purple-600 mr-2" />
+                    <span className="text-sm font-medium text-purple-900">Archivo:</span>
+                    <span className="text-sm text-purple-800 ml-1">{wizard.uploadedFile?.name}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabs de navegación */}
+              <div className="border-b border-gray-200">
+                <nav className="-mb-px flex space-x-8 overflow-x-auto">
+                  {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const isActive = activeTab === tab.id;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id)}
+                        className={`flex items-center py-2 px-3 border-b-2 font-medium text-sm whitespace-nowrap ${
+                          isActive
+                            ? 'border-purple-500 text-purple-600'
+                            : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4 mr-2" />
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </nav>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Botones de acción */}
-        <div className="flex justify-between items-center pt-6">
-          <button
-            type="button"
-            onClick={wizard.goBack}
-            className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver a procesamiento
-          </button>
+          {/* Contenido del tab activo */}
+          <div className="w-full flex-1 p-6">
+            {renderTabContent()}
+          </div>
+
+          {/* Botones de acción */}
+          <div className="mt-8 pt-6 border-t border-gray-200 bg-white sticky bottom-0 rounded-lg shadow-lg mx-6 mb-6">
+            <form onSubmit={handleSubmit}>
+              <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4">
+                <div className="flex items-center space-x-4">
+                  <button
+                    type="button"
+                    onClick={() => wizard.goBack()}
+                    className="flex items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Volver
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={onCancel}
+                    className="flex items-center px-6 py-3 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    <X className="w-4 h-4 mr-2" />
+                    Cancelar
+                  </button>
+                </div>
+
+                <div className="flex items-center space-x-4">
+                  <div className="text-sm text-gray-600">
+                    Campos completados: <span className="font-semibold text-purple-600">
+                      {Object.values(formData).filter(v => v && v !== '' && v !== 0).length} / {Object.keys(formData).length}
+                    </span>
+                  </div>
+                  
+                  <button
+                    type="submit"
+                    disabled={saving || !formData.numeroPoliza || !formData.asegurado}
+                    className="flex items-center px-8 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-lg"
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Procesando...
+                      </>
+                    ) : (
+                      <>
+                        <Save className="w-4 h-4 mr-2" />
+                        Crear Póliza en Velneo
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // 6. PASO: Éxito
+  const renderSuccessStep = () => (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center">
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
           
-          <div className="flex space-x-4">
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">¡Póliza Creada Exitosamente!</h2>
+          <p className="text-gray-600 mb-6">
+            La póliza ha sido procesada y enviada a Velneo correctamente.
+          </p>
+          
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">
+            <div className="text-sm text-green-800">
+              <p><strong>Cliente:</strong> {wizard.selectedCliente?.clinom}</p>
+              <p><strong>Compañía:</strong> {wizard.selectedCompany?.comnom}</p>
+              <p><strong>Número de Póliza:</strong> {formData.numeroPoliza}</p>
+            </div>
+          </div>
+
+          <div className="space-x-4">
             <button
               type="button"
-              onClick={handleCancel}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              onClick={() => wizard.reset()}
+              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
             >
-              Cancelar
+              Crear Nueva Póliza
             </button>
             
-            {/* MOSTRAR "CREAR PÓLIZA" SOLO CUANDO NO ESTÁ EDITANDO */}
-            {!isEditing && (
-              <button
-                type="submit"
-                disabled={saving}
-                className="px-8 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all shadow-lg hover:shadow-xl disabled:opacity-50 flex items-center"
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creando Póliza...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4 mr-2" />
-                    Crear Póliza
-                  </>
-                )}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => window.location.href = '/dashboard'}
+              className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Volver al Dashboard
+            </button>
           </div>
         </div>
-      </form>
+      </div>
     </div>
   );
 
-  // Paso 6: Éxito
-  const renderSuccessStep = () => (
-    <div className="max-w-2xl mx-auto p-6 text-center">
-      <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-        <CheckCircle className="w-10 h-10 text-green-600" />
-      </div>
-      <h2 className="text-3xl font-bold text-gray-900 mb-4">¡Póliza Creada Exitosamente!</h2>
-      <p className="text-gray-600 mb-8">
-        La póliza ha sido procesada y enviada a Velneo correctamente.
-      </p>
+  // =================== useEffect CORREGIDO CON MAPPER UNIFICADO ===================
+  useEffect(() => {
+    if (wizard.extractedData && !initialDataLoaded && !isEditing && wizard.currentStep === 'form') {
+      console.log('🔍 Loading extracted data for first time:', wizard.extractedData);
       
-      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-8">
-        <div className="text-sm text-green-800">
-          <p><strong>Cliente:</strong> {wizard.selectedCliente?.clinom}</p>
-          <p><strong>Compañía:</strong> {wizard.selectedCompany?.comnom}</p>
-          <p><strong>Número de Póliza:</strong> {formData.numeroPoliza}</p>
-        </div>
-      </div>
+      try {
+        // USAR EL MAPPER UNIFICADO para convertir datos de Azure
+        const mappedData = PolizaFormMapper.fromAzureResponse(wizard.extractedData.polizaData || wizard.extractedData);
+        
+        console.log('🔄 Mapped data from Azure:', mappedData);
+        
+        // Actualizar estado del formulario
+        setFormData(prev => ({
+          ...prev,
+          ...mappedData,
+          // Mantener algunos valores por defecto
+          estadoTramite: prev.estadoTramite,
+          estadoPoliza: prev.estadoPoliza,
+          moneda: prev.moneda,
+          observaciones: prev.observaciones
+        }));
+        
+        setInitialDataLoaded(true);
+        console.log('✅ Form data loaded from Azure extraction using unified mapper');
+        
+      } catch (error) {
+        console.error('❌ Error mapping Azure data:', error);
+        setInitialDataLoaded(true); // Marcar como cargado para evitar loops
+      }
+    }
+  }, [wizard.extractedData, initialDataLoaded, isEditing, wizard.currentStep]);
 
-      <button
-        type="button"
-        onClick={() => window.location.href = '/dashboard'}
-        className="px-8 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-      >
-        Volver al Dashboard
-      </button>
-    </div>
-  );
+  // =================== Función CORREGIDA para manejar envío del formulario ===================
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.numeroPoliza || !formData.asegurado) {
+      alert('Los campos Número de Póliza y Asegurado son requeridos');
+      return;
+    }
+
+    setSaving(true);
+    
+    try {
+      console.log('📋 Submitting form with unified types...');
+      console.log('📊 Form data:', formData);
+      
+      // Agregar metadatos del procesamiento
+      const completeFormData: PolizaFormDataComplete = {
+        ...formData,
+        documentoId: wizard.extractedData?.documentId,
+        archivoOriginal: wizard.uploadedFile?.name,
+        procesadoConIA: true
+      };
+      
+      console.log('🚀 Complete form data to submit:', completeFormData);
+      
+      const result = await wizard.createPoliza(completeFormData);
+      
+      if (onComplete) {
+        onComplete(result);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error al crear póliza:', error);
+      alert('Error al crear la póliza: ' + (error as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // =================== RENDERIZADO PRINCIPAL ===================
 
@@ -1190,6 +1071,22 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
       <div className="py-8">
         {renderCurrentStep()}
       </div>
+
+      {/* Mostrar errores si los hay */}
+      {wizard.error && (
+        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg">
+          <div className="flex items-center">
+            <AlertTriangle className="w-5 h-5 mr-2" />
+            <span>{wizard.error}</span>
+            <button
+              onClick={() => wizard.setError(null)}
+              className="ml-2 text-red-500 hover:text-red-700"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

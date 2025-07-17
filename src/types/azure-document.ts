@@ -1,187 +1,157 @@
-export interface AzureDocumentRequest {
-  file: File;
-}
-
-export interface AzureDatosFormateados {
-  numeroPoliza: string;
-  asegurado: string;
-  documento: string;
-  vehiculo: string;
-  marca: string;
-  modelo: string;
-  matricula: string;
-  motor: string;
-  chasis: string;
-  primaComercial: number;
-  premioTotal: number;
-  vigenciaDesde: string | null;
-  vigenciaHasta: string | null;
-  corredor: string;
-  plan: string;
-  ramo: string;
-  anio: string;
-  email: string;
-  direccion: string;
-  departamento: string;
-  localidad: string;
-  compania: string;
-  telefono: number;
-  // Propiedades calculadas del backend
-  tieneDatosMinimos?: boolean;
-  camposCompletos?: number;
-}
-
-export interface AzureClienteInfo {
-  id: number | null;
-  nombre: string;
-  documento: string;
-  telefono?: string;
-  email?: string;
-  direccion?: string;
-  // Propiedades calculadas del backend
-  tieneContacto?: boolean;
-  contactoPrincipal?: string;
-}
-
-export interface AzureClienteMatch {
-  cliente: AzureClienteInfo;
-  score: number;
-  criterio: string;
-  coincidencias: string[];
-  // Propiedades calculadas del backend
-  esAltaConfianza?: boolean;
-  esMediaConfianza?: boolean;
-  esBajaConfianza?: boolean;
-  nivelConfianza?: string;
-}
-
-export interface AzureBusquedaCliente {
-  tipoResultado: 'MatchExacto' | 'MatchMuyProbable' | 'MultiplesMatches' | 'SinCoincidencias';
-  mensaje: string;
-  requiereIntervencion: boolean;
-  clientesEncontrados: number;
-  matches: AzureClienteMatch[];
-  // Propiedades calculadas del backend
-  tieneMatches?: boolean;
-  esMatchExacto?: boolean;
-  sonMultiplesMatches?: boolean;
-  mejorMatch?: AzureClienteMatch;
-}
-
-export interface AzureResumen {
-  procesamientoExitoso: boolean;
-  numeroPolizaExtraido: string;
-  clienteExtraido: string;
-  documentoExtraido: string;
-  vehiculoExtraido: string;
-  clienteEncontrado: boolean;
-  listoParaVelneo: boolean;
-  // Propiedades calculadas del backend
-  estadoGeneral?: string;
-  porcentajeCompletitud?: number;
-}
-
 export interface AzureProcessResponse {
-  archivo: string;
-  timestamp: string;
-  tiempoProcesamiento: number;
-  estado: string;
-  datosFormateados: AzureDatosFormateados;
-  busquedaCliente: AzureBusquedaCliente;
-  siguientePaso: string;
-  resumen: AzureResumen;
-  // Propiedades calculadas del backend
-  procesamientoExitoso?: boolean;
-  requiereIntervencion?: boolean;
-  listoParaVelneo?: boolean;
+  estado: string;                    // Nombre del archivo procesado
+  timestamp: string;                 // Timestamp del procesamiento
+  tiempoProcesamiento: number;       // Tiempo en ms
+  estadoFormateado: string;          // Estado formateado (TERMINADO, ERROR, etc.)
+  datosFormateados: DatosFormateados;
+  documentoId?: string;              // ID del documento si está disponible
+  confianzaExtraccion?: number;      // Confianza general
+  requiereRevision?: boolean;        // Si requiere revisión manual
+  resumen?: any;                     // Resumen del procesamiento
 }
 
-export interface AzureBatchError {
-  archivo: string;
-  error: string;
-  timestamp: string;
-  codigoError?: string;
-  detallesTecnicos?: string;
-  // Propiedades calculadas del backend
-  esErrorDeArchivo?: boolean;
-  esErrorDeRed?: boolean;
-  esErrorDeAzure?: boolean;
-}
-
-export interface AzureBatchEstadisticas {
-  totalProcesados: number;
-  totalErrores: number;
-  porcentajeExito: number;
-  clientesEncontrados: number;
-  listosParaVelneo: number;
-  requierenIntervencion: number;
-  resumenTexto?: string;
-}
-
-export interface AzureBatchResponse {
-  procesados: number;
-  errores: number;
-  totalArchivos: number;
-  resultados: AzureProcessResponse[];
-  erroresDetalle: AzureBatchError[];
-  fechaProcesamiento: string;
-  tiempoTotalProcesamiento: number;
-  // Propiedades calculadas del backend
-  porcentajeExito?: number;
-  todosExitosos?: boolean;
-  algunosExitosos?: boolean;
-  tiempoPromedioPorArchivo?: number;
-  estadisticas?: AzureBatchEstadisticas;
-}
-
-export interface AzureModelHealth {
-  estaOperativo: boolean;
-  tieneConexion: boolean;
-  ultimaVerificacion: string;
-  mensaje: string;
-  nivel: 'success' | 'warning' | 'error' | 'info';
-  iconoEstado?: string;
-  mensajeCompleto?: string;
-}
-
-export interface AzureModelInfoResponse {
-  modelId: string;
-  endpoint: string;
-  status: string;
-  workingApiUrl?: string;
-  httpStatus?: string;
-  description?: string;
-  createdOn?: string;
-  docTypes?: string[];
-  apiVersion?: string;
-  warning?: string;
-  message?: string;
-  consultaTimestamp: string;
-  // Propiedades calculadas del backend
-  estaActivo?: boolean;
-  tieneAdvertencias?: boolean;
-  estadoSimplificado?: string;
-  health?: AzureModelHealth;
-}
-
-export interface AzureErrorResponse {
-  error: string;
-  archivo?: string;
-  timestamp: string;
-  tiempoProcesamiento: number;
-  estado: string;
-  codigoError?: string;
-  detallesTecnicos?: string;
-  sugerencias?: string[];
-}
-
-export interface DatosClienteExtraidos {
-  nombre: string;
-  documento: string;
-  email?: string;
-  telefono?: string;
+// Estructura de datos formateados extraídos por Azure
+export interface DatosFormateados {
+  numeroPoliza?: string;
+  asegurado?: string;
+  compania?: string;
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  vigenciaDesde?: string;            // Fecha en formato ISO
+  vigenciaHasta?: string;            // Fecha en formato ISO
+  plan?: string;
+  ramo?: string;
+  prima?: number;
+  primaComercial?: number;
+  premioTotal?: number;
   direccion?: string;
-  localidad?: string;
   departamento?: string;
-  confidenceScore?: number;
+  localidad?: string;
+  telefono?: string;
+  email?: string;
+  corredor?: string;
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
+  listaParaVelneo?: boolean;         // Si está listo para Velneo
+  camposCompletos?: number;          // Cantidad de campos completados
+}
+
+// Estructura para campos extraídos (para mostrar en UI)
+export interface ExtractedField {
+  field: string;
+  value: string;
+  confidence: number;
+  needsReview: boolean;
+}
+
+// Estructura para el resultado del procesamiento (lo que usa el wizard)
+export interface DocumentProcessResult {
+  documentId: string;
+  nombreArchivo: string;
+  estadoProcesamiento: string;
+  
+  // Campos principales extraídos
+  numeroPoliza?: string;
+  asegurado?: string;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  prima?: number;
+  compania?: string;
+  
+  // Metadatos del procesamiento
+  nivelConfianza?: number;
+  requiereVerificacion?: boolean;
+  readyForVelneo?: boolean;
+  
+  // Datos estructurados para el formulario
+  polizaData?: {
+    datosFormateados: DatosFormateados;
+    resumen?: any;
+    documentId: string;
+    timestamp?: string;
+    tiempoProcesamiento?: number;
+    estadoFormateado?: string;
+    camposCompletos?: number;
+  };
+  
+  // Campos extraídos para mostrar en la UI
+  extractedFields?: ExtractedField[];
+}
+
+// Interfaces para compatibilidad con el wizard existente
+export interface Cliente {
+  id: number;
+  clinom: string;
+  cliced?: string;
+  cliruc?: string;
+  telefono?: string;
+  cliemail?: string;
+  clidir?: string;
+  activo: boolean;
+}
+
+export interface Company {
+  id: number;
+  comnom: string;
+  comalias: string;
+  cod_srvcompanias?: string;
+  broker: boolean;
+  activo: boolean;
+}
+
+// Tipos para el mapeo a Velneo
+export interface VelneoPolizaData {
+  // IDs de relaciones
+  comcod: number;
+  clinro: number;
+  
+  // Datos básicos mapeados
+  conpol: string;                    // numeroPoliza
+  conend?: string;                   // endoso
+  confchdes: string;                 // vigenciaDesde
+  confchhas: string;                 // vigenciaHasta
+  contra: string;                    // estadoTramite
+  convig: string;                    // estadoPoliza
+  
+  // Cliente
+  clinom: string;                    // asegurado
+  condom?: string;                   // direccion
+  
+  // Vehículo
+  conmaraut?: string;                // marca
+  conanioaut?: number;               // anioVehiculo
+  conmotor?: string;                 // motor
+  conchasis?: string;                // chasis
+  conmataut?: string;                // matricula
+  concaraut?: number;                // categoria
+  
+  // Financiero
+  conpremio: number;                 // prima
+  contot?: number;                   // premioTotal
+  moncod?: number;                   // moneda (0=UYU, 1=USD)
+  concuo?: number;                   // cuotas
+  forpagvid?: string;                // formaPago
+  
+  // Cobertura
+  condedaut?: number;                // deducible
+  conresciv?: number;                // responsabilidadCivil
+  concapaut?: number;                // capitalAsegurado
+  
+  // Bonificaciones
+  conbonnsin?: number;               // bonificacionSiniestros
+  conbonant?: number;                // bonificacionAntiguedad
+  
+  // Gestión
+  conges?: string;                   // gestor
+  congesfi?: string;                 // fechaIngreso
+  observaciones?: string;            // observaciones
+  mot_no_ren?: string;               // motivoNoRenovacion
+  
+  // Metadatos
+  documentoId?: string;
+  archivoOriginal?: string;
+  procesadoConIA?: boolean;
+  ramo?: string;
 }

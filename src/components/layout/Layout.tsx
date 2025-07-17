@@ -1,4 +1,3 @@
-// src/components/layout/Layout.tsx - Actualizado con el PolizaWizard
 import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -10,8 +9,8 @@ import {
   X,
   LogOut,
   User,
-  Wand2,  // NUEVO: Icono del wizard
-  Sparkles // NUEVO: Icono para efectos
+  Wand2,
+  Sparkles
 } from 'lucide-react';
 
 const Layout: React.FC = () => {
@@ -23,8 +22,9 @@ const Layout: React.FC = () => {
   const getCurrentPage = () => {
     const path = location.pathname;
     if (path.includes('/dashboard')) return 'dashboard';
-    if (path.includes('/wizard')) return 'wizard'; // NUEVO
-    if (path.includes('/scanner')) return 'scanner';
+    if (path.includes('/wizard')) return 'wizard';
+    // /scanner redirige a /wizard automáticamente
+    if (path.includes('/scanner')) return 'wizard';
     if (path.includes('/settings')) return 'settings';
     return 'dashboard';
   };
@@ -36,19 +36,15 @@ const Layout: React.FC = () => {
     navigate(`/${page}`);
   };
 
-  // Datos de las páginas - ACTUALIZADO
+  // Datos de las páginas
   const pages = {
     dashboard: {
       title: 'Dashboard',
       subtitle: 'Procesamiento inteligente de documentos de seguros'
     },
-    wizard: { // NUEVO
+    wizard: {
       title: 'Asistente de Pólizas IA',
       subtitle: 'Creación automatizada paso a paso con Azure Document Intelligence'
-    },
-    scanner: {
-      title: 'Procesamiento de Documentos', 
-      subtitle: 'Sube documentos PDF para procesamiento automático'
     },
     settings: {
       title: 'Configuración',
@@ -57,7 +53,7 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
+    <div className="min-h-screen bg-gray-50 flex w-full">
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-64' : 'w-16'} bg-white shadow-lg transition-all duration-300 flex flex-col fixed h-full z-10`}>
         {/* Header del Sidebar */}
@@ -80,7 +76,7 @@ const Layout: React.FC = () => {
         {/* Navigation */}
         <nav className="flex-1 p-4">
           <div className="space-y-2">
-            {/* Dashboard - MANTENER */}
+            {/* Dashboard */}
             <div 
               className={`group flex items-center p-3 rounded-lg transition-colors cursor-pointer ${
                 currentPage === 'dashboard' 
@@ -102,7 +98,7 @@ const Layout: React.FC = () => {
               )}
             </div>
 
-            {/* NUEVO: Asistente IA Wizard */}
+            {/* WIZARD PRINCIPAL - Herramienta consolidada */}
             <div 
               className={`group flex items-center p-3 rounded-lg transition-colors cursor-pointer ${
                 currentPage === 'wizard' 
@@ -119,7 +115,7 @@ const Layout: React.FC = () => {
                       currentPage === 'wizard' ? 'text-purple-900' : 'text-gray-700'
                     }`}>Asistente IA</span>
                     <span className="ml-2 px-2 py-0.5 text-xs bg-purple-100 text-purple-700 rounded-full font-medium">
-                      NUEVO
+                      PRINCIPAL
                     </span>
                   </div>
                   {currentPage !== 'wizard' && (
@@ -136,23 +132,19 @@ const Layout: React.FC = () => {
               )}
             </div>
             
-            {/* Scanner/Procesamiento - MANTENER pero renombrar */}
+            {/* ACCESO RÁPIDO AL PROCESAMIENTO - También va al wizard */}
             <div 
               className={`group flex items-center p-3 rounded-lg transition-colors cursor-pointer ${
-                currentPage === 'scanner' 
-                  ? 'bg-green-50 border-r-4 border-green-500' 
-                  : 'hover:bg-gray-50'
+                'hover:bg-gray-50'
               }`}
-              onClick={() => navigateTo('scanner')}
+              onClick={() => navigateTo('wizard')}
             >
-              <Scan className={`w-5 h-5 ${currentPage === 'scanner' ? 'text-green-600' : 'text-gray-600'}`} />
+              <Scan className="w-5 h-5 text-gray-600" />
               {sidebarOpen && (
                 <div className="ml-3">
-                  <span className={`font-medium ${
-                    currentPage === 'scanner' ? 'text-green-900' : 'text-gray-700'
-                  }`}>Procesamiento</span>
+                  <span className="font-medium text-gray-700">Procesamiento</span>
                   <div className="text-xs text-gray-500 mt-0.5">
-                    Análisis directo de documentos
+                    Acceso rápido al asistente
                   </div>
                 </div>
               )}
@@ -163,7 +155,7 @@ const Layout: React.FC = () => {
               )}
             </div>
             
-            {/* Settings - MANTENER */}
+            {/* Settings */}
             <div 
               className={`group flex items-center p-3 rounded-lg transition-colors cursor-pointer ${
                 currentPage === 'settings' 
@@ -186,7 +178,7 @@ const Layout: React.FC = () => {
             </div>
           </div>
 
-          {/* NUEVO: Promoción del Wizard */}
+          {/* Promoción del Wizard */}
           {sidebarOpen && currentPage !== 'wizard' && (
             <>
               <div className="my-6 border-t border-gray-200"></div>
@@ -194,7 +186,7 @@ const Layout: React.FC = () => {
               <div className="bg-gradient-to-br from-purple-50 to-blue-50 border border-purple-200 rounded-lg p-4">
                 <div className="flex items-center mb-3">
                   <Sparkles className="w-4 h-4 text-purple-600 mr-2" />
-                  <span className="text-sm font-semibold text-purple-900">Nuevo Asistente IA</span>
+                  <span className="text-sm font-semibold text-purple-900">Herramienta Principal</span>
                 </div>
                 <p className="text-xs text-purple-700 leading-relaxed mb-3">
                   Crea pólizas completas en 30 segundos con nuestro asistente guiado paso a paso.
@@ -208,59 +200,46 @@ const Layout: React.FC = () => {
                   className="w-full text-xs bg-purple-600 text-white py-2 px-3 rounded-md hover:bg-purple-700 transition-colors flex items-center justify-center"
                 >
                   <Wand2 className="w-3 h-3 mr-1" />
-                  Probar Asistente
+                  Usar Asistente
                 </button>
               </div>
             </>
           )}
         </nav>
         
-        {/* Footer del Sidebar - MANTENER */}
+        {/* Footer del Sidebar */}
         <div className="p-4 border-t border-gray-200">
           {sidebarOpen ? (
-            <div className="space-y-2">
-              <div className="flex items-center p-2 text-sm text-gray-600">
-                <User className="w-4 h-4 mr-2" />
-                <span className="truncate">{user?.nombre || 'Usuario'}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <User className="w-8 h-8 text-gray-600 bg-gray-100 rounded-full p-1" />
+                <div className="ml-3">
+                  <div className="text-sm font-medium text-gray-900">{user?.nombre || 'Usuario'}</div>
+                </div>
               </div>
-              
               <button
                 onClick={logout}
-                className="w-full flex items-center p-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                className="p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
               >
-                <LogOut className="w-4 h-4 mr-2" />
-                <span>Cerrar Sesión</span>
+                <LogOut className="w-4 h-4" />
               </button>
             </div>
           ) : (
-            <div className="flex flex-col space-y-2">
-              <div className="group relative flex items-center justify-center p-2 text-gray-600" title={user?.nombre || 'Usuario'}>
-                <User className="w-5 h-5" />
-                <div className="absolute left-16 bg-gray-900 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  {user?.nombre || 'Usuario'}
-                </div>
-              </div>
-              
-              <button
-                onClick={logout}
-                className="group relative flex items-center justify-center p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                title="Cerrar Sesión"
-              >
-                <LogOut className="w-5 h-5" />
-                <div className="absolute left-16 bg-gray-900 text-white text-sm px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                  Cerrar Sesión
-                </div>
-              </button>
-            </div>
+            <button
+              onClick={logout}
+              className="w-full p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              <LogOut className="w-5 h-5 mx-auto" />
+            </button>
           )}
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className={`flex-1 ${sidebarOpen ? 'ml-64' : 'ml-16'} transition-all duration-300`}>
+      {/* Main Content - CORREGIDO */}
+      <div className={`flex-1 min-h-screen ${sidebarOpen ? 'ml-64' : 'ml-16'} transition-all duration-300`}>
         {/* Header - ACTUALIZADO */}
         <header className="bg-white shadow-sm border-b">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="w-full px-4 sm:px-6 lg:px-8">
             <div className="flex justify-between items-center py-6">
               <div className="flex-1">
                 <div className="flex items-center">
@@ -300,9 +279,11 @@ const Layout: React.FC = () => {
           </div>
         </header>
 
-        {/* Content Area - MANTENER */}
-        <main>
-          <Outlet />
+        {/* Content Area - CORREGIDO para ocupar todo el espacio */}
+        <main className="flex-1 min-h-[calc(100vh-140px)]">
+          <div className="w-full h-full">
+            <Outlet />
+          </div>
         </main>
       </div>
     </div>

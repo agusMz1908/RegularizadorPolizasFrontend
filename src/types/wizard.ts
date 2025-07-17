@@ -1,4 +1,3 @@
-// src/types/wizard.ts
 export interface Cliente {
   id: number;
   clinom: string;
@@ -19,21 +18,60 @@ export interface Company {
   activo: boolean;
 }
 
+// 🔧 INTERFAZ EXTENDIDA PARA INCLUIR TODOS LOS CAMPOS
 export interface DocumentProcessResult {
+  // Metadatos del documento
   documentId: string;
-  nombreArchivo: string;
+  nombreArchivo?: string;
   estadoProcesamiento: string;
-  numeroPoliza?: string;
-  asegurado?: string;
-  vigenciaDesde?: string;
-  vigenciaHasta?: string;
-  prima?: number;
-  compania?: string;
   nivelConfianza?: number;
   requiereVerificacion?: boolean;
+  requiereRevision?: boolean;
   readyForVelneo?: boolean;
+  listoParaVelneo?: boolean;
+  timestamp?: string;
+  
+  // Información básica de la póliza
+  numeroPoliza?: string;
+  anio?: string;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  plan?: string;
+  ramo?: string;
+  
+  // Datos del asegurado/cliente
+  asegurado?: string;
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
+  
+  // 🚗 DATOS DEL VEHÍCULO (CAMPOS NUEVOS)
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
+  combustible?: string;
+  
+  // 💰 INFORMACIÓN FINANCIERA (CAMPOS NUEVOS)
+  prima?: number;
+  primaComercial?: number;
+  premioTotal?: number;
+  moneda?: string;
+  
+  // Datos del corredor
+  corredor?: string;
+  compania?: string;
+  
+  // Campos técnicos
   polizaData?: any;
-  extractedFields?: ExtractedField[];
+  extractedFields?: ExtractedField[] | Record<string, any>;
+  originalResponse?: any;
+  errorMessage?: string;
 }
 
 export interface ExtractedField {
@@ -50,6 +88,47 @@ export interface PolizaFormData {
   prima: number | string;
   moneda: string;
   asegurado: string;
+  observaciones: string;
+}
+
+// 🔧 INTERFAZ EXTENDIDA PARA EL FORMULARIO COMPLETO
+export interface PolizaFormDataExtended {
+  // Información de la Póliza
+  numeroPoliza: string;
+  anio?: string | number;
+  vigenciaDesde: string;
+  vigenciaHasta: string;
+  plan?: string;
+  ramo?: string;
+  
+  // Datos del Cliente
+  asegurado: string;
+  documento?: string;
+  email?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
+  telefono?: string;
+  
+  // Datos del Vehículo
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
+  combustible?: string;
+  
+  // Información Financiera
+  prima: number | string;
+  primaComercial?: number | string;
+  premioTotal?: number | string;
+  moneda: string;
+  
+  // Corredor de Seguros
+  corredor?: string;
+  
+  // Observaciones
   observaciones: string;
 }
 
@@ -126,4 +205,3 @@ export interface WizardMetrics {
   errors: WizardError[];
   abandoned: boolean;
 }
-
