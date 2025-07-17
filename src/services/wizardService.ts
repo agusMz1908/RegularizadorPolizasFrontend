@@ -1,4 +1,3 @@
-// src/services/wizardService.ts - MAPEO CORREGIDO
 import { apiService } from './api';
 import { Cliente, Company, DocumentProcessResult, ExtractedField } from '../types/wizard';
 import { AzureProcessResponse } from '../types/azure-document';
@@ -168,6 +167,10 @@ class WizardService {
     addField('Corredor', datosFormateados.corredor, 0.90);
     addField('Email', datosFormateados.email, 0.80);
     addField('Dirección', datosFormateados.direccion, 0.75);
+    
+    // CAMPOS ESPECÍFICOS CON ETIQUETAS DE AZURE
+    addField('asegurado.localidad', datosFormateados['asegurado.localidad'] || datosFormateados.localidad, 0.80);
+    addField('asegurado.departamento', datosFormateados['asegurado.departamento'] || datosFormateados.departamento, 0.80);
 
     return fields;
   }
