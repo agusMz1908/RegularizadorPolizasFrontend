@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { usePolizaWizard } from '../../hooks/usePolizaWizard';
+
 import { 
   Home,
   Scan,
@@ -28,6 +30,14 @@ const Layout: React.FC = () => {
     if (path.includes('/settings')) return 'settings';
     return 'dashboard';
   };
+
+  const wizard = usePolizaWizard();
+
+console.log('🧪 Testing wizard hook:', {
+  currentStep: wizard.currentStep,
+  hasAuthToken: !!wizard.getAuthToken(),
+  companies: wizard.companies.length
+});
 
   const currentPage = getCurrentPage();
 

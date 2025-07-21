@@ -1,8 +1,26 @@
 import { useState, useEffect, useCallback } from 'react';
-import { wizardService } from '../services/wizardService';
-import { Cliente, Company, DocumentProcessResult, PolizaFormDataExtended } from '../types/wizard';
+import { azureDocumentService, DocumentProcessResult } from '../services/azureDocumentService';
 
+// 🎯 TIPOS DEL WIZARD
 export type WizardStep = 'cliente' | 'company' | 'upload' | 'extract' | 'form' | 'success';
+
+export interface Cliente {
+  id: number;
+  clinom: string;
+  cliced?: string;
+  cliruc?: string;
+  telefono?: string;
+  cliemail?: string;
+  clidir?: string;
+  activo: boolean;
+}
+
+export interface Company {
+  id: number;
+  comnom: string;
+  comalias: string;
+  activo: boolean;
+}
 
 export interface WizardState {
   currentStep: WizardStep;
@@ -11,40 +29,6 @@ export interface WizardState {
   uploadedFile: File | null;
   extractedData: DocumentProcessResult | null;
   isComplete: boolean;
-}
-
-export interface WizardActions {
-  // Navegación
-  goToStep: (step: WizardStep) => void;
-  goBack: () => void;
-  reset: () => void;
-  
-  // Selecciones
-  selectCliente: (cliente: Cliente) => void;
-  selectCompany: (company: Company) => void;
-  setUploadedFile: (file: File) => void;
-  
-  // Procesamiento
-  processDocument: () => Promise<void>;
-  createPoliza: (formData: PolizaFormDataExtended) => Promise<void>;
-  
-  // Estados de carga
-  loading: boolean;
-  processing: boolean;
-  error: string | null;
-  setError: (error: string | null) => void;
-  
-  // Búsquedas
-  clienteSearch: string;
-  setClienteSearch: (search: string) => void;
-  clienteResults: Cliente[];
-  searchClientes: (searchTerm: string) => Promise<void>;
-  loadingClientes: boolean;
-  
-  // Compañías
-  companies: Company[];
-  loadCompanies: () => Promise<void>;
-  loadingCompanies: boolean;
 }
 
 const initialState: WizardState = {
@@ -56,28 +40,50 @@ const initialState: WizardState = {
   isComplete: false,
 };
 
-export const usePolizaWizard = (): WizardState & WizardActions => {
-  // Estados principales
+export const usePolizaWizard = () => {
+  // 🏗️ ESTADOS PRINCIPALES
   const [state, setState] = useState<WizardState>(initialState);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [processingProgress, setProcessingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
   
-  // Estados de búsqueda
+  // 🔍 ESTADOS DE BÚSQUEDA DE CLIENTES
   const [clienteSearch, setClienteSearch] = useState('');
   const [clienteResults, setClienteResults] = useState<Cliente[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
   
-  // Estados de compañías
+  // 🏢 ESTADOS DE COMPAÑÍAS
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
 
-  // Efecto para cargar compañías al inicio
+  // 🚀 INICIALIZACIÓN
   useEffect(() => {
     loadCompanies();
+    // ✅ NO cargar clientes al inicio - solo cuando busque
   }, []);
 
-  // Navegación
+  // =====================================
+  // 🔑 UTILIDADES DE AUTENTICACIÓN
+  // =====================================
+
+  const getAuthToken = useCallback((): string | null => {
+    const tokenKey = import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token';
+    return localStorage.getItem(tokenKey);
+  }, []);
+
+  const getAuthHeaders = useCallback(() => {
+    const token = getAuthToken();
+    return {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/json',
+    };
+  }, [getAuthToken]);
+
+  // =====================================
+  // 🧭 NAVEGACIÓN DEL WIZARD
+  // =====================================
+
   const goToStep = useCallback((step: WizardStep) => {
     setState(prev => ({ ...prev, currentStep: step }));
     setError(null);
@@ -100,10 +106,15 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
         case 'extract':
           newStep = 'upload';
           newState.uploadedFile = null;
+          setProcessing(false);
+          setProcessingProgress(0);
           break;
         case 'form':
           newStep = 'extract';
           newState.extractedData = null;
+          break;
+        case 'success':
+          newStep = 'form';
           break;
         default:
           return prev;
@@ -121,9 +132,13 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
     setError(null);
     setLoading(false);
     setProcessing(false);
+    setProcessingProgress(0);
   }, []);
 
-  // Selecciones
+  // =====================================
+  // 👥 SELECCIONES
+  // =====================================
+
   const selectCliente = useCallback((cliente: Cliente) => {
     setState((prev: WizardState) => ({ 
       ...prev, 
@@ -133,6 +148,8 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
     setClienteSearch('');
     setClienteResults([]);
     setError(null);
+    
+    console.log('👤 Cliente seleccionado:', cliente);
   }, []);
 
   const selectCompany = useCallback((company: Company) => {
@@ -142,432 +159,374 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
       currentStep: 'upload' 
     }));
     setError(null);
+    
+    console.log('🏢 Compañía seleccionada:', company);
   }, []);
 
-  const setUploadedFile = useCallback((file: File) => {
+  const setUploadedFile = useCallback((file: File | null) => {
+    if (!file) {
+      setState((prev: WizardState) => ({ 
+        ...prev, 
+        uploadedFile: null 
+      }));
+      return;
+    }
+
     // Validar archivo
-    const validation = wizardService.validatePdfFile(file);
-    if (!validation.isValid) {
-      setError(validation.error || 'Archivo inválido');
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      setError('El archivo es demasiado grande. Máximo 10MB.');
+      return;
+    }
+
+    const allowedTypes = ['application/pdf'];
+    if (!allowedTypes.includes(file.type)) {
+      setError('Solo se permiten archivos PDF.');
       return;
     }
 
     setState((prev: WizardState) => ({ 
       ...prev, 
-      uploadedFile: file, 
-      currentStep: 'extract' 
+      uploadedFile: file 
     }));
     setError(null);
+    
+    console.log('📄 Archivo seleccionado:', {
+      name: file.name,
+      size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      type: file.type
+    });
   }, []);
 
-  // Búsqueda de clientes con debounce
-  const searchClientes = useCallback(async (searchTerm: string) => {
-    if (!searchTerm.trim()) {
+  // =====================================
+  // 🤖 PROCESAMIENTO CON AZURE AI
+  // =====================================
+
+  const processDocument = useCallback(async (): Promise<void> => {
+    // Validaciones previas
+    if (!state.uploadedFile) {
+      setError('No hay archivo para procesar');
+      return;
+    }
+
+    if (!state.selectedCliente) {
+      setError('Debe seleccionar un cliente primero');
+      return;
+    }
+
+    if (!state.selectedCompany) {
+      setError('Debe seleccionar una compañía primero');
+      return;
+    }
+
+    // Verificar autenticación
+    const token = getAuthToken();
+    if (!token) {
+      setError('No hay sesión activa. Por favor, inicia sesión.');
+      return;
+    }
+
+    console.log('🚀 Iniciando procesamiento Azure AI...');
+    console.log('📋 Contexto:', {
+      archivo: state.uploadedFile.name,
+      cliente: state.selectedCliente.clinom,
+      compania: state.selectedCompany.comnom,
+      token: token ? 'Presente' : 'Ausente'
+    });
+    
+    setProcessing(true);
+    setProcessingProgress(0);
+    setError(null);
+
+    // Cambiar al paso de extracción
+    setState(prev => ({ ...prev, currentStep: 'extract' }));
+
+    try {
+      // 🤖 LLAMAR AL SERVICIO AZURE
+      const result = await azureDocumentService.processDocument(
+        state.uploadedFile,
+        (progress) => {
+          setProcessingProgress(progress);
+          console.log(`📊 Progreso Azure AI: ${progress}%`);
+        }
+      );
+
+      console.log('✅ Documento procesado exitosamente:', result);
+
+      // Verificar que tenemos datos válidos
+      if (!result || !result.datosFormateados) {
+        throw new Error('No se pudieron extraer datos del documento');
+      }
+
+      // Actualizar estado con los datos extraídos
+      setState(prev => ({
+        ...prev,
+        extractedData: result,
+        currentStep: 'form'
+      }));
+
+      console.log('📝 Datos listos para formulario:', result.datosFormateados);
+
+    } catch (err: any) {
+      console.error('❌ Error procesando documento:', err);
+      setError(err.message || 'Error procesando el documento');
+      
+      // Volver al paso anterior en caso de error
+      setState(prev => ({ ...prev, currentStep: 'upload' }));
+    } finally {
+      setProcessing(false);
+    }
+  }, [state.uploadedFile, state.selectedCliente, state.selectedCompany, getAuthToken]);
+
+  // =====================================
+  // 📝 CREAR PÓLIZA FINAL
+  // =====================================
+
+  const createPoliza = useCallback(async (formData: any): Promise<void> => {
+    if (!state.selectedCliente || !state.selectedCompany || !state.extractedData) {
+      setError('Faltan datos para crear la póliza');
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setError('No hay sesión activa. Por favor, inicia sesión.');
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      console.log('💾 Creando póliza con datos:', {
+        cliente: state.selectedCliente,
+        company: state.selectedCompany,
+        formData,
+        extractedData: state.extractedData
+      });
+
+      // TODO: Implementar llamada real a tu API de pólizas
+      // const response = await fetch(`${import.meta.env.VITE_API_URL}/polizas`, {
+      //   method: 'POST',
+      //   headers: {
+      //     ...getAuthHeaders(),
+      //     'Content-Type': 'application/json',
+      //   },
+      //   body: JSON.stringify({
+      //     clienteId: state.selectedCliente.id,
+      //     companiaId: state.selectedCompany.id,
+      //     ...formData,
+      //     documentData: state.extractedData
+      //   })
+      // });
+
+      // Simular creación por ahora
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      setState(prev => ({
+        ...prev,
+        currentStep: 'success',
+        isComplete: true
+      }));
+
+      console.log('✅ Póliza creada exitosamente');
+
+    } catch (err: any) {
+      console.error('❌ Error creando póliza:', err);
+      setError(err.message || 'Error creando la póliza');
+    } finally {
+      setLoading(false);
+    }
+  }, [state.selectedCliente, state.selectedCompany, state.extractedData, getAuthToken, getAuthHeaders]);
+
+  // =====================================
+  // 🔍 BÚSQUEDA DE CLIENTES - ENDPOINT /all CORRECTO
+  // =====================================
+
+  const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
+    if (!searchTerm.trim() || searchTerm.length < 2) {
       setClienteResults([]);
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      setError('No hay sesión activa para buscar clientes');
       return;
     }
 
     setLoadingClientes(true);
-    setError(null);
-
+    
     try {
-      console.log('🔍 Searching clientes:', searchTerm);
-      const results = await wizardService.searchClientes(searchTerm, 10);
-      setClienteResults(results);
-      console.log('✅ Found clients:', results.length);
+      console.log('🔍 Buscando clientes con término:', searchTerm);
+
+      const searchUrl = `${import.meta.env.VITE_API_URL}/clientes/all`;
+      const response = await fetch(
+        `${searchUrl}?search=${encodeURIComponent(searchTerm)}`,
+        {
+          headers: getAuthHeaders(),
+          signal: AbortSignal.timeout(120000) 
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+        }
+        throw new Error(`Error buscando clientes: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      // 🔍 DEBUG: Ver estructura completa de la respuesta
+      console.log('📥 Respuesta completa del backend:', data);
+      console.log('📊 Metadata:', {
+        totalCount: data.totalCount,
+        dataSource: data.dataSource,
+        filtered: data.filtered,
+        itemsLength: data.items ? data.items.length : 'undefined'
+      });
+      
+      // Extraer clientes de la respuesta
+      const clientes = data.items || data || [];
+      
+      // 🔍 DEBUG: Verificar clientes extraídos
+      console.log('📋 Clientes extraídos:', {
+        cantidad: clientes.length,
+        primeros3: clientes.slice(0, 3).map((c: any) => ({
+          id: c.id,
+          nombre: c.clinom,
+          documento: c.cliced
+        }))
+      });
+      
+      setClienteResults(clientes);
+      console.log(`✅ Búsqueda completada: ${clientes.length} clientes mostrados de ${data.totalCount} encontrados en Velneo`);
+      
+      // 🚨 ALERTA: Si hay discrepancia entre frontend y backend
+      if (data.totalCount && clientes.length !== data.totalCount) {
+        console.warn(`⚠️ DISCREPANCIA: Backend encontró ${data.totalCount} clientes, pero frontend solo procesó ${clientes.length}`);
+        console.warn('📋 Verificar estructura de data.items:', data.items ? 'Existe' : 'No existe');
+      }
+
     } catch (err: any) {
-      console.error('❌ Error searching clientes:', err);
-      setError('Error al buscar clientes: ' + err.message);
+      console.error('❌ Error buscando clientes:', err);
+      setError('Error buscando clientes');
       setClienteResults([]);
     } finally {
       setLoadingClientes(false);
     }
-  }, []);
+  }, [getAuthToken, getAuthHeaders]);
 
-  // Cargar compañías
-  const loadCompanies = useCallback(async () => {
+  // =====================================
+  // 🏢 CARGAR COMPAÑÍAS
+  // =====================================
+
+  const loadCompanies = useCallback(async (): Promise<void> => {
+    const token = getAuthToken();
+    if (!token) {
+      console.log('⚠️ No hay token, postponiendo carga de compañías');
+      return;
+    }
+
     setLoadingCompanies(true);
-    setError(null);
-
+    
     try {
-      console.log('🏢 Loading companies...');
-      const companiesData = await wizardService.getCompaniesForLookup();
-      setCompanies(companiesData);
-      console.log('✅ Loaded companies:', companiesData.length);
+      console.log('🏢 Cargando compañías...');
+
+      // ✅ ENDPOINT CORRECTO: /api/Companies/active (compañías activas)
+      const companiesUrl = `${import.meta.env.VITE_API_URL}/Companies/active`;
+      const response = await fetch(companiesUrl, {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(15000)
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.log('⚠️ Token expirado al cargar compañías');
+          return; // No mostrar error, solo no cargar
+        }
+        throw new Error(`Error cargando compañías: ${response.status}`);
+      }
+
+      // ✅ Tu backend devuelve directamente el array de CompanyDto[]
+      const companiesList = await response.json();
+      
+      // Mapear a formato esperado por el wizard
+      const mappedCompanies = companiesList.map((company: any) => ({
+        id: company.id,
+        comnom: company.comnom,
+        comalias: company.comalias,
+        activo: company.activo
+      }));
+      
+      setCompanies(mappedCompanies);
+      console.log('🏢 Compañías cargadas:', mappedCompanies.length);
+
     } catch (err: any) {
-      console.error('❌ Error loading companies:', err);
-      setError('Error al cargar compañías: ' + err.message);
+      console.error('❌ Error cargando compañías:', err);
+      setError('Error cargando compañías');
+      setCompanies([]);
     } finally {
       setLoadingCompanies(false);
     }
-  }, []);
+  }, [getAuthToken, getAuthHeaders]);
 
-  // 🔧 FUNCIÓN HELPER PARA BUSCAR CAMPOS EN MÚLTIPLES UBICACIONES
-  const buscarCampo = useCallback((mainData: any, extractedFields: any, possibleKeys: string[]): string => {
-    for (const key of possibleKeys) {
-      // Buscar en datos principales
-      if (mainData && mainData[key] && mainData[key] !== '') {
-        return String(mainData[key]).trim();
-      }
-      
-      // Buscar en extracted fields
-      if (extractedFields && extractedFields[key] && extractedFields[key] !== '') {
-        return String(extractedFields[key]).trim();
-      }
+  // =====================================
+  // 🛠️ UTILIDADES ADICIONALES
+  // =====================================
+
+  const retryProcessing = useCallback(async () => {
+    if (state.uploadedFile && state.currentStep === 'upload') {
+      await processDocument();
     }
-    
-    return '';
-  }, []);
+  }, [state.uploadedFile, state.currentStep, processDocument]);
 
-  // 🔧 FUNCIÓN PARA CREAR DATOS VACÍOS EN CASO DE ERROR
-  const crearDatosVacios = useCallback((): DocumentProcessResult => ({
-    documentId: `empty_${Date.now()}`,
-    estadoProcesamiento: 'VACIO',
-    numeroPoliza: '', 
-    asegurado: '', 
-    vigenciaDesde: '', 
-    vigenciaHasta: '',
-    vehiculo: '', 
-    marca: '', 
-    modelo: '', 
-    motor: '', 
-    chasis: '', 
-    matricula: '', 
-    anio: '',
-    prima: 0, 
-    primaComercial: 0, 
-    premioTotal: 0, 
-    moneda: 'UYU',
-    corredor: '', 
-    plan: '', 
-    ramo: 'AUTOMOVILES',
-    documento: '', 
-    email: '', 
-    telefono: '', 
-    direccion: '', 
-    localidad: '', 
-    departamento: '',
-    nivelConfianza: 0, 
-    requiereRevision: true, 
-    listoParaVelneo: false,
-    timestamp: new Date().toISOString(), 
-    extractedFields: {}
-  }), []);
-
-  // 🔧 FUNCIÓN PARA NORMALIZAR LA RESPUESTA DEL BACKEND
-  const normalizarRespuestaBackend = useCallback((response: any): DocumentProcessResult => {
-    console.log('🔄 Normalizando respuesta del backend...');
-    console.log('📄 Response recibida:', response);
-    
-    if (!response || typeof response !== 'object') {
-      console.warn('⚠️ Respuesta inválida del backend:', response);
-      return crearDatosVacios();
+  const validateCurrentStep = useCallback((): boolean => {
+    switch (state.currentStep) {
+      case 'cliente':
+        return !!state.selectedCliente;
+      case 'company':
+        return !!state.selectedCompany;
+      case 'upload':
+        return !!state.uploadedFile;
+      case 'extract':
+        return processing || !!state.extractedData;
+      case 'form':
+        return !!state.extractedData;
+      default:
+        return true;
     }
+  }, [state, processing]);
 
-    // Extraer campos desde diferentes posibles ubicaciones
-    const extractedFields = response.extractedFields || response.camposExtraidos || {};
-    const mainData = response;
-    
-    console.log('📋 Extracted fields encontrados:', extractedFields);
-    console.log('📋 Main data keys:', Object.keys(mainData));
-
-    const datosNormalizados: DocumentProcessResult = {
-      // Metadatos
-      documentId: response.documentId || `doc_${Date.now()}`,
-      estadoProcesamiento: response.estadoProcesamiento || 'PROCESADO',
-      nivelConfianza: response.nivelConfianza || response.confidence || 0,
-      requiereRevision: response.requiereRevision !== undefined ? response.requiereRevision : true,
-      listoParaVelneo: response.listoParaVelneo !== undefined ? response.listoParaVelneo : false,
-      timestamp: response.timestamp || new Date().toISOString(),
-      
-      // Información básica de la póliza
-      numeroPoliza: buscarCampo(mainData, extractedFields, [
-        'numeroPoliza', 'policyNumber', 'numero_poliza', 'poliza.numero', 'poliza_numero'
-      ]),
-      
-      anio: buscarCampo(mainData, extractedFields, [
-        'anio', 'año', 'year', 'poliza.año', 'vehiculo.año', 'vehiculo_año'
-      ]),
-      
-      vigenciaDesde: buscarCampo(mainData, extractedFields, [
-        'vigenciaDesde', 'validFrom', 'fecha_desde', 'vigencia.desde', 'poliza.vigencia.desde'
-      ]),
-      
-      vigenciaHasta: buscarCampo(mainData, extractedFields, [
-        'vigenciaHasta', 'validTo', 'fecha_hasta', 'vigencia.hasta', 'poliza.vigencia.hasta'
-      ]),
-      
-      plan: buscarCampo(mainData, extractedFields, [
-        'plan', 'coveragePlan', 'poliza.plan', 'tipo_plan', 'cobertura'
-      ]),
-      
-      ramo: buscarCampo(mainData, extractedFields, [
-        'ramo', 'branch', 'poliza.ramo', 'tipo_seguro'
-      ]) || 'AUTOMOVILES',
-      
-      // Datos del asegurado
-      asegurado: buscarCampo(mainData, extractedFields, [
-        'asegurado', 'cliente', 'insured', 'cliente_nombre', 'asegurado.nombre'
-      ]),
-      
-      documento: buscarCampo(mainData, extractedFields, [
-        'documento', 'documentNumber', 'cliente_documento', 'asegurado.documento'
-      ]),
-      
-      email: buscarCampo(mainData, extractedFields, [
-        'email', 'emailAddress', 'cliente_email', 'asegurado.email'
-      ]),
-      
-      telefono: buscarCampo(mainData, extractedFields, [
-        'telefono', 'phone', 'cliente_telefono', 'asegurado.telefono'
-      ]),
-      
-      direccion: buscarCampo(mainData, extractedFields, [
-        'direccion', 'address', 'cliente_direccion', 'asegurado.direccion'
-      ]),
-      
-      localidad: buscarCampo(mainData, extractedFields, [
-        'localidad', 'city', 'cliente_localidad', 'asegurado.localidad'
-      ]),
-      
-      departamento: buscarCampo(mainData, extractedFields, [
-        'departamento', 'state', 'cliente_departamento', 'asegurado.departamento'
-      ]),
-      
-      // 🚗 DATOS DEL VEHÍCULO (LOS CAMPOS QUE AGREGASTE)
-      vehiculo: buscarCampo(mainData, extractedFields, [
-        'vehiculo', 'vehicle', 'vehicleDescription', 'vehiculo_descripcion'
-      ]),
-      
-      marca: buscarCampo(mainData, extractedFields, [
-        'marca', 'brand', 'vehicleBrand', 'vehiculo_marca', 'vehiculo.marca'
-      ]),
-      
-      modelo: buscarCampo(mainData, extractedFields, [
-        'modelo', 'model', 'vehicleModel', 'vehiculo_modelo', 'vehiculo.modelo'
-      ]),
-      
-      motor: buscarCampo(mainData, extractedFields, [
-        'motor', 'engine', 'engineNumber', 'vehiculo_motor', 'vehiculo.motor', 'numero_motor'
-      ]),
-      
-      chasis: buscarCampo(mainData, extractedFields, [
-        'chasis', 'chassis', 'chassisNumber', 'vehiculo_chasis', 'vehiculo.chasis', 'numero_chasis'
-      ]),
-      
-      matricula: buscarCampo(mainData, extractedFields, [
-        'matricula', 'plate', 'plateNumber', 'vehiculo_matricula', 'vehiculo.matricula', 'placa'
-      ]),
-      
-      combustible: buscarCampo(mainData, extractedFields, [
-        'combustible', 'fuel', 'fuelType', 'vehiculo_combustible', 'vehiculo.combustible'
-      ]),
-      
-      // 💰 DATOS FINANCIEROS (LOS OTROS CAMPOS QUE AGREGASTE)
-      prima: parseFloat(buscarCampo(mainData, extractedFields, [
-        'prima', 'premium', 'primaComercial', 'prima_comercial', 'financiero.prima'
-      ]) || '0'),
-      
-      primaComercial: parseFloat(buscarCampo(mainData, extractedFields, [
-        'primaComercial', 'commercialPremium', 'prima_comercial', 'financiero.prima_comercial'
-      ]) || '0'),
-      
-      premioTotal: parseFloat(buscarCampo(mainData, extractedFields, [
-        'premioTotal', 'totalPremium', 'premio_total', 'financiero.premio_total', 'total'
-      ]) || '0'),
-      
-      moneda: buscarCampo(mainData, extractedFields, [
-        'moneda', 'currency', 'financiero.moneda'
-      ]) || 'UYU',
-      
-      // Datos del corredor
-      corredor: buscarCampo(mainData, extractedFields, [
-        'corredor', 'broker', 'brokerName', 'corredor_nombre', 'corredor.nombre'
-      ]),
-      
-      // Conservar datos originales
-      extractedFields: extractedFields,
-      originalResponse: response
-    };
-    
-    console.log('✅ Datos normalizados generados:', datosNormalizados);
-    console.log('🎯 Campos de vehículo mapeados:');
-    console.log('- Marca:', datosNormalizados.marca);
-    console.log('- Modelo:', datosNormalizados.modelo);
-    console.log('- Motor:', datosNormalizados.motor);
-    console.log('- Chasis:', datosNormalizados.chasis);
-    console.log('- Matrícula:', datosNormalizados.matricula);
-    
-    return datosNormalizados;
-  }, [buscarCampo, crearDatosVacios]);
-
-  // 🔧 PROCESAMIENTO DE DOCUMENTO MEJORADO
-  const processDocument = useCallback(async () => {
-    if (!state.uploadedFile) {
-      setError('No hay archivo seleccionado');
-      return;
-    }
-
-    console.log('='.repeat(60));
-    console.log('🚀 INICIANDO PROCESAMIENTO DE DOCUMENTO');
-    console.log('='.repeat(60));
-    console.log('📄 Archivo:', state.uploadedFile.name);
-    console.log('📏 Tamaño:', state.uploadedFile.size, 'bytes');
-    
-    setProcessing(true);
-    setError(null);
-
-    try {
-      // TIMEOUT para evitar que se quede colgado
-      const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout: El procesamiento tardó más de 90 segundos')), 90000);
-      });
-      
-      // Promesa del procesamiento real
-      console.log('⏱️  Enviando archivo al backend...');
-      const processPromise = wizardService.processDocument(state.uploadedFile);
-      
-      // Race entre timeout y procesamiento
-      const rawResult = await Promise.race([processPromise, timeoutPromise]);
-      
-      console.log('📥 RESPUESTA CRUDA DEL BACKEND:');
-      console.log('- Tipo:', typeof rawResult);
-      console.log('- Claves:', Object.keys(rawResult || {}));
-      console.log('- Contenido completo:', rawResult);
-      
-      // 🔧 NORMALIZAR LA RESPUESTA
-      const normalizedResult = normalizarRespuestaBackend(rawResult);
-      
-      console.log('✅ RESULTADO NORMALIZADO:');
-      console.log('- Document ID:', normalizedResult.documentId);
-      console.log('- Número Póliza:', normalizedResult.numeroPoliza);
-      console.log('- Asegurado:', normalizedResult.asegurado);
-      console.log('- Marca vehículo:', normalizedResult.marca);
-      console.log('- Modelo vehículo:', normalizedResult.modelo);
-      console.log('- Prima:', normalizedResult.prima);
-      
-      // Validar que el resultado tiene datos mínimos
-      if (!normalizedResult.documentId && !normalizedResult.numeroPoliza) {
-        console.warn('⚠️ Resultado insuficiente, creando datos por defecto...');
-        const datosDefecto = crearDatosVacios();
-        datosDefecto.documentId = `processed_${Date.now()}`;
-        datosDefecto.estadoProcesamiento = 'PROCESADO_PARCIAL';
-        
-        setState((prev: WizardState) => ({ 
-          ...prev, 
-          extractedData: datosDefecto, 
-          currentStep: 'form' 
-        }));
-        
-        console.log('✅ Avanzando al formulario con datos por defecto');
-        return;
-      }
-      
-      // Guardar datos normalizados
-      setState((prev: WizardState) => ({ 
-        ...prev, 
-        extractedData: normalizedResult, 
-        currentStep: 'form' 
-      }));
-      
-      console.log('✅ Estado actualizado, avanzando al paso del formulario');
-      
-    } catch (err: any) {
-      console.error('❌ ERROR EN PROCESAMIENTO:', err);
-      console.error('❌ Detalles del error:', {
-        message: err.message,
-        stack: err.stack,
-        response: err.response?.data
-      });
-      
-      let errorMessage = 'Error al procesar el documento';
-      
-      // Mejorar mensajes de error según el tipo
-      if (err.message.includes('timeout') || err.message.includes('Timeout')) {
-        errorMessage = 'El procesamiento está tardando más de lo esperado. Por favor, intenta con un archivo más pequeño o verifica tu conexión.';
-      } else if (err.message.includes('401')) {
-        errorMessage = 'Error de autenticación. Por favor, vuelve a iniciar sesión.';
-      } else if (err.message.includes('413')) {
-        errorMessage = 'El archivo es demasiado grande. El tamaño máximo es 10MB.';
-      } else if (err.message.includes('400')) {
-        errorMessage = 'El archivo no es válido o no se puede procesar. Asegúrate de que sea un PDF de una póliza.';
-      } else if (err.message.includes('500')) {
-        errorMessage = 'Error interno del servidor. Por favor, intenta nuevamente en unos minutos.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      setError(errorMessage);
-      
-      // Crear datos de error para que el formulario no se rompa
-      const errorData = crearDatosVacios();
-      errorData.documentId = `error_${Date.now()}`;
-      errorData.estadoProcesamiento = 'ERROR';
-      errorData.errorMessage = err.message;
-      
-      setState((prev: WizardState) => ({ 
-        ...prev, 
-        extractedData: errorData,
-        currentStep: 'form' // Avanzar igual para que el usuario pueda llenar manualmente
-      }));
-      
-      console.log('⚠️ Avanzando al formulario con datos de error para llenar manualmente');
-      
-    } finally {
-      setProcessing(false);
-      console.log('🏁 Procesamiento completado');
-      console.log('='.repeat(60));
-    }
-  }, [state.uploadedFile, normalizarRespuestaBackend, crearDatosVacios]);
-
-  // Creación de póliza - ACTUALIZADO CON TIPOS CORREGIDOS
-  const createPoliza = useCallback(async (formData: PolizaFormDataExtended) => {
-    if (!state.selectedCliente || !state.selectedCompany) {
-      setError('Faltan datos del cliente o compañía');
-      return;
-    }
-
-    setProcessing(true);
-    setError(null);
-
-    try {
-      console.log('📋 Creating poliza in Velneo with extended types...');
-      console.log('🎯 Form data:', formData);
-      console.log('👤 Cliente:', state.selectedCliente);
-      console.log('🏢 Company:', state.selectedCompany);
-    
-    } catch (err: any) {
-      console.error('❌ Error creating poliza:', err);
-      setError('Error al crear póliza en Velneo: ' + err.message);
-      throw err;
-    } finally {
-      setProcessing(false);
-    }
-  }, [state.selectedCliente, state.selectedCompany]);
+  // =====================================
+  // 🎯 RETORNAR INTERFAZ COMPLETA
+  // =====================================
 
   return {
-    // Estado
+    // Estado del wizard
     ...state,
-    
-    // Acciones de navegación
-    goToStep,
-    goBack,
-    reset,
-    
-    // Acciones de selección
-    selectCliente,
-    selectCompany,
-    setUploadedFile,
-    
-    // Acciones de procesamiento
-    processDocument,
-    createPoliza,
     
     // Estados de carga
     loading,
     processing,
+    processingProgress,
     error,
-    setError,
+    
+    // Navegación
+    goToStep,
+    goBack,
+    reset,
+    
+    // Selecciones
+    selectCliente,
+    selectCompany,
+    setUploadedFile,
+    
+    // Procesamiento
+    processDocument,
+    createPoliza,
+    retryProcessing,
     
     // Búsqueda de clientes
     clienteSearch,
@@ -580,5 +539,10 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
     companies,
     loadCompanies,
     loadingCompanies,
+    
+    // Utilities
+    setError,
+    validateCurrentStep,
+    getAuthToken,
   };
 };

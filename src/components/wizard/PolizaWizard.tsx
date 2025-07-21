@@ -1,327 +1,444 @@
-import React, { useState, useEffect, useCallback } from 'react';
+// src/components/wizard/PolizaWizard.tsx
+// ⚡ COMPONENTE PRINCIPAL DEL WIZARD - VERSIÓN FINAL
+// 🎯 INTEGRADO CON AZURE DOCUMENT SERVICE
+
+import React, { useState, useEffect } from 'react';
 import { 
   User, Building2, Upload, FileText, Eye, Check, 
   Car, DollarSign, Calendar, MapPin, Mail, Phone,
   Edit3, Save, X, CheckCircle, AlertTriangle, Loader2,
-  ArrowLeft, ArrowRight, Search, FileCheck, Building, Hash,
-  Settings, Shield, CreditCard, Navigation, Clock
+  ArrowLeft, ArrowRight, Search, FileCheck, Building,
+  Settings, Shield, CreditCard, Navigation, Clock, Hash
 } from 'lucide-react';
 import { usePolizaWizard } from '../../hooks/usePolizaWizard';
-import { PolizaFormDataComplete, PolizaFormMapper } from '../../types/poliza-unified';
-import { Cliente, Company, PolizaFormDataExtended } from '../../types/wizard';
 
-// Props para el componente
 interface PolizaWizardProps {
   onComplete?: (result: any) => void;
   onCancel?: () => void;
 }
 
+// 📝 TIPOS PARA EL FORMULARIO
+interface PolizaFormData {
+  numeroPoliza: string;
+  vigenciaDesde: string;
+  vigenciaHasta: string;
+  prima: number;
+  primaComercial: number;
+  premioTotal: number;
+  asegurado: string;
+  vehiculo: string;
+  marca: string;
+  modelo: string;
+  matricula: string;
+  motor: string;
+  chasis: string;
+  direccion: string;
+  localidad: string;
+  departamento: string;
+  telefono: string;
+  email: string;
+  corredor: string;
+  plan: string;
+  ramo: string;
+  observaciones: string;
+  anio: string;
+  documento: string;
+}
+
 const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => {
   const wizard = usePolizaWizard();
   
-  // Estados para el formulario
-  const [formData, setFormData] = useState<PolizaFormDataComplete>({
+  // 📝 Estado del formulario
+  const [formData, setFormData] = useState<PolizaFormData>({
     numeroPoliza: '',
     vigenciaDesde: '',
     vigenciaHasta: '',
     prima: 0,
-    moneda: 'UYU',
+    primaComercial: 0,
+    premioTotal: 0,
     asegurado: '',
-    estadoTramite: '1', 
-    estadoPoliza: '1',  
-    observaciones: 'Procesado automáticamente con Azure AI.',
+    vehiculo: '',
+    marca: '',
+    modelo: '',
+    matricula: '',
+    motor: '',
+    chasis: '',
+    direccion: '',
+    localidad: '',
+    departamento: '',
+    telefono: '',
+    email: '',
+    corredor: '',
+    plan: '',
     ramo: 'AUTOMOVILES',
-    compania: '',
-    
-    // Campos extendidos
-    anio: '', plan: '', documento: '', email: '', direccion: '',
-    localidad: '', departamento: '', telefono: '', vehiculo: '',
-    marca: '', modelo: '', motor: '', chasis: '', matricula: '',
-    combustible: '', primaComercial: 0, premioTotal: 0, corredor: ''
+    observaciones: 'Procesado automáticamente con Azure AI.',
+    anio: '',
+    documento: ''
   });
 
-  const [activeTab, setActiveTab] = useState<string>('basicos');
-  const [showPreview, setShowPreview] = useState(false);
-  const [saving, setSaving] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  // Estados para búsqueda de cliente
-  const [searchQuery, setSearchQuery] = useState('');
-  const [debounceTimer, setDebounceTimer] = useState<number | null>(null);
-
-  // Efecto para búsqueda con debounce
+  // 🔄 Llenar formulario cuando se extraen los datos
   useEffect(() => {
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-
-    if (searchQuery.trim().length >= 2) {
-      const timer = setTimeout(() => {
-        wizard.searchClientes(searchQuery);
-      }, 500);
-      setDebounceTimer(timer);
-    }
-
-    return () => {
-      if (debounceTimer) {
-        clearTimeout(debounceTimer);
-      }
-    };
-  }, [searchQuery]);
-
-  // Efecto para mapear datos cuando se extraen
-  useEffect(() => {
-    if (wizard.extractedData && wizard.currentStep === 'form' && !initialDataLoaded) {
-      console.log('🔄 Mapeando datos extraídos al formulario...');
-      const mappedData = PolizaFormMapper.fromClienteAndAzure(
-        wizard.selectedCliente, 
-        wizard.extractedData
-      );
-      setFormData(mappedData);
-      setInitialDataLoaded(true);
-    }
-  }, [wizard.extractedData, wizard.currentStep, wizard.selectedCliente, initialDataLoaded]);
-
-  // Función para actualizar campos del formulario
-  const updateFormField = (field: keyof PolizaFormDataComplete, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  // Función para manejar el envío del formulario
-  const handleSubmit = async () => {
-    try {
-      setSaving(true);
-      await wizard.createPoliza(formData as PolizaFormDataExtended);
+    if (wizard.extractedData?.datosFormateados) {
+      const datos = wizard.extractedData.datosFormateados;
       
-      if (onComplete) {
-        onComplete({
-          cliente: wizard.selectedCliente,
-          company: wizard.selectedCompany,
-          file: wizard.uploadedFile,
-          extractedData: wizard.extractedData,
-          formData: formData
-        });
-      }
-    } catch (error) {
-      console.error('❌ Error al enviar formulario:', error);
-    } finally {
-      setSaving(false);
+      console.log('📝 Llenando formulario con datos extraídos:', datos);
+      
+      // 🗓️ FUNCIÓN PARA CONVERTIR FECHAS STRING A FORMATO INPUT
+      const convertirFecha = (fecha: string | undefined): string => {
+        if (!fecha) return '';
+        
+        try {
+          console.log('🗓️ Convirtiendo fecha:', fecha);
+          
+          // CASO 1: Ya es formato ISO (2025-02-06T00:00:00 o 2025-02-06)
+          if (fecha.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(fecha)) {
+            const fechaISO = fecha.split('T')[0]; // Extraer solo la parte de fecha
+            console.log('✅ Fecha ISO detectada:', fecha, '→', fechaISO);
+            return fechaISO;
+          }
+          
+          // Limpiar la fecha de espacios y caracteres extraños
+          const fechaLimpia = fecha.trim().replace(/[^\d\/\-\.]/g, '');
+          
+          let fechaObj: Date | null = null;
+          
+          // PATRÓN 2: DD/MM/YYYY o DD/MM/YY
+          if (fechaLimpia.includes('/')) {
+            const partes = fechaLimpia.split('/');
+            if (partes.length === 3) {
+              let [dia, mes, anio] = partes;
+              
+              // Convertir año de 2 dígitos a 4 dígitos
+              if (anio.length === 2) {
+                const anioNum = parseInt(anio);
+                anio = anioNum > 50 ? `19${anio}` : `20${anio}`;
+              }
+              
+              const diaNum = parseInt(dia);
+              const mesNum = parseInt(mes);
+              const anioNum = parseInt(anio);
+              
+              if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anioNum > 1900) {
+                fechaObj = new Date(anioNum, mesNum - 1, diaNum);
+              }
+            }
+          }
+          
+          // PATRÓN 3: DD-MM-YYYY o DD-MM-YY
+          else if (fechaLimpia.includes('-') && !fechaLimpia.startsWith('20')) {
+            const partes = fechaLimpia.split('-');
+            if (partes.length === 3) {
+              let [dia, mes, anio] = partes;
+              
+              if (anio.length === 2) {
+                const anioNum = parseInt(anio);
+                anio = anioNum > 50 ? `19${anio}` : `20${anio}`;
+              }
+              
+              const diaNum = parseInt(dia);
+              const mesNum = parseInt(mes);
+              const anioNum = parseInt(anio);
+              
+              if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anioNum > 1900) {
+                fechaObj = new Date(anioNum, mesNum - 1, diaNum);
+              }
+            }
+          }
+          
+          // PATRÓN 4: DD.MM.YYYY
+          else if (fechaLimpia.includes('.')) {
+            const partes = fechaLimpia.split('.');
+            if (partes.length === 3) {
+              let [dia, mes, anio] = partes;
+              
+              if (anio.length === 2) {
+                const anioNum = parseInt(anio);
+                anio = anioNum > 50 ? `19${anio}` : `20${anio}`;
+              }
+              
+              const diaNum = parseInt(dia);
+              const mesNum = parseInt(mes);
+              const anioNum = parseInt(anio);
+              
+              if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anioNum > 1900) {
+                fechaObj = new Date(anioNum, mesNum - 1, diaNum);
+              }
+            }
+          }
+          
+          // PATRÓN 5: DDMMYYYY (sin separadores)
+          else if (fechaLimpia.length === 8 && /^\d{8}$/.test(fechaLimpia)) {
+            const dia = fechaLimpia.substring(0, 2);
+            const mes = fechaLimpia.substring(2, 4);
+            const anio = fechaLimpia.substring(4, 8);
+            
+            const diaNum = parseInt(dia);
+            const mesNum = parseInt(mes);
+            const anioNum = parseInt(anio);
+            
+            if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anioNum > 1900) {
+              fechaObj = new Date(anioNum, mesNum - 1, diaNum);
+            }
+          }
+          
+          // Verificar que la fecha es válida y convertir a formato YYYY-MM-DD
+          if (fechaObj && !isNaN(fechaObj.getTime())) {
+            const resultado = fechaObj.toISOString().split('T')[0];
+            console.log('✅ Fecha convertida:', fecha, '→', resultado);
+            return resultado;
+          }
+          
+          console.warn('⚠️ No se pudo parsear fecha:', fecha);
+          return '';
+          
+        } catch (error) {
+          console.warn('❌ Error parseando fecha:', fecha, error);
+          return '';
+        }
+      };
+      
+      setFormData(prev => ({
+        ...prev,
+        // Datos básicos
+        numeroPoliza: datos.numeroPoliza || '',
+        asegurado: datos.asegurado || wizard.selectedCliente?.clinom || '',
+        documento: datos.documento || '',
+        vigenciaDesde: convertirFecha(datos.vigenciaDesde),
+        vigenciaHasta: convertirFecha(datos.vigenciaHasta),
+        
+        // Datos financieros
+        prima: datos.primaComercial || datos.premioTotal || 0,
+        primaComercial: datos.primaComercial || 0,
+        premioTotal: datos.premioTotal || 0,
+        plan: datos.plan || '',
+        
+        // Datos del vehículo
+        vehiculo: datos.vehiculo || '',
+        marca: datos.marca || '',
+        modelo: datos.modelo || '',
+        matricula: datos.matricula || '',
+        motor: datos.motor || '',
+        chasis: datos.chasis || '',
+        anio: datos.anio || '',
+        
+        // Datos de contacto
+        direccion: datos.direccion || '',
+        localidad: datos.localidad || '',
+        departamento: datos.departamento || '',
+        telefono: wizard.selectedCliente?.telefono || '',
+        email: datos.email || wizard.selectedCliente?.cliemail || '',
+        
+        // Otros datos
+        corredor: datos.corredor || '',
+        ramo: datos.ramo || 'AUTOMOVILES'
+      }));
+      
+      console.log('📅 Fechas convertidas:', {
+        vigenciaDesde: datos.vigenciaDesde + ' → ' + convertirFecha(datos.vigenciaDesde),
+        vigenciaHasta: datos.vigenciaHasta + ' → ' + convertirFecha(datos.vigenciaHasta)
+      });
     }
-  };
+  }, [wizard.extractedData, wizard.selectedCliente]);
 
-  // Manejar drag and drop para archivos
-  const [dragActive, setDragActive] = useState(false);
+  // =====================================
+  // 🎨 RENDERS DE CADA PASO
+  // =====================================
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true);
-    } else if (e.type === 'dragleave') {
-      setDragActive(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const file = e.dataTransfer.files[0];
-      if (file.type === 'application/pdf') {
-        wizard.setUploadedFile(file);
-      } else {
-        wizard.setError('Solo se permiten archivos PDF');
-      }
-    }
-  }, []);
-
-  // =================== STEPS DEL WIZARD ===================
-
-  // 1. PASO: Selección de Cliente
+  // 1️⃣ PASO: Selección de Cliente
   const renderClienteStep = () => (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-blue-100 to-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <User className="w-8 h-8 text-blue-600" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Seleccionar Cliente</h2>
-        <p className="text-gray-600">Busca y selecciona el cliente asegurado</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Seleccionar Cliente</h2>
+        <p className="text-gray-600">Busca y selecciona el cliente para la póliza</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        {/* Barra de búsqueda */}
-        <div className="mb-6">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Buscar por nombre, CI o RUC..."
-              className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+        {/* Buscador */}
+        <div className="relative mb-6">
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+            <Search className="h-5 w-5 text-gray-400" />
           </div>
+          <input
+            type="text"
+            value={wizard.clienteSearch}
+            onChange={(e) => {
+              wizard.setClienteSearch(e.target.value);
+              if (e.target.value.length >= 2) {
+                wizard.searchClientes(e.target.value);
+              }
+            }}
+            placeholder="Buscar por nombre, documento o RUC..."
+            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          />
         </div>
 
-        {/* Resultados de búsqueda */}
-        <div className="space-y-3">
-          {wizard.loadingClientes ? (
-            <div className="text-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin mx-auto text-blue-600" />
-              <p className="text-sm text-gray-600 mt-2">Buscando clientes...</p>
-            </div>
-          ) : wizard.clienteResults.length > 0 ? (
-            wizard.clienteResults.map((cliente: Cliente) => (
+        {/* Loading de búsqueda */}
+        {wizard.loadingClientes && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
+            <span className="text-gray-600">Buscando clientes...</span>
+          </div>
+        )}
+
+        {/* Resultados */}
+        {wizard.clienteResults.length > 0 && (
+          <div className="space-y-3">
+            {wizard.clienteResults.map((cliente) => (
               <div
                 key={cliente.id}
                 onClick={() => wizard.selectCliente(cliente)}
-                className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-blue-50 hover:border-blue-300 transition-colors"
+                className="p-4 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 cursor-pointer transition-colors"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-medium text-gray-900">{cliente.clinom}</h4>
-                    <p className="text-sm text-gray-600">
-                      {cliente.cliced || cliente.cliruc} 
-                      {cliente.cliemail && ` • ${cliente.cliemail}`}
-                    </p>
+                    <h3 className="font-medium text-gray-900">{cliente.clinom}</h3>
+                    <div className="text-sm text-gray-600 mt-1">
+                      {cliente.cliced && <span>CI: {cliente.cliced}</span>}
+                      {cliente.cliruc && <span className="ml-3">RUC: {cliente.cliruc}</span>}
+                    </div>
+                    {cliente.cliemail && (
+                      <div className="text-sm text-gray-500 mt-1">{cliente.cliemail}</div>
+                    )}
                   </div>
                   <ArrowRight className="w-5 h-5 text-gray-400" />
-                </div>
-              </div>
-            ))
-          ) : searchQuery.length >= 2 ? (
-            <div className="text-center py-8 text-gray-500">
-              <User className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-              <p>No se encontraron clientes con "{searchQuery}"</p>
-            </div>
-          ) : (
-            <div className="text-center py-8 text-gray-500">
-              <Search className="w-8 h-8 mx-auto mb-2 text-gray-300" />
-              <p>Escribe al menos 2 caracteres para buscar clientes</p>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-
-  // 2. PASO: Selección de Compañía
-  const renderCompanyStep = () => (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Building2 className="w-8 h-8 text-green-600" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Seleccionar Compañía</h2>
-        <p className="text-gray-600">Elige la compañía aseguradora</p>
-      </div>
-
-      {/* Información del cliente seleccionado */}
-      {wizard.selectedCliente && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-          <div className="flex items-center">
-            <CheckCircle className="w-5 h-5 text-blue-600 mr-2" />
-            <span className="font-medium text-blue-900">Cliente seleccionado:</span>
-            <span className="text-blue-800 ml-2">{wizard.selectedCliente.clinom}</span>
-          </div>
-        </div>
-      )}
-
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        {wizard.loadingCompanies ? (
-          <div className="text-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin mx-auto text-green-600" />
-            <p className="text-sm text-gray-600 mt-2">Cargando compañías...</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {wizard.companies.map((company: Company) => (
-              <div
-                key={company.id}
-                onClick={() => wizard.selectCompany(company)}
-                className="p-4 border border-gray-200 rounded-lg cursor-pointer hover:bg-green-50 hover:border-green-300 transition-colors"
-              >
-                <div className="text-center">
-                  <Building2 className="w-8 h-8 mx-auto text-green-600 mb-2" />
-                  <h4 className="font-medium text-gray-900">{company.comnom}</h4>
-                  <p className="text-sm text-gray-600">{company.comalias}</p>
-                  {company.broker && (
-                    <span className="inline-block mt-1 px-2 py-1 text-xs bg-orange-100 text-orange-800 rounded-full">
-                      Broker
-                    </span>
-                  )}
                 </div>
               </div>
             ))}
           </div>
         )}
 
+        {/* Mensaje cuando no hay resultados */}
+        {wizard.clienteSearch.length >= 2 && !wizard.loadingClientes && wizard.clienteResults.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No se encontraron clientes con ese criterio
+          </div>
+        )}
+
+        {/* Mensaje inicial */}
+        {wizard.clienteSearch.length < 2 && wizard.clienteResults.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            Escribe al menos 2 caracteres para buscar
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  // 2️⃣ PASO: Selección de Compañía
+  const renderCompanyStep = () => (
+    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Seleccionar Compañía</h2>
+        <p className="text-gray-600">Elige la compañía de seguros para la póliza</p>
+      </div>
+
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+        {/* Cliente seleccionado */}
+        {wizard.selectedCliente && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <div className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
+              <span className="font-medium text-green-800">Cliente: {wizard.selectedCliente.clinom}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Loading de compañías */}
+        {wizard.loadingCompanies && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
+            <span className="text-gray-600">Cargando compañías...</span>
+          </div>
+        )}
+
+        {/* Lista de compañías */}
+        {wizard.companies.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {wizard.companies.map((company) => (
+              <div
+                key={company.id}
+                onClick={() => wizard.selectCompany(company)}
+                className="p-4 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center">
+                  <Building2 className="w-8 h-8 text-purple-600 mr-3" />
+                  <div>
+                    <h3 className="font-medium text-gray-900">{company.comnom}</h3>
+                    <p className="text-sm text-gray-600">{company.comalias}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Sin compañías disponibles */}
+        {!wizard.loadingCompanies && wizard.companies.length === 0 && (
+          <div className="text-center py-8">
+            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Sin compañías disponibles</h3>
+            <p className="text-gray-600 mb-4">No se encontraron compañías activas</p>
+            <button
+              onClick={wizard.loadCompanies}
+              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+            >
+              Recargar
+            </button>
+          </div>
+        )}
+
+        {/* Botón volver */}
         <div className="mt-6 pt-6 border-t border-gray-200">
           <button
             onClick={() => wizard.goBack()}
             className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver a selección de cliente
+            Volver a clientes
           </button>
         </div>
       </div>
     </div>
   );
 
-  // 3. PASO: Upload de Archivo
+  // 3️⃣ PASO: Upload de Archivo
   const renderUploadStep = () => (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-pink-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Upload className="w-8 h-8 text-purple-600" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Subir Documento PDF</h2>
-        <p className="text-gray-600">Sube la póliza en formato PDF para procesamiento automático</p>
-      </div>
-
-      {/* Información seleccionada */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <User className="w-5 h-5 text-blue-600 mr-2" />
-            <span className="font-medium text-blue-900">Cliente:</span>
-            <span className="text-blue-800 ml-2">{wizard.selectedCliente?.clinom}</span>
-          </div>
-        </div>
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-          <div className="flex items-center">
-            <Building2 className="w-5 h-5 text-green-600 mr-2" />
-            <span className="font-medium text-green-900">Compañía:</span>
-            <span className="text-green-800 ml-2">{wizard.selectedCompany?.comnom}</span>
-          </div>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Subir Póliza</h2>
+        <p className="text-gray-600">Arrastra o selecciona el archivo PDF de la póliza</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <div 
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-            dragActive 
-              ? 'border-purple-400 bg-purple-50' 
-              : 'border-gray-300 hover:border-purple-400'
-          }`}
-          onDragEnter={handleDrag}
-          onDragLeave={handleDrag}
-          onDragOver={handleDrag}
-          onDrop={handleDrop}
-        >
-          <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-          <div className="space-y-2">
-            <p className="text-lg font-medium text-gray-900">
-              Arrastra tu archivo aquí o haz clic para seleccionar
-            </p>
-            <p className="text-sm text-gray-600">
-              Solo archivos PDF, máximo 10MB
-            </p>
-          </div>
+        {/* Selecciones anteriores */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+          {wizard.selectedCliente && (
+            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <User className="w-5 h-5 text-green-600 mr-2" />
+                <span className="font-medium text-green-800">{wizard.selectedCliente.clinom}</span>
+              </div>
+            </div>
+          )}
+          
+          {wizard.selectedCompany && (
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center">
+                <Building className="w-5 h-5 text-blue-600 mr-2" />
+                <span className="font-medium text-blue-800">{wizard.selectedCompany.comnom}</span>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Zona de drop */}
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center hover:border-purple-400 transition-colors">
+          <Upload className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Arrastra tu archivo aquí</h3>
+          <p className="text-gray-600 mb-4">o haz click para seleccionar</p>
           
           <input
             type="file"
@@ -337,12 +454,17 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
           />
           <label
             htmlFor="file-upload"
-            className="mt-4 inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 cursor-pointer"
+            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-purple-600 hover:bg-purple-700 cursor-pointer transition-colors"
           >
-            Seleccionar Archivo
+            Seleccionar PDF
           </label>
+
+          <div className="mt-4 text-sm text-gray-500">
+            Tamaño máximo: 10MB • Solo archivos PDF
+          </div>
         </div>
 
+        {/* Archivo seleccionado */}
         {wizard.uploadedFile && (
           <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
             <div className="flex items-center justify-between">
@@ -354,8 +476,8 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
                 </span>
               </div>
               <button
-                onClick={() => wizard.setUploadedFile(null as any)}
-                className="text-green-600 hover:text-green-800"
+                onClick={() => wizard.setUploadedFile(null)}
+                className="text-red-500 hover:text-red-700"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -363,6 +485,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
           </div>
         )}
 
+        {/* Botones */}
         <div className="mt-6 pt-6 border-t border-gray-200 flex justify-between">
           <button
             onClick={() => wizard.goBack()}
@@ -376,7 +499,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
             <button
               onClick={() => wizard.processDocument()}
               disabled={wizard.processing}
-              className="flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50"
+              className="flex items-center px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {wizard.processing ? (
                 <>
@@ -385,8 +508,8 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
                 </>
               ) : (
                 <>
-                  Procesar Documento
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  <FileCheck className="w-4 h-4 mr-2" />
+                  🚀 Procesar con Azure AI
                 </>
               )}
             </button>
@@ -396,469 +519,388 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     </div>
   );
 
-  // 4. PASO: Procesamiento y Extracción
+  // 4️⃣ PASO: Procesamiento
   const renderExtractStep = () => (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center mb-8">
-        <div className="w-16 h-16 bg-gradient-to-br from-yellow-100 to-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Loader2 className="w-8 h-8 text-yellow-600 animate-spin" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Procesando Documento</h2>
-        <p className="text-gray-600">Azure Document Intelligence está extrayendo los datos...</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">🤖 Procesando con Azure AI</h2>
+        <p className="text-gray-600">Extrayendo datos inteligentemente del documento...</p>
       </div>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
         <div className="text-center">
-          <h3 className="text-lg font-medium text-gray-900 mb-2">Procesando con Azure AI</h3>
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-purple-100 rounded-full mb-4">
+            <Loader2 className="w-8 h-8 text-purple-600 animate-spin" />
+          </div>
+          
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            {wizard.processingProgress < 30 ? '📤 Subiendo archivo...' :
+             wizard.processingProgress < 70 ? '🧠 Extrayendo datos...' :
+             wizard.processingProgress < 95 ? '✅ Validando información...' :
+             '🎯 Finalizando...'}
+          </h3>
+          
           <p className="text-gray-600 mb-6">
-            Analizando el documento PDF y extrayendo información de la póliza...
+            Azure Document Intelligence está analizando la póliza
           </p>
           
-          <div className="w-full bg-gray-200 rounded-full h-2 mb-4">
-            <div className="bg-yellow-600 h-2 rounded-full animate-pulse" style={{ width: '75%' }}></div>
+          {/* Barra de progreso */}
+          <div className="w-full bg-gray-200 rounded-full h-3 mb-4">
+            <div 
+              className="bg-purple-600 h-3 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${wizard.processingProgress}%` }}
+            ></div>
+          </div>
+          
+          <div className="text-sm text-gray-500">
+            {wizard.processingProgress}% completado
           </div>
 
-          <p className="text-sm text-gray-500">
-            Archivo: {wizard.uploadedFile?.name}
-          </p>
-        </div>
-
-        {wizard.error && (
-          <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-            <div className="flex items-center">
-              <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
-              <span className="text-red-800">{wizard.error}</span>
+          {/* Info del archivo */}
+          {wizard.uploadedFile && (
+            <div className="mt-6 p-4 bg-gray-50 rounded-lg">
+              <div className="text-sm text-gray-600">
+                <div>📄 {wizard.uploadedFile.name}</div>
+                <div>👤 {wizard.selectedCliente?.clinom}</div>
+                <div>🏢 {wizard.selectedCompany?.comnom}</div>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
 
-  // 5. PASO: Formulario (implementación completa anterior)
-  const renderFormStep = () => {
-    // Componente para campos de entrada
-    const InputField = ({ 
-      label, 
-      field, 
-      value, 
-      icon: Icon, 
-      placeholder, 
-      type = "text",
-      required = false
-    }: {
-      label: string;
-      field: keyof PolizaFormDataComplete;
-      value: string | number | undefined;
-      icon?: any;
-      placeholder?: string;
-      type?: string;
-      required?: boolean;
-    }) => (
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-1">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
-        <div className="relative">
-          {Icon && (
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Icon className="h-4 w-4 text-gray-400" />
-            </div>
-          )}
-          <input
-            type={type}
-            value={value || ''}
-            onChange={(e) => updateFormField(field, type === 'number' ? parseFloat(e.target.value) || 0 : e.target.value)}
-            disabled={!isEditing}
-            className={`${Icon ? 'pl-10' : 'pl-4'} pr-4 py-3 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
-              !isEditing ? 'bg-gray-50 text-gray-600' : 'bg-white'
-            } ${value ? 'border-green-300 bg-green-50' : ''}`}
-            placeholder={placeholder}
-            required={required}
-          />
-          {value && (
-            <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-              <CheckCircle className="h-4 w-4 text-green-500" />
-            </div>
-          )}
-        </div>
+  // 5️⃣ PASO: Formulario de validación
+  const renderFormStep = () => (
+    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">✅ Validar Datos Extraídos</h2>
+        <p className="text-gray-600">Revisa y completa la información antes de crear la póliza</p>
       </div>
-    );
 
-    return (
-      <div className="max-w-6xl mx-auto p-6">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Eye className="w-8 h-8 text-purple-600" />
-          </div>
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <h2 className="text-3xl font-bold text-gray-900">Información Extraída de Póliza</h2>
-            
-            {!isEditing ? (
-              <button
-                type="button"
-                onClick={() => setIsEditing(true)}
-                className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <Edit3 className="w-4 h-4 mr-2" />
-                Revisar y Editar
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                >
-                  <Check className="w-4 h-4 mr-2" />
-                  Guardar
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  className="flex items-center px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Cancelar
-                </button>
+      {wizard.extractedData && (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          {/* Información de extracción */}
+          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 text-blue-600 mr-2" />
+                <span className="font-medium text-blue-800">
+                  Documento procesado exitosamente con Azure AI
+                </span>
               </div>
-            )}
-          </div>
-          
-          <p className="text-gray-600">
-            Archivo: {wizard.uploadedFile?.name} • Procesado con Azure AI
-            {isEditing && <span className="text-blue-600 font-medium ml-2">• Modo edición activo</span>}
-          </p>
-        </div>
-
-        {/* Tabs de navegación */}
-        <div className="flex border-b border-gray-200 mb-6">
-          {[
-            { id: 'basicos', label: 'Datos Básicos', icon: FileText },
-            { id: 'cliente', label: 'Cliente', icon: User },
-            { id: 'vehiculo', label: 'Vehículo', icon: Car },
-            { id: 'financiero', label: 'Financiero', icon: DollarSign },
-            { id: 'otros', label: 'Otros', icon: Settings }
-          ].map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === tab.id
-                  ? 'border-purple-500 text-purple-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <tab.icon className="w-4 h-4 mr-2" />
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Contenido del formulario según el tab activo */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
-          {/* TAB: Datos Básicos */}
-          {activeTab === 'basicos' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <FileText className="w-5 h-5 mr-2 text-blue-600" />
-                  Información de la Póliza
-                </h3>
+              <div className="flex items-center space-x-4 text-sm text-blue-600">
+                {wizard.extractedData.nivelConfianza && (
+                  <span>Confianza: {Math.round(wizard.extractedData.nivelConfianza * 100)}%</span>
+                )}
+                {wizard.extractedData.tiempoProcesamiento && (
+                  <span>Tiempo: {(wizard.extractedData.tiempoProcesamiento / 1000).toFixed(1)}s</span>
+                )}
               </div>
-              <div className="p-6 space-y-4">
-                <InputField
-                  label="Número de Póliza"
-                  field="numeroPoliza"
+            </div>
+          </div>
+
+          {/* Formulario */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Datos básicos */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Hash className="w-5 h-5 mr-2" />
+                Datos Básicos
+              </h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Número de Póliza *
+                </label>
+                <input
+                  type="text"
                   value={formData.numeroPoliza}
-                  icon={Hash}
-                  placeholder="Número de póliza"
-                  required
+                  onChange={(e) => setFormData(prev => ({ ...prev, numeroPoliza: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Ingrese número de póliza"
                 />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Vigencia Desde"
-                    field="vigenciaDesde"
-                    value={formData.vigenciaDesde}
-                    icon={Calendar}
-                    type="date"
-                    placeholder="Fecha de inicio"
-                    required
-                  />
-                  <InputField
-                    label="Vigencia Hasta"
-                    field="vigenciaHasta"
-                    value={formData.vigenciaHasta}
-                    icon={Calendar}
-                    type="date"
-                    placeholder="Fecha de fin"
-                    required
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Ramo"
-                    field="ramo"
-                    value={formData.ramo}
-                    placeholder="Tipo de seguro"
-                  />
-                  <InputField
-                    label="Plan"
-                    field="plan"
-                    value={formData.plan}
-                    placeholder="Plan de cobertura"
-                  />
-                </div>
               </div>
-            </div>
-          )}
-
-          {/* TAB: Cliente */}
-          {activeTab === 'cliente' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <User className="w-5 h-5 mr-2 text-green-600" />
-                  Datos del Asegurado
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <InputField
-                  label="Nombre del Asegurado"
-                  field="asegurado"
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Asegurado *
+                </label>
+                <input
+                  type="text"
                   value={formData.asegurado}
-                  icon={User}
-                  placeholder="Nombre completo"
-                  required
-                />
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Documento"
-                    field="documento"
-                    value={formData.documento}
-                    placeholder="CI o RUC"
-                  />
-                  <InputField
-                    label="Email"
-                    field="email"
-                    value={formData.email}
-                    icon={Mail}
-                    type="email"
-                    placeholder="correo@ejemplo.com"
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Teléfono"
-                    field="telefono"
-                    value={formData.telefono}
-                    icon={Phone}
-                    placeholder="099123456"
-                  />
-                  <InputField
-                    label="Dirección"
-                    field="direccion"
-                    value={formData.direccion}
-                    icon={MapPin}
-                    placeholder="Dirección completa"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: Vehículo */}
-          {activeTab === 'vehiculo' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Car className="w-5 h-5 mr-2 text-purple-600" />
-                  Datos del Vehículo
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Marca"
-                    field="marca"
-                    value={formData.marca}
-                    placeholder="Toyota, Ford, etc."
-                  />
-                  <InputField
-                    label="Modelo"
-                    field="modelo"
-                    value={formData.modelo}
-                    placeholder="Corolla, Focus, etc."
-                  />
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Motor"
-                    field="motor"
-                    value={formData.motor}
-                    placeholder="Número de motor"
-                  />
-                  <InputField
-                    label="Chasis"
-                    field="chasis"
-                    value={formData.chasis}
-                    placeholder="Número de chasis"
-                  />
-                </div>
-                
-                <InputField
-                  label="Matrícula"
-                  field="matricula"
-                  value={formData.matricula}
-                  placeholder="ABC1234"
+                  onChange={(e) => setFormData(prev => ({ ...prev, asegurado: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Nombre del asegurado"
                 />
               </div>
-            </div>
-          )}
 
-          {/* TAB: Financiero */}
-          {activeTab === 'financiero' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <DollarSign className="w-5 h-5 mr-2 text-emerald-600" />
-                  Información Financiera
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <InputField
-                    label="Prima"
-                    field="prima"
-                    value={formData.prima}
-                    icon={DollarSign}
-                    type="number"
-                    placeholder="0"
-                    required
-                  />
-                  <InputField
-                    label="Prima Comercial"
-                    field="primaComercial"
-                    value={formData.primaComercial}
-                    icon={DollarSign}
-                    type="number"
-                    placeholder="0"
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB: Otros */}
-          {activeTab === 'otros' && (
-            <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-              <div className="px-6 py-4 border-b border-gray-200">
-                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                  <Building className="w-5 h-5 mr-2 text-orange-600" />
-                  Información Adicional
-                </h3>
-              </div>
-              <div className="p-6 space-y-4">
-                <InputField
-                  label="Corredor"
-                  field="corredor"
-                  value={formData.corredor}
-                  icon={Building}
-                  placeholder="Nombre del corredor"
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Documento
+                </label>
+                <input
+                  type="text"
+                  value={formData.documento}
+                  onChange={(e) => setFormData(prev => ({ ...prev, documento: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="CI o RUC"
                 />
-                
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Observaciones
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Vigencia Desde *
                   </label>
-                  <textarea
-                    value={formData.observaciones}
-                    onChange={(e) => updateFormField('observaciones', e.target.value)}
-                    disabled={!isEditing}
-                    rows={4}
-                    className={`w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-colors ${
-                      !isEditing ? 'bg-gray-50 text-gray-600' : 'bg-white'
-                    }`}
-                    placeholder="Observaciones adicionales..."
+                  <input
+                    type="date"
+                    value={formData.vigenciaDesde}
+                    onChange={(e) => setFormData(prev => ({ ...prev, vigenciaDesde: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Vigencia Hasta *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.vigenciaHasta}
+                    onChange={(e) => setFormData(prev => ({ ...prev, vigenciaHasta: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   />
                 </div>
               </div>
             </div>
-          )}
+
+            {/* Datos del vehículo */}
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Car className="w-5 h-5 mr-2" />
+                Vehículo
+              </h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Vehículo
+                </label>
+                <input
+                  type="text"
+                  value={formData.vehiculo}
+                  onChange={(e) => setFormData(prev => ({ ...prev, vehiculo: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Descripción del vehículo"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Marca
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.marca}
+                    onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Marca"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Modelo
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.modelo}
+                    onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Modelo"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Año
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.anio}
+                    onChange={(e) => setFormData(prev => ({ ...prev, anio: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Año"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Matrícula
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.matricula}
+                    onChange={(e) => setFormData(prev => ({ ...prev, matricula: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Matrícula"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Datos financieros */}
+          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <DollarSign className="w-4 h-4 inline mr-1" />
+                Prima Comercial
+              </label>
+              <input
+                type="number"
+                value={formData.primaComercial}
+                onChange={(e) => setFormData(prev => ({ ...prev, primaComercial: parseFloat(e.target.value) || 0 }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                <DollarSign className="w-4 h-4 inline mr-1" />
+                Premio Total
+              </label>
+              <input
+                type="number"
+                value={formData.premioTotal}
+                onChange={(e) => setFormData(prev => ({ ...prev, premioTotal: parseFloat(e.target.value) || 0 }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="0.00"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Plan
+              </label>
+              <input
+                type="text"
+                value={formData.plan}
+                onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="Plan de cobertura"
+              />
+            </div>
+          </div>
+
+          {/* Observaciones */}
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Observaciones
+            </label>
+            <textarea
+              value={formData.observaciones}
+              onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              placeholder="Observaciones adicionales..."
+            />
+          </div>
+
+          {/* Botones */}
+          <div className="mt-6 pt-6 border-t border-gray-200 flex justify-between">
+            <button
+              onClick={() => wizard.goBack()}
+              className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Volver al procesamiento
+            </button>
+
+            <button
+              onClick={async () => {
+                setSaving(true);
+                try {
+                  await wizard.createPoliza(formData);
+                  onComplete?.(formData);
+                } catch (error) {
+                  console.error('Error creando póliza:', error);
+                } finally {
+                  setSaving(false);
+                }
+              }}
+              disabled={saving || !formData.numeroPoliza || !formData.asegurado}
+              className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Creando...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4 mr-2" />
+                  🎯 Crear Póliza
+                </>
+              )}
+            </button>
+          </div>
         </div>
+      )}
+    </div>
+  );
 
-        {/* Botones de acción */}
-        <div className="flex justify-between items-center mt-8 pt-6 border-t border-gray-200">
-          <button
-            onClick={wizard.goBack}
-            disabled={wizard.processing || saving}
-            className="flex items-center px-6 py-3 text-gray-600 hover:text-gray-800 disabled:opacity-50"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={saving || wizard.processing || !formData.numeroPoliza || !formData.asegurado}
-            className="flex items-center px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                Enviando...
-              </>
-            ) : (
-              <>
-                <Check className="w-4 h-4 mr-2" />
-                Crear Póliza en Velneo
-              </>
-            )}
-          </button>
-        </div>
-      </div>
-    );
-  };
-
-  // 6. PASO: Éxito
+  // 6️⃣ PASO: Éxito
   const renderSuccessStep = () => (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
       <div className="text-center">
-        <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle className="w-8 h-8 text-green-600" />
-        </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">¡Póliza Creada Exitosamente!</h2>
-        <p className="text-gray-600 mb-8">
-          La póliza ha sido procesada y enviada a Velneo correctamente.
-        </p>
-        
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 text-left">
-          <h3 className="font-semibold mb-4">Resumen:</h3>
-          <div className="space-y-2 text-sm">
-            <p><span className="font-medium">Cliente:</span> {wizard.selectedCliente?.clinom}</p>
-            <p><span className="font-medium">Compañía:</span> {wizard.selectedCompany?.comnom}</p>
-            <p><span className="font-medium">Póliza:</span> {formData.numeroPoliza}</p>
-            <p><span className="font-medium">Archivo:</span> {wizard.uploadedFile?.name}</p>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
+            <CheckCircle className="w-8 h-8 text-green-600" />
+          </div>
+          
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">🎉 ¡Póliza Creada Exitosamente!</h2>
+          <p className="text-gray-600 mb-6">
+            La póliza se ha procesado y creado correctamente con Azure AI
+          </p>
+          
+          {wizard.extractedData && (
+            <div className="bg-gray-50 rounded-lg p-4 mb-6">
+              <h3 className="font-medium text-gray-900 mb-2">📋 Resumen:</h3>
+              <div className="text-sm text-gray-600 space-y-1">
+                <div>👤 Cliente: {wizard.selectedCliente?.clinom}</div>
+                <div>🏢 Compañía: {wizard.selectedCompany?.comnom}</div>
+                <div>📄 Póliza: {formData.numeroPoliza}</div>
+                <div>📁 Archivo: {wizard.uploadedFile?.name}</div>
+                {wizard.extractedData.tiempoProcesamiento && (
+                  <div>⏱️ Tiempo de procesamiento: {(wizard.extractedData.tiempoProcesamiento / 1000).toFixed(1)}s</div>
+                )}
+              </div>
+            </div>
+          )}
+          
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => wizard.reset()}
+              className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              🚀 Procesar Otra Póliza
+            </button>
+            <button
+              onClick={() => onComplete?.(formData)}
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              📋 Ir a Pólizas
+            </button>
           </div>
         </div>
-
-        <button
-          onClick={() => wizard.reset()}
-          className="mt-6 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
-        >
-          Procesar Otra Póliza
-        </button>
       </div>
     </div>
   );
 
-  // =================== RENDERIZADO PRINCIPAL ===================
+  // =====================================
+  // 🎨 RENDER PRINCIPAL
+  // =====================================
 
   const renderCurrentStep = () => {
     switch (wizard.currentStep) {
@@ -879,6 +921,17 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     }
   };
 
+  const stepLabels = {
+    cliente: 'Cliente',
+    company: 'Compañía',
+    upload: 'Archivo',
+    extract: 'Procesando',
+    form: 'Validación',
+    success: 'Éxito'
+  };
+
+  const stepOrder = ['cliente', 'company', 'upload', 'extract', 'form', 'success'];
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header con progreso */}
@@ -886,26 +939,22 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
-              <h1 className="text-xl font-semibold text-gray-900">Asistente de Pólizas IA</h1>
+              <h1 className="text-xl font-semibold text-gray-900">🤖 Asistente de Pólizas IA</h1>
               <span className="ml-3 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">
                 ✨ Powered by Azure AI
-              </span>
-              <span className="ml-2 text-sm text-gray-500">
-                Creación automatizada paso a paso con Azure Document Intelligence
               </span>
             </div>
             
             {/* Indicador de progreso */}
             <div className="flex items-center space-x-2">
-              {['cliente', 'company', 'upload', 'extract', 'form', 'success'].map((step, index) => {
-                const stepNames = ['Cliente', 'Compañía', 'Archivo', 'Extraer', 'Formulario', 'Éxito'];
+              {stepOrder.map((step, index) => {
                 const isActive = wizard.currentStep === step;
-                const isCompleted = ['cliente', 'company', 'upload', 'extract', 'form', 'success'].indexOf(wizard.currentStep) > index;
+                const isCompleted = stepOrder.indexOf(wizard.currentStep) > index;
                 
                 return (
-                  <div key={step} className="text-center">
+                  <div key={step} className="flex items-center">
                     <div
-                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-medium ${
                         isActive
                           ? 'bg-purple-600 text-white'
                           : isCompleted
@@ -915,11 +964,28 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
                     >
                       {isCompleted ? '✓' : index + 1}
                     </div>
-                    <p className="text-xs text-gray-500 mt-1">{stepNames[index]}</p>
+                    <span className={`ml-2 text-sm font-medium ${
+                      isActive ? 'text-purple-600' : isCompleted ? 'text-green-600' : 'text-gray-500'
+                    }`}>
+                      {stepLabels[step as keyof typeof stepLabels]}
+                    </span>
+                    {index < stepOrder.length - 1 && (
+                      <div className="w-8 h-px bg-gray-300 mx-3"></div>
+                    )}
                   </div>
                 );
               })}
             </div>
+
+            {/* Botón cancelar */}
+            {onCancel && (
+              <button
+                onClick={onCancel}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -929,17 +995,17 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
         {renderCurrentStep()}
       </div>
 
-      {/* Mostrar errores si los hay */}
+      {/* Mostrar errores */}
       {wizard.error && (
-        <div className="fixed bottom-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg max-w-md">
+        <div className="fixed bottom-4 right-4 max-w-md bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg z-50">
           <div className="flex items-start">
-            <AlertTriangle className="w-5 h-5 mr-2 mt-0.5 flex-shrink-0" />
+            <AlertTriangle className="w-5 h-5 mr-2 mt-0.5" />
             <div className="flex-1">
-              <span className="text-sm">{wizard.error}</span>
+              <span className="block">{wizard.error}</span>
             </div>
             <button
               onClick={() => wizard.setError(null)}
-              className="ml-2 text-red-500 hover:text-red-700 flex-shrink-0"
+              className="ml-2 text-red-500 hover:text-red-700"
             >
               <X className="w-4 h-4" />
             </button>
@@ -950,5 +1016,4 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
   );
 };
 
-// Export default explícito
 export default PolizaWizard;
