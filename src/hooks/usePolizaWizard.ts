@@ -343,7 +343,7 @@ export const usePolizaWizard = () => {
   // 🔍 BÚSQUEDA DE CLIENTES - ENDPOINT /all CORRECTO
   // =====================================
 
-  const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
+    const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
     if (!searchTerm.trim() || searchTerm.length < 2) {
       setClienteResults([]);
       return;
@@ -360,12 +360,13 @@ export const usePolizaWizard = () => {
     try {
       console.log('🔍 Buscando clientes con término:', searchTerm);
 
+      // ✅ ENDPOINT CORRECTO QUE FUNCIONA: /api/clientes/all?search=termino
       const searchUrl = `${import.meta.env.VITE_API_URL}/clientes/all`;
       const response = await fetch(
         `${searchUrl}?search=${encodeURIComponent(searchTerm)}`,
         {
           headers: getAuthHeaders(),
-          signal: AbortSignal.timeout(120000) 
+          signal: AbortSignal.timeout(30000) // 30 segundos para búsqueda
         }
       );
 
