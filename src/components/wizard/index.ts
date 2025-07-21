@@ -1,20 +1,25 @@
-export { default as PolizaWizard } from './PolizaWizard';
 export { default } from './PolizaWizard';
+export { default as PolizaWizard } from './PolizaWizard';
 
-// Re-exportar tipos relacionados
 export type {
   Cliente,
   Company,
   DocumentProcessResult,
   ExtractedField,
-  PolizaFormData,
-  PolizaCreateRequest,
   WizardStep,
   WizardState,
-  WizardResult,
   WizardError,
   ValidationResult,
   StepProgress,
   WizardConfig,
   WizardMetrics
 } from '../../types/wizard';
+
+export type {
+  PolizaFormDataComplete,
+  PolizaFormData,
+  PolizaFormDataExtended
+} from '../../types/poliza-unified';
+
+export { usePolizaWizard } from '../../hooks/usePolizaWizard';
+export type { WizardActions } from '../../hooks/usePolizaWizard';

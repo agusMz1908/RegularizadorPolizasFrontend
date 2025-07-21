@@ -1,3 +1,5 @@
+// src/types/azure-document.ts - CORREGIDO CON TODOS LOS CAMPOS
+
 export interface AzureProcessResponse {
   estado: string;                    // Nombre del archivo procesado
   timestamp: string;                 // Timestamp del procesamiento
@@ -10,30 +12,44 @@ export interface AzureProcessResponse {
   resumen?: any;                     // Resumen del procesamiento
 }
 
-// Estructura de datos formateados extraídos por Azure
+// 🔧 ESTRUCTURA COMPLETA - Incluye TODOS los campos que usamos
 export interface DatosFormateados {
+  // Datos básicos de la póliza
   numeroPoliza?: string;
   asegurado?: string;
   compania?: string;
-  vehiculo?: string;
-  marca?: string;
-  modelo?: string;
   vigenciaDesde?: string;            // Fecha en formato ISO
   vigenciaHasta?: string;            // Fecha en formato ISO
   plan?: string;
   ramo?: string;
-  prima?: number;
-  primaComercial?: number;
-  premioTotal?: number;
-  direccion?: string;
-  departamento?: string;
-  localidad?: string;
-  telefono?: string;
-  email?: string;
-  corredor?: string;
+  
+  // 🚗 DATOS DEL VEHÍCULO (LOS CAMPOS QUE FALTABAN)
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
   motor?: string;
   chasis?: string;
   matricula?: string;
+  combustible?: string;              // 🔧 AGREGADO
+  anio?: string | number;            // 🔧 AGREGADO
+  
+  // 💰 DATOS FINANCIEROS
+  prima?: number;
+  primaComercial?: number;
+  premioTotal?: number;
+  
+  // 👤 DATOS DEL CLIENTE (LOS CAMPOS QUE FALTABAN)
+  documento?: string;                // 🔧 AGREGADO
+  email?: string;
+  telefono?: string | number;
+  direccion?: string;
+  departamento?: string;
+  localidad?: string;
+  
+  // 🏢 DATOS DEL CORREDOR
+  corredor?: string;
+  
+  // 📊 METADATOS
   listaParaVelneo?: boolean;         // Si está listo para Velneo
   camposCompletos?: number;          // Cantidad de campos completados
 }
@@ -60,10 +76,41 @@ export interface DocumentProcessResult {
   prima?: number;
   compania?: string;
   
+  // 🔧 CAMPOS EXTENDIDOS DEL VEHÍCULO
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
+  combustible?: string;
+  anio?: string | number;
+  
+  // 🔧 CAMPOS EXTENDIDOS FINANCIEROS
+  primaComercial?: number;
+  premioTotal?: number;
+  moneda?: string;
+  
+  // 🔧 CAMPOS EXTENDIDOS DEL CLIENTE
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
+  
+  // 🔧 DATOS DEL CORREDOR
+  corredor?: string;
+  plan?: string;
+  ramo?: string;
+  
   // Metadatos del procesamiento
   nivelConfianza?: number;
   requiereVerificacion?: boolean;
+  requiereRevision?: boolean;
   readyForVelneo?: boolean;
+  listoParaVelneo?: boolean;
+  timestamp?: string;
   
   // Datos estructurados para el formulario
   polizaData?: {
@@ -77,7 +124,9 @@ export interface DocumentProcessResult {
   };
   
   // Campos extraídos para mostrar en la UI
-  extractedFields?: ExtractedField[];
+  extractedFields?: ExtractedField[] | Record<string, any>;
+  originalResponse?: any;
+  errorMessage?: string;
 }
 
 // Interfaces para compatibilidad con el wizard existente
@@ -119,20 +168,34 @@ export interface VelneoPolizaData {
   clinom: string;                    // asegurado
   condom?: string;                   // direccion
   
-  // Vehículo
+  // 🚗 VEHÍCULO (CON TODOS LOS CAMPOS)
   conmaraut?: string;                // marca
   conanioaut?: number;               // anioVehiculo
   conmotor?: string;                 // motor
   conchasis?: string;                // chasis
   conmataut?: string;                // matricula
   concaraut?: number;                // categoria
+  combustibles?: string;             // combustible
+  vehiculo?: string;                 // descripcion vehiculo
+  modelo?: string;                   // modelo
   
-  // Financiero
+  // 💰 FINANCIERO COMPLETO
   conpremio: number;                 // prima
   contot?: number;                   // premioTotal
+  primaComercial?: number;           // prima comercial
   moncod?: number;                   // moneda (0=UYU, 1=USD)
   concuo?: number;                   // cuotas
   forpagvid?: string;                // formaPago
+  
+  // 👤 CLIENTE EXTENDIDO
+  documento?: string;                // documento
+  email?: string;                    // email
+  telefono?: string;                 // telefono
+  localidad?: string;                // localidad
+  departamento?: string;             // departamento
+  
+  // 🏢 CORREDOR
+  corredor?: string;                 // corredor
   
   // Cobertura
   condedaut?: number;                // deducible
@@ -154,4 +217,55 @@ export interface VelneoPolizaData {
   archivoOriginal?: string;
   procesadoConIA?: boolean;
   ramo?: string;
+  plan?: string;
 }
+
+// 🔧 TIPOS ADICIONALES PARA COMPATIBILIDAD
+
+export interface AzureDocumentRequest {
+  file: File;
+}
+
+export interface AzureErrorResponse {
+  error: string;
+  archivo?: string;
+  timestamp: string;
+  tiempoProcesamiento: number;
+  estado: string;
+  codigoError?: string;
+  detallesTecnicos?: string;
+  sugerencias?: string[];
+}
+
+export interface AzureModelHealth {
+  estaOperativo: boolean;
+  tieneConexion: boolean;
+  ultimaVerificacion: string;
+  mensaje: string;
+  nivel: 'success' | 'warning' | 'error' | 'info';
+  iconoEstado?: string;
+  mensajeCompleto?: string;
+}
+
+export interface AzureModelInfoResponse {
+  modelId: string;
+  endpoint: string;
+  status: string;
+  workingApiUrl?: string;
+  httpStatus?: string;
+  description?: string;
+  createdOn?: string;
+  docTypes?: string[];
+  apiVersion?: string;
+  warning?: string;
+  message?: string;
+  consultaTimestamp: string;
+  estaActivo?: boolean;
+  tieneAdvertencias?: boolean;
+  estadoSimplificado?: string;
+  health?: AzureModelHealth;
+}
+
+// Re-exportar tipos como alias para compatibilidad
+export type AzureDatosFormateados = DatosFormateados;
+export type AzureProcessResult = DocumentProcessResult;

@@ -1,3 +1,5 @@
+import { DatosFormateados } from "./azure-document";
+
 export interface Cliente {
   id: number;
   clinom: string;
@@ -100,6 +102,7 @@ export interface PolizaFormDataExtended {
   vigenciaHasta: string;
   plan?: string;
   ramo?: string;
+  compania: string;
   
   // Datos del Cliente
   asegurado: string;
@@ -120,9 +123,9 @@ export interface PolizaFormDataExtended {
   combustible?: string;
   
   // Información Financiera
-  prima: number | string;
-  primaComercial?: number | string;
-  premioTotal?: number | string;
+  prima: number;
+  primaComercial?: number;
+  premioTotal?: number;
   moneda: string;
   
   // Corredor de Seguros

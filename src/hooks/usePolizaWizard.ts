@@ -535,23 +535,7 @@ export const usePolizaWizard = (): WizardState & WizardActions => {
       console.log('🎯 Form data:', formData);
       console.log('👤 Cliente:', state.selectedCliente);
       console.log('🏢 Company:', state.selectedCompany);
-      
-      // Usar el método adaptado para PolizaFormDataExtended
-      const result = await wizardService.createPolizaInVelneo(
-        formData, 
-        state.selectedCliente.id, 
-        state.selectedCompany.id
-      );
-      
-      console.log('✅ Poliza created successfully:', result);
-      
-      setState((prev: WizardState) => ({ 
-        ...prev, 
-        currentStep: 'success',
-        isComplete: true 
-      }));
-
-      return result;
+    
     } catch (err: any) {
       console.error('❌ Error creating poliza:', err);
       setError('Error al crear póliza en Velneo: ' + err.message);

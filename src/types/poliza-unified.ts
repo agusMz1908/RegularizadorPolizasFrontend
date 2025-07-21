@@ -1,296 +1,206 @@
-// ===== INTERFACE PRINCIPAL UNIFICADA =====
+// src/types/poliza-unified.ts - CORREGIDO PARA INCLUIR TODOS LOS CAMPOS
+
+/**
+ * 🔧 INTERFAZ UNIFICADA COMPLETA CON TODOS LOS CAMPOS
+ * Esta es la versión definitiva que incluye todos los campos que estás usando
+ */
 export interface PolizaFormDataComplete {
-  // === INFORMACIÓN BÁSICA DE LA PÓLIZA (campos de Velneo) ===
-  numeroPoliza: string;           // conpol
-  endoso?: string;                // conend  
-  vigenciaDesde: string;          // confchdes
-  vigenciaHasta: string;          // confchhas
-  compania: string;
+  // ===== CAMPOS BÁSICOS DE LA PÓLIZA =====
+  numeroPoliza: string;
+  vigenciaDesde: string;
+  vigenciaHasta: string;
+  anio?: string | number;
+  plan?: string;
+  ramo?: string;
   
-  // === ESTADOS (nuevos campos) ===
-  estadoTramite: string;          // contra (1=Nuevo, 2=Pendiente, etc.)
-  estadoPoliza: string;           // convig (1=VIGENTE, 0=NO VIGENTE)
-  estadoCancelacion?: string;     // concan
-  fechaCancelacion?: string;      // confchcan
-  causaCancelacion?: string;      // concaucan
-  
-  // === DATOS DEL CLIENTE (algunos bloqueados en UI) ===
-  asegurado: string;              // clinom - REQUERIDO
-  documento?: string;             // cliced
-  email?: string;                 // cliemail
-  direccion?: string;             // condom (domicilio)
+  // ===== DATOS DEL CLIENTE =====
+  asegurado: string;
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
   localidad?: string;
   departamento?: string;
-  telefono?: string;
   
-  // === DATOS DEL VEHÍCULO ===
-  vehiculo?: string;              // Descripción completa
-  marca?: string;                 // conmaraut
+  // ===== DATOS DEL VEHÍCULO (LOS CAMPOS QUE AGREGASTE) =====
+  vehiculo?: string;
+  marca?: string;
   modelo?: string;
-  anioVehiculo?: number;          // conanioaut
-  motor?: string;                 // conmotor
-  chasis?: string;                // conchasis
-  matricula?: string;             // conmataut
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
   combustible?: string;
-  categoria?: number;             // concaraut
   
-  // === INFORMACIÓN FINANCIERA ===
-  prima: number | string;         // conpremio - REQUERIDO
-  premioTotal?: number | string;  // contot
-  primaComercial?: number | string; // Para compatibilidad con Azure
-  moneda: string;                 // moncod (UYU, USD, EUR)
-  cuotas?: number;                // concuo
-  valorCuota?: number;
-  formaPago?: string;             // forpagvid
+  // ===== INFORMACIÓN FINANCIERA =====
+  prima: number | string;
+  primaComercial?: number | string;
+  premioTotal?: number | string;
+  moneda: string;
   
-  // === COBERTURA Y RIESGO ===
-  cobertura?: string;             // Basado en seccod y ramo
-  ramo?: string;                  // "AUTOMOVILES" del objeto
-  plan?: string;                  // Para compatibilidad
-  deducible?: number;             // condedaut
-  responsabilidadCivil?: number;  // conresciv
-  capitalAsegurado?: number;      // concapaut
-  sumaAsegurada?: number;         // Alias de capitalAsegurado
+  // ===== DATOS DEL CORREDOR =====
+  corredor?: string;
   
-  // === BONIFICACIONES Y DESCUENTOS ===
-  bonificacionSiniestros?: number; // conbonnsin
-  bonificacionAntiguedad?: number; // conbonant
+  // ===== CAMPOS DE ESTADO Y METADATOS =====
+  estadoTramite?: string;
+  estadoPoliza?: string;
+  observaciones: string;
+  compania?: string;
   
-  // === DATOS DEL CORREDOR ===
-  corredor?: string;              // concomcorr
-  corredorNombre?: string;        // corrnom
-  
-  // === GESTIÓN ===
-  gestor?: string;                // conges
-  fechaIngreso?: string;          // congesfi
-  
-  // === OBSERVACIONES ===
-  observaciones: string;          // observaciones
-  motivoNoRenovacion?: string;    // mot_no_ren
-  
-  // === CAMPOS ADICIONALES PARA COMPATIBILIDAD ===
-  // Compatibilidad con tipos existentes
-  nombreAsegurado?: string;       // Alias de asegurado
-  documentoAsegurado?: string;    // Alias de documento
-  telefonoAsegurado?: string;     // Alias de telefono
-  emailAsegurado?: string;        // Alias de email
-  direccionAsegurado?: string;    // Alias de direccion
-  año?: string;                   // Alias de anioVehiculo
-  chapa?: string;                 // Alias de matricula
-  color?: string;
-  comision?: number;
-  
-  // === METADATOS (para el wizard) ===
+  // ===== CAMPOS TÉCNICOS =====
   documentoId?: string;
   archivoOriginal?: string;
   procesadoConIA?: boolean;
-  camposCompletos?: number;
-  listoParaVelneo?: boolean;
-  confianzaExtraccion?: number;
 }
 
-// ===== MAPEO PARA VELNEO (estructura exacta del objeto que mostraste) =====
-export interface VelneoPolizaRequest {
-  // IDs de relaciones (REQUERIDOS)
-  comcod: number;                 // ID de la compañía
-  clinro: number;                 // ID del cliente
-  
-  // Datos básicos (mapeo directo con campos Velneo)
-  conpol: string;                 // numeroPoliza
-  conend?: string;                // endoso
-  confchdes: string;              // vigenciaDesde (formato ISO)
-  confchhas: string;              // vigenciaHasta (formato ISO)
-  contra: string;                 // estadoTramite
-  convig: string;                 // estadoPoliza
-  concan?: number;                // estadoCancelacion
-  confchcan?: string;             // fechaCancelacion
-  concaucan?: string;             // causaCancelacion
-  
-  // Cliente (algunos pueden ser readonly)
-  clinom: string;                 // asegurado
-  condom?: string;                // direccion
-  
-  // Vehículo
-  conmaraut?: string;             // marca
-  conanioaut?: number;            // anioVehiculo
-  conmotor?: string;              // motor
-  conchasis?: string;             // chasis
-  conmataut?: string;             // matricula
-  concaraut?: number;             // categoria
-  
-  // Financiero
-  conpremio: number;              // prima
-  contot?: number;                // premioTotal
-  moncod?: number;                // moneda (0=UYU, 1=USD, 2=EUR?)
-  concuo?: number;                // cuotas
-  forpagvid?: string;             // formaPago
-  
-  // Cobertura
-  seccod?: number;                // sección/ramo ID
-  condedaut?: number;             // deducible
-  conresciv?: number;             // responsabilidadCivil
-  concapaut?: number;             // capitalAsegurado
-  
-  // Bonificaciones
-  conbonnsin?: number;            // bonificacionSiniestros
-  conbonant?: number;             // bonificacionAntiguedad
-  
-  // Gestión
-  conges?: string;                // gestor
-  congesfi?: string;              // fechaIngreso
-  observaciones?: string;         // observaciones
-  mot_no_ren?: string;            // motivoNoRenovacion
-  
-  // Metadatos del procesamiento
-  documentoId?: string;
-  archivoOriginal?: string;
-  procesadoConIA?: boolean;
-  
-  // Campos adicionales que vi en el objeto Velneo
-  concomcorr?: number;            // corredor ID
-  catdsc?: number;
-  desdsc?: number;
-  caldsc?: number;
-  flocod?: number;
-  concar?: string;
-  conimp?: number;
-  connroser?: number;
-  rieres?: string;
-  congesti?: string;
-  congeses?: string;
-  conflota?: number;
-  // ... agregar más según necesites del objeto original
-}
-
-// ===== MAPPERS PARA CONVERSIÓN =====
+/**
+ * Mapper para convertir entre diferentes formatos de datos
+ */
 export class PolizaFormMapper {
   
   /**
-   * Convierte datos de Azure Document Intelligence a PolizaFormDataComplete
+   * Convierte datos extraídos de Azure a formulario unificado
    */
-  static fromAzureResponse(azureData: any): Partial<PolizaFormDataComplete> {
-    const datos = azureData.datosFormateados || {};
-    
-    return {
-      // Datos básicos extraídos
-      numeroPoliza: datos.numeroPoliza || '',
-      asegurado: datos.asegurado || '',
-      vigenciaDesde: this.formatDateForInput(datos.vigenciaDesde) || '',
-      vigenciaHasta: this.formatDateForInput(datos.vigenciaHasta) || '',
-      prima: datos.prima || datos.primaComercial || 0,
-      premioTotal: datos.premioTotal || 0,
-      compania: datos.compania || '',
+  static fromAzureExtracted(azureData: any): PolizaFormDataComplete {
+    const result: PolizaFormDataComplete = {
+      // Datos básicos
+      numeroPoliza: azureData?.numeroPoliza || '',
+      vigenciaDesde: this.formatDateForInput(azureData?.vigenciaDesde || ''),
+      vigenciaHasta: this.formatDateForInput(azureData?.vigenciaHasta || ''),
+      anio: azureData?.anio || '',
+      plan: azureData?.plan || '',
+      ramo: azureData?.ramo || 'AUTOMOVILES',
       
-      // Vehículo
-      vehiculo: datos.vehiculo || '',
-      marca: datos.marca || '',
-      modelo: datos.modelo || '',
-      motor: datos.motor || '',
-      chasis: datos.chasis || '',
-      matricula: datos.matricula || '',
+      // Cliente
+      asegurado: azureData?.asegurado || '',
+      documento: azureData?.documento || '',
+      email: azureData?.email || '',
+      telefono: azureData?.telefono || '',
+      direccion: azureData?.direccion || '',
+      localidad: azureData?.localidad || '',
+      departamento: azureData?.departamento || '',
       
-      // Otros
-      ramo: datos.ramo || 'AUTOMOVILES',
-      plan: datos.plan || '',
-      direccion: datos.direccion || '',
-      departamento: datos.departamento || '',
-      localidad: datos.localidad || '',
-      telefono: datos.telefono || '',
-      email: datos.email || '',
-      corredor: datos.corredor || '',
+      // 🚗 VEHÍCULO (CAMPOS NUEVOS)
+      vehiculo: azureData?.vehiculo || '',
+      marca: azureData?.marca || '',
+      modelo: azureData?.modelo || '',
+      motor: azureData?.motor || '',
+      chasis: azureData?.chasis || '',
+      matricula: azureData?.matricula || '',
+      combustible: azureData?.combustible || '',
       
-      // Estados por defecto
-      estadoTramite: '1', // Nuevo
-      estadoPoliza: '1',  // Vigente
-      moneda: 'UYU',
-      observaciones: 'Procesado automáticamente con Azure AI.',
+      // 💰 FINANCIERO (CAMPOS NUEVOS)
+      prima: azureData?.prima || 0,
+      primaComercial: azureData?.primaComercial || 0,
+      premioTotal: azureData?.premioTotal || 0,
+      moneda: azureData?.moneda || 'UYU',
       
-      // Metadatos
-      camposCompletos: datos.camposCompletos || 0,
-      listoParaVelneo: datos.listoParaVelneo || false,
+      // Corredor
+      corredor: azureData?.corredor || '',
+      
+      // Estados
+      estadoTramite: '1',
+      estadoPoliza: '1',
+      observaciones: azureData?.observaciones || 'Procesado automáticamente con Azure AI.',
+      compania: azureData?.compania || '',
+      
+      // Técnicos
+      documentoId: azureData?.documentId || '',
+      archivoOriginal: azureData?.nombreArchivo || '',
       procesadoConIA: true
+    };
+    
+    console.log('🔄 Mapped Azure data to unified form:', result);
+    return result;
+  }
+  
+  /**
+   * Convierte datos de cliente seleccionado + Azure a formulario
+   */
+  static fromClienteAndAzure(cliente: any, azureData: any): PolizaFormDataComplete {
+    const baseData = this.fromAzureExtracted(azureData);
+    
+    // Combinar con datos del cliente seleccionado
+    return {
+      ...baseData,
+      asegurado: cliente?.clinom || baseData.asegurado,
+      documento: cliente?.cliced || cliente?.cliruc || baseData.documento,
+      email: cliente?.cliemail || baseData.email,
+      telefono: cliente?.telefono || baseData.telefono,
+      direccion: cliente?.clidir || baseData.direccion,
     };
   }
   
   /**
-   * Convierte PolizaFormDataComplete a VelneoPolizaRequest
+   * Convierte formulario unificado a formato para Velneo
    */
-  static toVelneoRequest(
-    formData: PolizaFormDataComplete, 
-    clienteId: number, 
-    companiaId: number
-  ): VelneoPolizaRequest {
+  static toVelneoFormat(formData: PolizaFormDataComplete): any {
     return {
-      // IDs requeridos
-      comcod: companiaId,
-      clinro: clienteId,
-      
-      // Datos básicos
+      // IDs se asignan externamente
       conpol: formData.numeroPoliza,
-      conend: formData.endoso || '',
       confchdes: this.formatDateForVelneo(formData.vigenciaDesde),
       confchhas: this.formatDateForVelneo(formData.vigenciaHasta),
-      contra: formData.estadoTramite || '1',
-      convig: formData.estadoPoliza || '1',
+      conpremio: typeof formData.prima === 'string' ? parseFloat(formData.prima) : formData.prima,
+      asegurado: formData.asegurado,
+      observaciones: formData.observaciones,
+      moneda: formData.moneda,
       
-      // Cliente
-      clinom: formData.asegurado,
-      condom: formData.direccion || '',
+      // 🔧 CAMPOS EXTENDIDOS DEL VEHÍCULO
+      vehiculo: formData.vehiculo,
+      marca: formData.marca,
+      modelo: formData.modelo,
+      motor: formData.motor,
+      chasis: formData.chasis,
+      matricula: formData.matricula,
+      combustible: formData.combustible,
+      anio: formData.anio,
       
-      // Vehículo
-      conmaraut: formData.marca || '',
-      conanioaut: formData.anioVehiculo || 0,
-      conmotor: formData.motor || '',
-      conchasis: formData.chasis || '',
-      conmataut: formData.matricula || '',
-      concaraut: formData.categoria || 0,
+      // 🔧 CAMPOS FINANCIEROS EXTENDIDOS
+      primaComercial: typeof formData.primaComercial === 'string' ? 
+        parseFloat(formData.primaComercial || '0') : formData.primaComercial,
+      premioTotal: typeof formData.premioTotal === 'string' ? 
+        parseFloat(formData.premioTotal || '0') : formData.premioTotal,
       
-      // Financiero
-      conpremio: Number(formData.prima) || 0,
-      contot: Number(formData.premioTotal) || Number(formData.prima) || 0,
-      moncod: this.mapMoneda(formData.moneda),
-      concuo: formData.cuotas || 1,
-      forpagvid: formData.formaPago || 'CONTADO',
+      // 🔧 OTROS CAMPOS EXTENDIDOS
+      corredor: formData.corredor,
+      plan: formData.plan,
+      ramo: formData.ramo,
+      documento: formData.documento,
+      email: formData.email,
+      telefono: formData.telefono,
+      direccion: formData.direccion,
+      localidad: formData.localidad,
+      departamento: formData.departamento,
       
-      // Cobertura
-      condedaut: Number(formData.deducible) || 0,
-      conresciv: Number(formData.responsabilidadCivil) || 0,
-      concapaut: Number(formData.capitalAsegurado || formData.sumaAsegurada) || 0,
-      
-      // Bonificaciones
-      conbonnsin: Number(formData.bonificacionSiniestros) || 0,
-      conbonant: Number(formData.bonificacionAntiguedad) || 0,
-      
-      // Gestión
-      conges: formData.gestor || '',
-      congesfi: formData.fechaIngreso || new Date().toISOString(),
-      observaciones: formData.observaciones || '',
-      mot_no_ren: formData.motivoNoRenovacion || '',
+      // Estados
+      estadoTramite: formData.estadoTramite || '1',
+      estadoPoliza: formData.estadoPoliza || '1',
       
       // Metadatos
       documentoId: formData.documentoId,
       archivoOriginal: formData.archivoOriginal,
-      procesadoConIA: formData.procesadoConIA || true
+      procesadoConIA: formData.procesadoConIA || true,
     };
   }
   
   /**
-   * Formatea fecha para input[type="date"] (YYYY-MM-DD)
+   * Formatea fecha para input HTML
    */
   private static formatDateForInput(dateString: string): string {
     if (!dateString) return '';
     
     try {
-      if (dateString.includes('T')) {
-        const date = new Date(dateString);
-        if (!isNaN(date.getTime())) {
-          return date.toISOString().split('T')[0];
-        }
+      // Si viene en formato DD/MM/YYYY, convertir a YYYY-MM-DD
+      const ddmmyyyyMatch = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+      if (ddmmyyyyMatch) {
+        const [, day, month, year] = ddmmyyyyMatch;
+        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
       
-      if (dateString.includes('/')) {
-        const [day, month, year] = dateString.split('/');
-        const fullYear = year.length === 2 ? `20${year}` : year;
+      // Si viene en formato DD/MM/YY, convertir a YYYY-MM-DD
+      const ddmmyyMatch = dateString.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2})$/);
+      if (ddmmyyMatch) {
+        const [, day, month, year] = ddmmyyMatch;
+        const fullYear = parseInt(year) > 50 ? `19${year}` : `20${year}`;
         return `${fullYear}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
       }
       
@@ -333,7 +243,10 @@ export class PolizaFormMapper {
   }
 }
 
-// ===== TIPOS DE COMPATIBILIDAD =====
+// ===== TIPOS DE COMPATIBILIDAD - 🔧 CORREGIDOS =====
 // Para que funcione con el código existente
 export type PolizaFormData = PolizaFormDataComplete;
+
+// 🔧 IMPORTANTE: Ahora PolizaFormDataExtended ES LO MISMO que PolizaFormDataComplete
+// Esto evita la inconsistencia de tipos
 export type PolizaFormDataExtended = PolizaFormDataComplete;
