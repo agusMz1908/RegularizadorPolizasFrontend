@@ -343,81 +343,150 @@ export const usePolizaWizard = () => {
   // 🔍 BÚSQUEDA DE CLIENTES - ENDPOINT /all CORRECTO
   // =====================================
 
-    const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
-    if (!searchTerm.trim() || searchTerm.length < 2) {
-      setClienteResults([]);
-      return;
+const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
+  if (!searchTerm.trim() || searchTerm.length < 2) {
+    setClienteResults([]);
+    return;
+  }
+
+  const token = getAuthToken();
+  if (!token) {
+    setError('No hay sesión activa para buscar clientes');
+    return;
+  }
+
+  setLoadingClientes(true);
+  
+  try {
+    console.log('🚀 Buscando clientes DIRECTO en Velneo con término:', searchTerm);
+
+    const searchUrl = `${import.meta.env.VITE_API_URL}/clientes/direct`;
+    const response = await fetch(
+      `${searchUrl}?filtro=${encodeURIComponent(searchTerm)}`,
+      {
+        headers: getAuthHeaders(),
+        signal: AbortSignal.timeout(10000)
+      }
+    );
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
+      }
+      throw new Error(`Error buscando clientes: ${response.status}`);
     }
 
-    const token = getAuthToken();
-    if (!token) {
-      setError('No hay sesión activa para buscar clientes');
-      return;
+    // ✅ PARSING DIRECTO CON .json()
+    const data = await response.json();
+    
+    console.log('📥 Respuesta DIRECTA de Velneo:', {
+      tipo: typeof data,
+      esArray: Array.isArray(data),
+      keys: data && typeof data === 'object' && !Array.isArray(data) ? Object.keys(data) : 'N/A',
+      estructura: data && typeof data === 'object' ? 'Objeto' : 'Otro'
+    });
+
+    // 🎯 MANEJAR LA ESTRUCTURA ESPECÍFICA DE VELNEO
+    let clientes: any[] = [];
+    
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      // Estructura de Velneo: {count: 27, total_count: 27, clientes: [...]}
+      if (data.clientes && Array.isArray(data.clientes)) {
+        clientes = data.clientes;
+        console.log('✅ Estructura Velneo detectada:', {
+          count: data.count,
+          total_count: data.total_count,
+          clientesEncontrados: clientes.length
+        });
+      } else {
+        console.warn('⚠️ Estructura inesperada - propiedades disponibles:', Object.keys(data));
+        // Buscar en otras propiedades posibles
+        const possibleKeys = ['data', 'items', 'results', 'clients'];
+        for (const key of possibleKeys) {
+          if (data[key] && Array.isArray(data[key])) {
+            clientes = data[key];
+            console.log(`✅ Clientes encontrados en data.${key}:`, clientes.length);
+            break;
+          }
+        }
+      }
+    } else if (Array.isArray(data)) {
+      // Si por alguna razón llegara como array directo
+      clientes = data;
+      console.log('✅ Array directo:', clientes.length, 'elementos');
+    } else {
+      console.error('❌ Estructura de datos inesperada:', data);
+      throw new Error('Formato de respuesta inesperado del servidor');
     }
 
-    setLoadingClientes(true);
+    // 🔍 DEBUG: Verificar que tenemos datos
+    console.log('📋 Clientes a procesar:', clientes.length);
+    if (clientes.length > 0) {
+      console.log('📋 Primer cliente (muestra):', clientes[0]);
+    }
+
+    // 🔄 MAPEO ESPECÍFICO PARA LA ESTRUCTURA DE VELNEO
+    const clientesMapeados = clientes.map((cliente: any) => ({
+      id: cliente.id,
+      clinom: cliente.clinom,           // "LEONARDO RODRIGUEZ"
+      cliced: cliente.cliced || '',     // documento/CI
+      cliruc: cliente.cliruc || '',     // RUC
+      cliemail: cliente.cliemail || '', // email
+      telefono: cliente.telefono || cliente.clicel || '', // teléfono
+      clidir: cliente.clidir,           // "TOMAS DE TEZANOS 1348"
+      activo: cliente.activo !== false
+    }));
+
+    console.log('📋 Resultado del mapeo:', {
+      clientesOriginales: clientes.length,
+      clientesMapeados: clientesMapeados.length,
+      muestra: clientesMapeados.slice(0, 2).map(c => ({
+        id: c.id,
+        nombre: c.clinom,
+        direccion: c.clidir
+      }))
+    });
+
+    // ✅ ESTABLECER RESULTADOS
+    setClienteResults(clientesMapeados);
+    console.log(`✅ Búsqueda DIRECTA completada: ${clientesMapeados.length} clientes encontrados`);
+    
+  } catch (err: any) {
+    console.error('❌ Error en búsqueda directa:', err);
+    
+    // 🔄 FALLBACK al método anterior
+    console.warn('🔄 FALLBACK: Intentando con método anterior /all...');
     
     try {
-      console.log('🔍 Buscando clientes con término:', searchTerm);
-
-      // ✅ ENDPOINT CORRECTO QUE FUNCIONA: /api/clientes/all?search=termino
-      const searchUrl = `${import.meta.env.VITE_API_URL}/clientes/all`;
-      const response = await fetch(
-        `${searchUrl}?search=${encodeURIComponent(searchTerm)}`,
+      const fallbackUrl = `${import.meta.env.VITE_API_URL}/clientes/all`;
+      const fallbackResponse = await fetch(
+        `${fallbackUrl}?search=${encodeURIComponent(searchTerm)}`,
         {
           headers: getAuthHeaders(),
-          signal: AbortSignal.timeout(30000) // 30 segundos para búsqueda
+          signal: AbortSignal.timeout(30000)
         }
       );
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
-        }
-        throw new Error(`Error buscando clientes: ${response.status}`);
+      if (fallbackResponse.ok) {
+        const fallbackData = await fallbackResponse.json();
+        const clientesFallback = fallbackData.items || fallbackData || [];
+        setClienteResults(clientesFallback);
+        console.log(`✅ Fallback exitoso: ${clientesFallback.length} clientes`);
+        // No mostrar error al usuario, solo usar fallback
+        console.warn('⚠️ Se usó fallback - revisar endpoint directo');
+      } else {
+        throw new Error('Ambos endpoints fallaron');
       }
-
-      const data = await response.json();
-      
-      // 🔍 DEBUG: Ver estructura completa de la respuesta
-      console.log('📥 Respuesta completa del backend:', data);
-      console.log('📊 Metadata:', {
-        totalCount: data.totalCount,
-        dataSource: data.dataSource,
-        filtered: data.filtered,
-        itemsLength: data.items ? data.items.length : 'undefined'
-      });
-      
-      // Extraer clientes de la respuesta
-      const clientes = data.items || data || [];
-      
-      // 🔍 DEBUG: Verificar clientes extraídos
-      console.log('📋 Clientes extraídos:', {
-        cantidad: clientes.length,
-        primeros3: clientes.slice(0, 3).map((c: any) => ({
-          id: c.id,
-          nombre: c.clinom,
-          documento: c.cliced
-        }))
-      });
-      
-      setClienteResults(clientes);
-      console.log(`✅ Búsqueda completada: ${clientes.length} clientes mostrados de ${data.totalCount} encontrados en Velneo`);
-      
-      // 🚨 ALERTA: Si hay discrepancia entre frontend y backend
-      if (data.totalCount && clientes.length !== data.totalCount) {
-        console.warn(`⚠️ DISCREPANCIA: Backend encontró ${data.totalCount} clientes, pero frontend solo procesó ${clientes.length}`);
-        console.warn('📋 Verificar estructura de data.items:', data.items ? 'Existe' : 'No existe');
-      }
-
-    } catch (err: any) {
-      console.error('❌ Error buscando clientes:', err);
-      setError('Error buscando clientes');
+    } catch (fallbackError) {
+      console.error('❌ Fallback también falló:', fallbackError);
+      setError(err.message || 'Error al buscar clientes');
       setClienteResults([]);
-    } finally {
-      setLoadingClientes(false);
     }
-  }, [getAuthToken, getAuthHeaders]);
+    
+  } finally {
+    setLoadingClientes(false);
+  }
+}, [getAuthToken, getAuthHeaders]);
 
   // =====================================
   // 🏢 CARGAR COMPAÑÍAS

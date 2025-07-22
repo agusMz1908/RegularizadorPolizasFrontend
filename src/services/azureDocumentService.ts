@@ -38,6 +38,15 @@ export interface AzureDatosFormateados {
   direccion?: string;
   departamento?: string;
   localidad?: string;
+  color?: string;
+  tipoVehiculo?: string;
+  uso?: string;
+  impuestoMSP?: number;
+  formaPago?: string;
+  cantidadCuotas?: number;
+  codigoPostal?: string;
+  descuentos?: number;
+  recargos?: number;
 }
 
 // 🎯 TIPOS EXACTOS - AzureResumenDto

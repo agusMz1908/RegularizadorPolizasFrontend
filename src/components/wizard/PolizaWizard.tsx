@@ -75,8 +75,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     anio: '',
     documento: ''
   });
-
-  const [isEditing, setIsEditing] = useState(false);
+  
   const [saving, setSaving] = useState(false);
 
   // 🔄 Llenar formulario cuando se extraen los datos
@@ -249,160 +248,349 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
 
   // 1️⃣ PASO: Selección de Cliente
   const renderClienteStep = () => (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Seleccionar Cliente</h2>
-        <p className="text-gray-600">Busca y selecciona el cliente para la póliza</p>
+  <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="text-center mb-8">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Seleccionar Cliente</h2>
+      <p className="text-gray-600">Busca y selecciona el cliente para la póliza</p>
+    </div>
+
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      {/* Buscador */}
+      <div className="relative mb-6">
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <Search className="h-5 w-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          value={wizard.clienteSearch}
+          onChange={(e) => {
+            wizard.setClienteSearch(e.target.value);
+            if (e.target.value.length >= 2) {
+              wizard.searchClientes(e.target.value);
+            }
+          }}
+          placeholder="Buscar por nombre, documento o RUC..."
+          className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-sm"
+        />
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        {/* Buscador */}
-        <div className="relative mb-6">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            value={wizard.clienteSearch}
-            onChange={(e) => {
-              wizard.setClienteSearch(e.target.value);
-              if (e.target.value.length >= 2) {
-                wizard.searchClientes(e.target.value);
-              }
-            }}
-            placeholder="Buscar por nombre, documento o RUC..."
-            className="block w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-          />
+      {/* Loading de búsqueda */}
+      {wizard.loadingClientes && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
+          <span className="text-gray-600">Buscando clientes...</span>
         </div>
+      )}
 
-        {/* Loading de búsqueda */}
-        {wizard.loadingClientes && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
-            <span className="text-gray-600">Buscando clientes...</span>
+      {/* ✅ RESULTADOS MEJORADOS CON SCROLL */}
+      {wizard.clienteResults.length > 0 && (
+        <div className="mb-4">
+          {/* Header con contador */}
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+            <h3 className="text-sm font-medium text-gray-700">
+              Resultados encontrados
+            </h3>
+            <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+              {wizard.clienteResults.length} cliente{wizard.clienteResults.length !== 1 ? 's' : ''}
+            </span>
           </div>
-        )}
 
-        {/* Resultados */}
-        {wizard.clienteResults.length > 0 && (
-          <div className="space-y-3">
-            {wizard.clienteResults.map((cliente) => (
+          {/* Lista con scroll y altura limitada */}
+          <div className="max-h-96 overflow-y-auto space-y-2 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+            {wizard.clienteResults.map((cliente, index) => (
               <div
                 key={cliente.id}
                 onClick={() => wizard.selectCliente(cliente)}
-                className="p-4 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 cursor-pointer transition-colors"
+                className="group p-3 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 cursor-pointer transition-all duration-200 hover:shadow-sm"
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="font-medium text-gray-900">{cliente.clinom}</h3>
-                    <div className="text-sm text-gray-600 mt-1">
-                      {cliente.cliced && <span>CI: {cliente.cliced}</span>}
-                      {cliente.cliruc && <span className="ml-3">RUC: {cliente.cliruc}</span>}
+                  <div className="flex-1 min-w-0">
+                    {/* Nombre principal */}
+                    <div className="flex items-center space-x-2 mb-1">
+                      <h4 className="font-medium text-gray-900 truncate group-hover:text-purple-900">
+                        {cliente.clinom}
+                      </h4>
+                      {index < 3 && (
+                        <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded">
+                          Top {index + 1}
+                        </span>
+                      )}
                     </div>
-                    {cliente.cliemail && (
-                      <div className="text-sm text-gray-500 mt-1">{cliente.cliemail}</div>
+                    
+                    {/* Información compacta en dos líneas */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1 text-xs text-gray-600">
+                      {/* Primera línea: Documentos */}
+                      <div className="flex items-center space-x-3">
+                        {cliente.cliced && (
+                          <span className="flex items-center">
+                            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mr-1"></span>
+                            CI: {cliente.cliced}
+                          </span>
+                        )}
+                        {cliente.cliruc && (
+                          <span className="flex items-center">
+                            <span className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1"></span>
+                            RUC: {cliente.cliruc}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Segunda línea: Contacto */}
+                      <div className="flex items-center space-x-3">
+                        {cliente.cliemail && (
+                          <span className="flex items-center truncate">
+                            <span className="w-1.5 h-1.5 bg-purple-400 rounded-full mr-1"></span>
+                            {cliente.cliemail}
+                          </span>
+                        )}
+                        {cliente.telefono && (
+                          <span className="flex items-center">
+                            <span className="w-1.5 h-1.5 bg-orange-400 rounded-full mr-1"></span>
+                            {cliente.telefono}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Dirección si existe */}
+                    {cliente.clidir && (
+                      <div className="mt-1 text-xs text-gray-500 truncate">
+                        📍 {cliente.clidir}
+                      </div>
                     )}
                   </div>
-                  <ArrowRight className="w-5 h-5 text-gray-400" />
+
+                  {/* Flecha e indicador */}
+                  <div className="flex items-center space-x-2 ml-3">
+                    <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                      Seleccionar
+                    </div>
+                    <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-purple-500 transition-colors" />
+                  </div>
                 </div>
               </div>
             ))}
           </div>
-        )}
 
-        {/* Mensaje cuando no hay resultados */}
-        {wizard.clienteSearch.length >= 2 && !wizard.loadingClientes && wizard.clienteResults.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            No se encontraron clientes con ese criterio
+          {/* Footer con hint */}
+          <div className="mt-3 pt-2 border-t border-gray-100">
+            <p className="text-xs text-gray-500 text-center">
+              💡 Haz clic en cualquier cliente para seleccionarlo
+            </p>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Mensaje inicial */}
-        {wizard.clienteSearch.length < 2 && wizard.clienteResults.length === 0 && (
-          <div className="text-center py-8 text-gray-500">
-            Escribe al menos 2 caracteres para buscar
+      {/* Mensaje cuando no hay resultados */}
+      {wizard.clienteSearch.length >= 2 && !wizard.loadingClientes && wizard.clienteResults.length === 0 && (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Search className="w-6 h-6 text-gray-400" />
           </div>
-        )}
-      </div>
+          <h3 className="text-sm font-medium text-gray-900 mb-1">Sin resultados</h3>
+          <p className="text-xs text-gray-500">
+            No se encontraron clientes con el criterio "{wizard.clienteSearch}"
+          </p>
+          <p className="text-xs text-gray-400 mt-2">
+            Intenta con otro nombre o documento
+          </p>
+        </div>
+      )}
+
+      {/* Mensaje inicial */}
+      {wizard.clienteSearch.length < 2 && wizard.clienteResults.length === 0 && (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Search className="w-6 h-6 text-purple-600" />
+          </div>
+          <h3 className="text-sm font-medium text-gray-900 mb-1">Buscar cliente</h3>
+          <p className="text-xs text-gray-500">
+            Escribe al menos 2 caracteres para comenzar la búsqueda
+          </p>
+          <div className="mt-3 flex items-center justify-center space-x-4 text-xs text-gray-400">
+            <span>Busca por:</span>
+            <span className="bg-gray-100 px-2 py-1 rounded">Nombre</span>
+            <span className="bg-gray-100 px-2 py-1 rounded">CI</span>
+            <span className="bg-gray-100 px-2 py-1 rounded">RUC</span>
+          </div>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 
   // 2️⃣ PASO: Selección de Compañía
   const renderCompanyStep = () => (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Seleccionar Compañía</h2>
-        <p className="text-gray-600">Elige la compañía de seguros para la póliza</p>
-      </div>
+  <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="text-center mb-8">
+      <h2 className="text-2xl font-bold text-gray-900 mb-2">Seleccionar Compañía</h2>
+      <p className="text-gray-600">Elige la compañía de seguros para la póliza</p>
+    </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        {/* Cliente seleccionado */}
-        {wizard.selectedCliente && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+      {/* Cliente seleccionado - Resumen mejorado */}
+      {wizard.selectedCliente && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-lg">
+          <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <CheckCircle className="w-5 h-5 text-green-600 mr-2" />
-              <span className="font-medium text-green-800">Cliente: {wizard.selectedCliente.clinom}</span>
+              <CheckCircle className="w-5 h-5 text-green-600 mr-3" />
+              <div>
+                <span className="font-medium text-green-800">Cliente seleccionado:</span>
+                <span className="ml-2 text-green-900 font-semibold">{wizard.selectedCliente.clinom}</span>
+              </div>
+            </div>
+            <div className="text-xs text-green-600 bg-green-100 px-2 py-1 rounded-full">
+              ✓ Paso 1 completado
             </div>
           </div>
-        )}
-
-        {/* Loading de compañías */}
-        {wizard.loadingCompanies && (
-          <div className="flex items-center justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
-            <span className="text-gray-600">Cargando compañías...</span>
+          {/* Información adicional del cliente */}
+          <div className="mt-2 text-xs text-green-700 flex items-center space-x-4">
+            {wizard.selectedCliente.cliced && (
+              <span>CI: {wizard.selectedCliente.cliced}</span>
+            )}
+            {wizard.selectedCliente.cliemail && (
+              <span>📧 {wizard.selectedCliente.cliemail}</span>
+            )}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Lista de compañías */}
-        {wizard.companies.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {wizard.companies.map((company) => (
-              <div
-                key={company.id}
-                onClick={() => wizard.selectCompany(company)}
-                className="p-4 border border-gray-200 rounded-lg hover:bg-purple-50 hover:border-purple-300 cursor-pointer transition-colors"
-              >
-                <div className="flex items-center">
-                  <Building2 className="w-8 h-8 text-purple-600 mr-3" />
-                  <div>
-                    <h3 className="font-medium text-gray-900">{company.comnom}</h3>
-                    <p className="text-sm text-gray-600">{company.comalias}</p>
+      {/* Loading de compañías */}
+      {wizard.loadingCompanies && (
+        <div className="flex items-center justify-center py-8">
+          <Loader2 className="w-6 h-6 animate-spin text-purple-600 mr-2" />
+          <span className="text-gray-600">Cargando compañías...</span>
+        </div>
+      )}
+
+      {/* ✅ LISTA DE COMPAÑÍAS MEJORADA */}
+      {wizard.companies.length > 0 && (
+        <div className="mb-4">
+          {/* Header con contador */}
+          <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
+            <h3 className="text-sm font-medium text-gray-700">
+              Compañías disponibles
+            </h3>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+              {wizard.companies.length} compañía{wizard.companies.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+
+          {/* Grid responsivo con scroll si hay muchas compañías */}
+          <div className="max-h-80 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {wizard.companies.map((company, index) => (
+                <div
+                  key={company.id}
+                  onClick={() => wizard.selectCompany(company)}
+                  className="group p-4 border border-gray-200 rounded-lg hover:bg-blue-50 hover:border-blue-300 cursor-pointer transition-all duration-200 hover:shadow-sm"
+                >
+                  <div className="flex items-center space-x-3">
+                    {/* Icono de la compañía */}
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center group-hover:from-blue-200 group-hover:to-purple-200 transition-colors">
+                        <Building2 className="w-5 h-5 text-blue-600 group-hover:text-blue-700" />
+                      </div>
+                    </div>
+
+                    {/* Información de la compañía */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2 mb-1">
+                        <h4 className="font-medium text-gray-900 truncate group-hover:text-blue-900">
+                          {company.comnom}
+                        </h4>
+                        {index < 2 && (
+                          <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">
+                            ⭐ Popular
+                          </span>
+                        )}
+                      </div>
+                      
+                      {/* Alias/código de la compañía */}
+                      {company.comalias && company.comalias !== company.comnom && (
+                        <div className="text-xs text-gray-600 flex items-center">
+                          <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mr-1.5"></span>
+                          Código: {company.comalias}
+                        </div>
+                      )}
+                      
+                      {/* Estado activo */}
+                      <div className="flex items-center mt-1">
+                        <div className="w-1.5 h-1.5 bg-green-400 rounded-full mr-1.5"></div>
+                        <span className="text-xs text-green-600 font-medium">Activa</span>
+                      </div>
+                    </div>
+
+                    {/* Flecha e indicador */}
+                    <div className="flex items-center space-x-2">
+                      <div className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                        Seleccionar
+                      </div>
+                      <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-blue-500 transition-colors" />
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        )}
 
-        {/* Sin compañías disponibles */}
-        {!wizard.loadingCompanies && wizard.companies.length === 0 && (
-          <div className="text-center py-8">
-            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">Sin compañías disponibles</h3>
-            <p className="text-gray-600 mb-4">No se encontraron compañías activas</p>
+          {/* Footer con información */}
+          <div className="mt-3 pt-2 border-t border-gray-100">
+            <p className="text-xs text-gray-500 text-center">
+              🏢 Haz clic en cualquier compañía para continuar
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Sin compañías disponibles - Estado mejorado */}
+      {!wizard.loadingCompanies && wizard.companies.length === 0 && (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Building2 className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Sin compañías disponibles</h3>
+          <p className="text-sm text-gray-600 mb-4">
+            No se encontraron compañías activas en el sistema
+          </p>
+          <div className="space-y-3">
             <button
               onClick={wizard.loadCompanies}
-              className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700"
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors"
             >
-              Recargar
+              <Loader2 className="w-4 h-4 mr-2" />
+              Recargar compañías
             </button>
+            <p className="text-xs text-gray-500">
+              Si el problema persiste, contacta al administrador
+            </p>
           </div>
-        )}
-
-        {/* Botón volver */}
-        <div className="mt-6 pt-6 border-t border-gray-200">
-          <button
-            onClick={() => wizard.goBack()}
-            className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Volver a clientes
-          </button>
         </div>
+      )}
+
+      {/* Botones de navegación */}
+      <div className="flex justify-between pt-6 border-t border-gray-100">
+        <button
+          onClick={wizard.goBack}
+          className="inline-flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Volver a cliente
+        </button>
+        
+        {wizard.selectedCompany && (
+          <button
+            onClick={() => wizard.goToStep('upload')}
+            className="inline-flex items-center px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            Continuar
+            <ArrowRight className="w-4 h-4 ml-2" />
+          </button>
+        )}
       </div>
     </div>
-  );
+  </div>
+);
 
   // 3️⃣ PASO: Upload de Archivo
   const renderUploadStep = () => (

@@ -57,24 +57,53 @@ class WizardService {
     return { isValid: true };
   }
 
-  async searchClientes(searchTerm: string, pageSize: number = 10): Promise<Cliente[]> {
+  async searchClientes(searchTerm: string, pageSize: number = 50): Promise<Cliente[]> {
+  try {
+    console.log('🚀 WizardService: Searching clients DIRECT:', searchTerm);
+    
+    const response = await apiService.get<any>(
+      `/clientes/direct?filtro=${encodeURIComponent(searchTerm)}`
+    );
+    
+    if (response.success && response.data) {
+      const rawData = response.data;
+      const clientes = rawData.clientes || rawData.clients || rawData || [];
+      
+      const clientesMapeados: Cliente[] = clientes.slice(0, pageSize).map((cliente: any) => ({
+        id: cliente.id || cliente.clinro,
+        clinom: cliente.clinom || cliente.nombre,
+        cliced: cliente.cliced || cliente.documento,
+        cliruc: cliente.cliruc || cliente.ruc,
+        cliemail: cliente.cliemail || cliente.email,
+        telefono: cliente.telefono || cliente.clicel,
+        clidir: cliente.clidir || cliente.direccion,
+        activo: cliente.activo !== false
+      }));
+      
+      return clientesMapeados;
+    }
+    
+    return [];
+  } catch (error) {
+    console.error('❌ WizardService: Error in direct search:', error);
+    
     try {
-      console.log('🔍 Searching clients:', searchTerm);
+      const fallbackResponse = await apiService.get<any>(
+        `/clientes/all?search=${encodeURIComponent(searchTerm)}`
+      );
       
-      const response = await apiService.get<any>(`/clientes?search=${encodeURIComponent(searchTerm)}&pageSize=${pageSize}`);
-      
-      if (response.success && response.data) {
-        const clientes = response.data.items || response.data || [];
-        console.log('✅ Found clients:', clientes.length);
-        return clientes;
+      if (fallbackResponse.success && fallbackResponse.data) {
+        const clientesFallback = fallbackResponse.data.items || fallbackResponse.data || [];
+        return clientesFallback.slice(0, pageSize);
       }
       
       return [];
-    } catch (error) {
-      console.error('❌ Error searching clientes:', error);
+    } catch (fallbackError) {
+      console.error('❌ Both direct and fallback failed:', fallbackError);
       throw new Error('Error al buscar clientes');
     }
   }
+}
 
   async getCompaniesForLookup(): Promise<Company[]> {
     try {

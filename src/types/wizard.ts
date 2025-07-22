@@ -91,6 +91,15 @@ export interface PolizaFormData {
   moneda: string;
   asegurado: string;
   observaciones: string;
+  color?: string;
+  tipoVehiculo?: string;
+  uso?: string;
+  impuestoMSP?: number;
+  formaPago?: string;
+  cantidadCuotas?: number;
+  descuentos?: number;
+  recargos?: number;
+  codigoPostal?: string;
 }
 
 // 🔧 INTERFAZ EXTENDIDA PARA EL FORMULARIO COMPLETO
