@@ -1,4 +1,4 @@
-import { DatosFormateados } from "./azure-document";
+import { DatosVelneo } from "./azure-document";
 
 export interface Cliente {
   id: number;
@@ -20,7 +20,6 @@ export interface Company {
   activo: boolean;
 }
 
-// 🔧 INTERFAZ EXTENDIDA PARA INCLUIR TODOS LOS CAMPOS
 export interface DocumentProcessResult {
   // Metadatos del documento
   documentId: string;
@@ -74,7 +73,10 @@ export interface DocumentProcessResult {
   extractedFields?: ExtractedField[] | Record<string, any>;
   originalResponse?: any;
   errorMessage?: string;
+  
+  datosVelneo?: DatosVelneo;
 }
+
 
 export interface ExtractedField {
   field: string;

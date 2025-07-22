@@ -1,60 +1,270 @@
-// src/types/azure-document.ts - CORREGIDO CON TODOS LOS CAMPOS
-
 export interface AzureProcessResponse {
-  estado: string;                    // Nombre del archivo procesado
-  timestamp: string;                 // Timestamp del procesamiento
-  tiempoProcesamiento: number;       // Tiempo en ms
-  estadoFormateado: string;          // Estado formateado (TERMINADO, ERROR, etc.)
-  datosFormateados: DatosFormateados;
-  documentoId?: string;              // ID del documento si está disponible
-  confianzaExtraccion?: number;      // Confianza general
-  requiereRevision?: boolean;        // Si requiere revisión manual
-  resumen?: any;                     // Resumen del procesamiento
+  archivo: string;
+  timestamp: string;
+  tiempoProcesamiento: number;
+  estado: string; // "PROCESADO_CON_SMART_EXTRACTION"
+  datosVelneo: DatosVelneo;
+  procesamientoExitoso: boolean;
+  listoParaVelneo: boolean;
+  porcentajeCompletitud: number;
 }
 
-// 🔧 ESTRUCTURA COMPLETA - Incluye TODOS los campos que usamos
-export interface DatosFormateados {
-  // Datos básicos de la póliza
-  numeroPoliza?: string;
-  asegurado?: string;
-  compania?: string;
-  vigenciaDesde?: string;            // Fecha en formato ISO
-  vigenciaHasta?: string;            // Fecha en formato ISO
-  plan?: string;
-  ramo?: string;
-  
-  // 🚗 DATOS DEL VEHÍCULO (LOS CAMPOS QUE FALTABAN)
-  vehiculo?: string;
-  marca?: string;
-  modelo?: string;
-  motor?: string;
-  chasis?: string;
-  matricula?: string;
-  combustible?: string;              // 🔧 AGREGADO
-  anio?: string | number;            // 🔧 AGREGADO
-  
-  // 💰 DATOS FINANCIEROS
-  prima?: number;
-  primaComercial?: number;
-  premioTotal?: number;
-  
-  // 👤 DATOS DEL CLIENTE (LOS CAMPOS QUE FALTABAN)
-  documento?: string;                // 🔧 AGREGADO
-  email?: string;
-  telefono?: string | number;
-  direccion?: string;
-  departamento?: string;
-  localidad?: string;
-  
-  // 🏢 DATOS DEL CORREDOR
-  corredor?: string;
-  
-  // 📊 METADATOS
-  listaParaVelneo?: boolean;         // Si está listo para Velneo
-  camposCompletos?: number;          // Cantidad de campos completados
+// ================================
+// ESTRUCTURA PRINCIPAL ORGANIZADA
+// ================================
+
+export interface DatosVelneo {
+  datosBasicos: DatosBasicos;
+  datosPoliza: DatosPoliza;
+  datosVehiculo: DatosVehiculo;
+  datosCobertura: DatosCobertura;
+  condicionesPago: CondicionesPago;
+  bonificaciones: Bonificaciones;
+  observaciones: Observaciones;
+  metricas: MetricasExtraccion;
+  tieneDatosMinimos: boolean;
+  porcentajeCompletitud: number;
+  camposCompletos: number;
 }
 
-// Estructura para campos extraídos (para mostrar en UI)
+// ================================
+// SECCIONES ESPECÍFICAS
+// ================================
+
+// 👤 DATOS BÁSICOS DEL CLIENTE
+export interface DatosBasicos {
+  corredor: string;
+  asegurado: string;
+  estado: string;
+  domicilio: string;
+  tramite: string;
+  fecha: string;
+  asignado: string;
+  tipo: string; // "EMPRESA" | "PERSONA"
+  telefono: string;
+  email: string;
+  documento: string;
+  departamento: string;
+  localidad: string;
+  codigoPostal: string;
+}
+
+// 📋 DATOS DE LA PÓLIZA
+export interface DatosPoliza {
+  compania: string;
+  desde: string;
+  hasta: string;
+  numeroPoliza: string;
+  certificado: string;
+  endoso: string;
+  tipoMovimiento: string;
+  ramo: string;
+}
+
+// 🚗 DATOS DEL VEHÍCULO
+export interface DatosVehiculo {
+  marcaModelo: string;
+  marca: string;
+  modelo: string;
+  anio: string;
+  motor: string;
+  destino: string;
+  combustible: string;
+  chasis: string;
+  calidad: string;
+  categoria: string;
+  matricula: string;
+  color: string;
+  tipoVehiculo: string;
+  uso: string;
+}
+
+// 🛡️ DATOS DE COBERTURA
+export interface DatosCobertura {
+  cobertura: string;
+  zonaCirculacion: string;
+  moneda: string;
+  codigoMoneda: number;
+}
+
+// 💰 CONDICIONES DE PAGO
+export interface CondicionesPago {
+  formaPago: string;
+  premio: number;
+  total: number;
+  valorCuota: number;
+  cuotas: number;
+  moneda: string;
+  detalleCuotas: DetalleCuotas;
+}
+
+// 📅 DETALLE DE CUOTAS
+export interface DetalleCuotas {
+  cantidadTotal: number;
+  cuotas: Cuota[];
+  primeraCuota: Cuota;
+  montoPromedio: number;
+  tieneCuotasDetalladas: boolean;
+  primerVencimiento: string;
+  primaCuota: number;
+}
+
+export interface Cuota {
+  numero: number;
+  fechaVencimiento: string;
+  monto: number;
+  estado: string; // "PENDIENTE" | "PAGADA" | "VENCIDA"
+}
+
+// 🎁 BONIFICACIONES Y DESCUENTOS
+export interface Bonificaciones {
+  bonificaciones: any[];
+  totalBonificaciones: number;
+  descuentos: number;
+  recargos: number;
+  impuestoMSP: number;
+}
+
+// 📝 OBSERVACIONES
+export interface Observaciones {
+  observacionesGenerales: string;
+  observacionesGestion: string;
+  notasEscaneado: string[];
+  informacionAdicional: string;
+}
+
+// 📊 MÉTRICAS DE EXTRACCIÓN
+export interface MetricasExtraccion {
+  camposExtraidos: number;
+  camposCompletos: number;
+  porcentajeCompletitud: number;
+  tieneDatosMinimos: boolean;
+  camposFaltantes: string[];
+  camposConfianzaBaja: string[];
+}
+
+// ================================
+// RESULTADO PROCESADO PARA EL WIZARD
+// ================================
+
+export interface DocumentProcessResult {
+  documentId: string;
+  nombreArchivo: string;
+  estadoProcesamiento: string;
+  timestamp: string;
+  tiempoProcesamiento: number;
+  
+  // ✅ CAMPOS PRINCIPALES EXTRAÍDOS
+  numeroPoliza: string;
+  asegurado: string;
+  corredor: string;
+  compania: string;
+  
+  // ✅ VIGENCIA
+  vigenciaDesde: string;
+  vigenciaHasta: string;
+  
+  // ✅ DATOS FINANCIEROS
+  premio: number;
+  total: number;
+  moneda: string;
+  formaPago: string;
+  
+  // ✅ VEHÍCULO
+  vehiculo: string;
+  marca: string;
+  modelo: string;
+  anio: string;
+  motor: string;
+  chasis: string;
+  matricula: string;
+  combustible: string;
+  
+  // ✅ CLIENTE
+  documento: string;
+  email: string;
+  telefono: string;
+  domicilio: string;
+  departamento: string;
+  localidad: string;
+  
+  // ✅ METADATOS
+  procesamientoExitoso: boolean;
+  listoParaVelneo: boolean;
+  porcentajeCompletitud: number;
+  nivelConfianza: number;
+  requiereVerificacion: boolean;
+  
+  // ✅ DATOS COMPLETOS PARA FORMULARIO AVANZADO
+  datosVelneo: DatosVelneo;
+}
+
+// ================================
+// TIPOS AUXILIARES
+// ================================
+
+// ✅ ENUM PARA TIPOS DE CLIENTE
+export enum TipoCliente {
+  PERSONA = 'PERSONA',
+  EMPRESA = 'EMPRESA'
+}
+
+// ✅ ENUM PARA ESTADOS DE CUOTA
+export enum EstadoCuota {
+  PENDIENTE = 'PENDIENTE',
+  PAGADA = 'PAGADA',
+  VENCIDA = 'VENCIDA'
+}
+
+// ✅ FORMULARIO EXTENDIDO PARA LA UI
+export interface PolizaFormDataExtended {
+  // Básicos
+  numeroPoliza: string;
+  asegurado: string;
+  documento: string;
+  email: string;
+  telefono: string;
+  domicilio: string;
+  
+  // Póliza
+  compania: string;
+  ramo: string;
+  vigenciaDesde: string;
+  vigenciaHasta: string;
+  corredor: string;
+  
+  // Vehículo
+  marca: string;
+  modelo: string;
+  anio: string;
+  motor: string;
+  chasis: string;
+  matricula: string;
+  combustible: string;
+  uso: string;
+  
+  // Financiero
+  premio: number;
+  total: number;
+  moneda: string;
+  formaPago: string;
+  cuotas: number;
+  
+  // Observaciones
+  observacionesGenerales: string;
+  observacionesGestion: string;
+  
+  // Metadatos
+  tiempoProcesamiento: number;
+  porcentajeCompletitud: number;
+}
+
+// ================================
+// COMPATIBILIDAD CON TIPOS ANTERIORES
+// ================================
+
+// Mantener compatibilidad con código existente
+export interface AzureDatosFormateados extends DatosVelneo {} // DEPRECATED
 export interface ExtractedField {
   field: string;
   value: string;
@@ -62,173 +272,9 @@ export interface ExtractedField {
   needsReview: boolean;
 }
 
-// Estructura para el resultado del procesamiento (lo que usa el wizard)
-export interface DocumentProcessResult {
-  documentId: string;
-  nombreArchivo: string;
-  estadoProcesamiento: string;
-  
-  // Campos principales extraídos
-  numeroPoliza?: string;
-  asegurado?: string;
-  vigenciaDesde?: string;
-  vigenciaHasta?: string;
-  prima?: number;
-  compania?: string;
-  
-  // 🔧 CAMPOS EXTENDIDOS DEL VEHÍCULO
-  vehiculo?: string;
-  marca?: string;
-  modelo?: string;
-  motor?: string;
-  chasis?: string;
-  matricula?: string;
-  combustible?: string;
-  anio?: string | number;
-  
-  // 🔧 CAMPOS EXTENDIDOS FINANCIEROS
-  primaComercial?: number;
-  premioTotal?: number;
-  moneda?: string;
-  
-  // 🔧 CAMPOS EXTENDIDOS DEL CLIENTE
-  documento?: string;
-  email?: string;
-  telefono?: string;
-  direccion?: string;
-  localidad?: string;
-  departamento?: string;
-  
-  // 🔧 DATOS DEL CORREDOR
-  corredor?: string;
-  plan?: string;
-  ramo?: string;
-  
-  // Metadatos del procesamiento
-  nivelConfianza?: number;
-  requiereVerificacion?: boolean;
-  requiereRevision?: boolean;
-  readyForVelneo?: boolean;
-  listoParaVelneo?: boolean;
-  timestamp?: string;
-  
-  // Datos estructurados para el formulario
-  polizaData?: {
-    datosFormateados: DatosFormateados;
-    resumen?: any;
-    documentId: string;
-    timestamp?: string;
-    tiempoProcesamiento?: number;
-    estadoFormateado?: string;
-    camposCompletos?: number;
-  };
-  
-  // Campos extraídos para mostrar en la UI
-  extractedFields?: ExtractedField[] | Record<string, any>;
-  originalResponse?: any;
-  errorMessage?: string;
-}
-
-// Interfaces para compatibilidad con el wizard existente
-export interface Cliente {
-  id: number;
-  clinom: string;
-  cliced?: string;
-  cliruc?: string;
-  telefono?: string;
-  cliemail?: string;
-  clidir?: string;
-  activo: boolean;
-}
-
-export interface Company {
-  id: number;
-  comnom: string;
-  comalias: string;
-  cod_srvcompanias?: string;
-  broker: boolean;
-  activo: boolean;
-}
-
-// Tipos para el mapeo a Velneo
-export interface VelneoPolizaData {
-  // IDs de relaciones
-  comcod: number;
-  clinro: number;
-  
-  // Datos básicos mapeados
-  conpol: string;                    // numeroPoliza
-  conend?: string;                   // endoso
-  confchdes: string;                 // vigenciaDesde
-  confchhas: string;                 // vigenciaHasta
-  contra: string;                    // estadoTramite
-  convig: string;                    // estadoPoliza
-  
-  // Cliente
-  clinom: string;                    // asegurado
-  condom?: string;                   // direccion
-  
-  // 🚗 VEHÍCULO (CON TODOS LOS CAMPOS)
-  conmaraut?: string;                // marca
-  conanioaut?: number;               // anioVehiculo
-  conmotor?: string;                 // motor
-  conchasis?: string;                // chasis
-  conmataut?: string;                // matricula
-  concaraut?: number;                // categoria
-  combustibles?: string;             // combustible
-  vehiculo?: string;                 // descripcion vehiculo
-  modelo?: string;                   // modelo
-  
-  // 💰 FINANCIERO COMPLETO
-  conpremio: number;                 // prima
-  contot?: number;                   // premioTotal
-  primaComercial?: number;           // prima comercial
-  moncod?: number;                   // moneda (0=UYU, 1=USD)
-  concuo?: number;                   // cuotas
-  forpagvid?: string;                // formaPago
-  
-  // 👤 CLIENTE EXTENDIDO
-  documento?: string;                // documento
-  email?: string;                    // email
-  telefono?: string;                 // telefono
-  localidad?: string;                // localidad
-  departamento?: string;             // departamento
-  
-  // 🏢 CORREDOR
-  corredor?: string;                 // corredor
-  
-  // Cobertura
-  condedaut?: number;                // deducible
-  conresciv?: number;                // responsabilidadCivil
-  concapaut?: number;                // capitalAsegurado
-  
-  // Bonificaciones
-  conbonnsin?: number;               // bonificacionSiniestros
-  conbonant?: number;                // bonificacionAntiguedad
-  
-  // Gestión
-  conges?: string;                   // gestor
-  congesfi?: string;                 // fechaIngreso
-  observaciones?: string;            // observaciones
-  mot_no_ren?: string;               // motivoNoRenovacion
-  
-  // Metadatos
-  documentoId?: string;
-  archivoOriginal?: string;
-  procesadoConIA?: boolean;
-  ramo?: string;
-  plan?: string;
-}
-
-// 🔧 TIPOS ADICIONALES PARA COMPATIBILIDAD
-
-export interface AzureDocumentRequest {
-  file: File;
-}
-
+// Tipos de error
 export interface AzureErrorResponse {
   error: string;
-  archivo?: string;
   timestamp: string;
   tiempoProcesamiento: number;
   estado: string;
@@ -237,35 +283,50 @@ export interface AzureErrorResponse {
   sugerencias?: string[];
 }
 
-export interface AzureModelHealth {
-  estaOperativo: boolean;
-  tieneConexion: boolean;
-  ultimaVerificacion: string;
-  mensaje: string;
-  nivel: 'success' | 'warning' | 'error' | 'info';
-  iconoEstado?: string;
-  mensajeCompleto?: string;
-}
-
+// Respuesta de información del modelo
 export interface AzureModelInfoResponse {
   modelId: string;
-  endpoint: string;
+  description: string;
+  createdDateTime: string;
+  lastUpdatedDateTime: string;
   status: string;
-  workingApiUrl?: string;
-  httpStatus?: string;
-  description?: string;
-  createdOn?: string;
-  docTypes?: string[];
-  apiVersion?: string;
-  warning?: string;
-  message?: string;
-  consultaTimestamp: string;
-  estaActivo?: boolean;
-  tieneAdvertencias?: boolean;
-  estadoSimplificado?: string;
-  health?: AzureModelHealth;
 }
 
-// Re-exportar tipos como alias para compatibilidad
-export type AzureDatosFormateados = DatosFormateados;
-export type AzureProcessResult = DocumentProcessResult;
+// Respuesta de batch (si se necesita)
+export interface AzureBatchResponse {
+  archivos: string[];
+  procesamientosExitosos: number;
+  procesamientosFallidos: number;
+  tiempoTotal: number;
+  resultados: DocumentProcessResult[];
+}
+
+// ================================
+// CONSTANTES ÚTILES
+// ================================
+
+export const MONEDAS = {
+  UYU: { codigo: 1, simbolo: '$', nombre: 'Peso Uruguayo' },
+  USD: { codigo: 2, simbolo: 'U$S', nombre: 'Dólar Americano' }
+} as const;
+
+export const TIPOS_CLIENTE = {
+  PERSONA: 'PERSONA',
+  EMPRESA: 'EMPRESA'
+} as const;
+
+export const TIPOS_USO_VEHICULO = {
+  PARTICULAR: 'PARTICULAR',
+  COMERCIAL: 'COMERCIAL',
+  TAXI: 'TAXI',
+  REMISE: 'REMISE'
+} as const;
+
+export const VALORES_TRAMITE = [
+  'Nuevo',
+  'Renovación', 
+  'Cambio',
+  'Endoso',
+  'No Renueva',
+  'Cancelación'
+] as const;

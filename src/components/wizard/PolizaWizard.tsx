@@ -75,13 +75,12 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     anio: '',
     documento: ''
   });
-  
+
   const [saving, setSaving] = useState(false);
 
-  // 🔄 Llenar formulario cuando se extraen los datos
   useEffect(() => {
-    if (wizard.extractedData?.datosFormateados) {
-      const datos = wizard.extractedData.datosFormateados;
+    if (wizard.extractedData?.datosVelneo) {
+      const datos = wizard.extractedData.datosVelneo;
       
       console.log('📝 Llenando formulario con datos extraídos:', datos);
       
@@ -200,47 +199,57 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
       };
       
       setFormData(prev => ({
-        ...prev,
-        // Datos básicos
-        numeroPoliza: datos.numeroPoliza || '',
-        asegurado: datos.asegurado || wizard.selectedCliente?.clinom || '',
-        documento: datos.documento || '',
-        vigenciaDesde: convertirFecha(datos.vigenciaDesde),
-        vigenciaHasta: convertirFecha(datos.vigenciaHasta),
-        
-        // Datos financieros
-        prima: datos.primaComercial || datos.premioTotal || 0,
-        primaComercial: datos.primaComercial || 0,
-        premioTotal: datos.premioTotal || 0,
-        plan: datos.plan || '',
-        
-        // Datos del vehículo
-        vehiculo: datos.vehiculo || '',
-        marca: datos.marca || '',
-        modelo: datos.modelo || '',
-        matricula: datos.matricula || '',
-        motor: datos.motor || '',
-        chasis: datos.chasis || '',
-        anio: datos.anio || '',
-        
-        // Datos de contacto
-        direccion: datos.direccion || '',
-        localidad: datos.localidad || '',
-        departamento: datos.departamento || '',
-        telefono: wizard.selectedCliente?.telefono || '',
-        email: datos.email || wizard.selectedCliente?.cliemail || '',
-        
-        // Otros datos
-        corredor: datos.corredor || '',
-        ramo: datos.ramo || 'AUTOMOVILES'
-      }));
+      ...prev,
+      // 📋 DATOS BÁSICOS DESDE datosPoliza y datosBasicos
+      numeroPoliza: datos.datosPoliza?.numeroPoliza || '',
+      asegurado: datos.datosBasicos?.asegurado || '',
+      documento: datos.datosBasicos?.documento || '',
       
-      console.log('📅 Fechas convertidas:', {
-        vigenciaDesde: datos.vigenciaDesde + ' → ' + convertirFecha(datos.vigenciaDesde),
-        vigenciaHasta: datos.vigenciaHasta + ' → ' + convertirFecha(datos.vigenciaHasta)
-      });
-    }
-  }, [wizard.extractedData, wizard.selectedCliente]);
+      // 📅 FECHAS DESDE datosPoliza
+      vigenciaDesde: convertirFecha(datos.datosPoliza?.desde),
+      vigenciaHasta: convertirFecha(datos.datosPoliza?.hasta),
+      
+      // 💰 DATOS FINANCIEROS DESDE condicionesPago
+      primaComercial: datos.condicionesPago?.premio || 0,
+      premioTotal: datos.condicionesPago?.total || 0,
+      prima: datos.condicionesPago?.premio || 0,
+      
+      // 🚗 DATOS DEL VEHÍCULO DESDE datosVehiculo
+      vehiculo: datos.datosVehiculo?.marcaModelo || '',
+      marca: datos.datosVehiculo?.marca || '',
+      modelo: datos.datosVehiculo?.modelo || '',
+      anio: datos.datosVehiculo?.anio || '',
+      motor: datos.datosVehiculo?.motor || '',
+      chasis: datos.datosVehiculo?.chasis || '',
+      matricula: datos.datosVehiculo?.matricula || '',
+      
+      // 👤 DATOS DEL CLIENTE DESDE datosBasicos
+      email: datos.datosBasicos?.email || '',
+      telefono: datos.datosBasicos?.telefono || '',
+      direccion: datos.datosBasicos?.domicilio || '',
+      localidad: datos.datosBasicos?.localidad || '',
+      departamento: datos.datosBasicos?.departamento || '',
+      
+      // 🏢 OTROS DATOS
+      corredor: datos.datosBasicos?.corredor || '',
+      ramo: datos.datosPoliza?.ramo || 'AUTOMOVILES',
+      plan: datos.datosCobertura?.cobertura || '',
+      
+      // 📝 OBSERVACIONES (agregar info de extracción)
+      observaciones: `Procesado automáticamente con Azure AI. 
+${datos.metricas?.camposExtraidos || 0} campos extraídos.
+${datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas ? 
+  `Cronograma de ${datos.condicionesPago.detalleCuotas.cantidadTotal} cuotas detectado.` : ''}`
+    }));
+
+    console.log('✅ Formulario llenado con nueva estructura:', {
+      numeroPoliza: datos.datosPoliza?.numeroPoliza,
+      asegurado: datos.datosBasicos?.asegurado,
+      premio: datos.condicionesPago?.premio,
+      vehiculo: datos.datosVehiculo?.marcaModelo
+    });
+  }
+}, [wizard.extractedData]);
 
   // =====================================
   // 🎨 RENDERS DE CADA PASO

@@ -124,87 +124,129 @@ class WizardService {
   }
 
   // ✅ MÉTODO CORREGIDO: Procesar documento con Azure Document Intelligence
-  async processDocument(file: File): Promise<DocumentProcessResult> {
-    try {
-      console.log('📄 Processing document with Azure:', file.name);
+  // ================================
+// CORRECCIÓN COMPLETA EN wizardService.ts
+// ================================
+
+// Reemplaza TODA la función processDocument con esto:
+
+async processDocument(file: File): Promise<DocumentProcessResult> {
+  try {
+    console.log('📄 Processing document with Azure:', file.name);
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    console.log('📤 Sending request to Azure endpoint...');
+    
+    const response = await apiService.post<AzureProcessResponse>('/AzureDocument/process', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+      timeout: 120000, // 2 minutos
+    });
+    
+    console.log('📥 Azure response:', response);
+    
+    if (response.success && response.data) {
+      const azureData = response.data;
       
-      const formData = new FormData();
-      formData.append('file', file);
+      // ✅ VERIFICAR QUE TENEMOS datosVelneo
+      if (!azureData.datosVelneo) {
+        console.error('❌ No se encontró datosVelneo en la respuesta:', azureData);
+        throw new Error('Estructura de respuesta inválida: falta datosVelneo');
+      }
       
-      console.log('📤 Sending request to Azure endpoint...');
-      console.log('🎯 URL:', '/AzureDocument/process'); // ✅ CORREGIDO: PascalCase
+      const datos = azureData.datosVelneo;
+      console.log('📋 Datos Velneo recibidos:', datos);
       
-      // ✅ USAR EL ENDPOINT CORRECTO QUE COINCIDE CON EL BACKEND
-      const response = await apiService.post<AzureProcessResponse>('/AzureDocument/process', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-        timeout: 120000, // 2 minutos
-      });
-      
-      console.log('📥 Azure response:', response);
-      
-      if (response.success && response.data) {
-        const azureData = response.data;
+      const result: DocumentProcessResult = {
+        // ✅ METADATOS BÁSICOS
+        documentId: datos.datosPoliza?.numeroPoliza || `doc_${Date.now()}`,
+        nombreArchivo: file.name,
+        estadoProcesamiento: azureData.estado || 'PROCESADO',
+        timestamp: azureData.timestamp,
         
-        const result: DocumentProcessResult = {
-          documentId: azureData.datosFormateados?.numeroPoliza || `doc_${Date.now()}`,
-          nombreArchivo: file.name,
-          estadoProcesamiento: azureData.estado || 'PROCESADO',
+        // ✅ DATOS PRINCIPALES MAPEADOS DESDE NUEVA ESTRUCTURA
+        numeroPoliza: datos.datosPoliza?.numeroPoliza || '',
+        asegurado: datos.datosBasicos?.asegurado || '',
+        vigenciaDesde: datos.datosPoliza?.desde || '',
+        vigenciaHasta: datos.datosPoliza?.hasta || '',
+        prima: datos.condicionesPago?.premio || 0,
+        compania: datos.datosPoliza?.compania || '',
+        
+        // ✅ DATOS DEL VEHÍCULO COMPLETOS
+        vehiculo: datos.datosVehiculo?.marcaModelo || '',
+        marca: datos.datosVehiculo?.marca || '',
+        modelo: datos.datosVehiculo?.modelo || '',
+        motor: datos.datosVehiculo?.motor || '',
+        chasis: datos.datosVehiculo?.chasis || '',
+        matricula: datos.datosVehiculo?.matricula || '',
+        combustible: datos.datosVehiculo?.combustible || '',
+        anio: datos.datosVehiculo?.anio || '',
+        
+        // ✅ DATOS DEL CLIENTE COMPLETOS
+        documento: datos.datosBasicos?.documento || '',
+        email: datos.datosBasicos?.email || '',
+        telefono: datos.datosBasicos?.telefono || '',
+        direccion: datos.datosBasicos?.domicilio || '',
+        departamento: datos.datosBasicos?.departamento || '',
+        localidad: datos.datosBasicos?.localidad || '',
+        
+        // ✅ DATOS FINANCIEROS COMPLETOS
+        primaComercial: datos.condicionesPago?.premio || 0,
+        premioTotal: datos.condicionesPago?.total || 0,
+        moneda: datos.datosCobertura?.moneda || 'UYU',
+        
+        // ✅ OTROS DATOS
+        corredor: datos.datosBasicos?.corredor || '',
+        ramo: datos.datosPoliza?.ramo || '',
+        plan: datos.datosCobertura?.cobertura || '',
+        
+        // ✅ METADATOS DEL PROCESAMIENTO
+        nivelConfianza: azureData.procesamientoExitoso ? 0.9 : 0.5,
+        requiereVerificacion: !azureData.procesamientoExitoso || azureData.porcentajeCompletitud < 80,
+        readyForVelneo: azureData.listoParaVelneo || false,
+        listoParaVelneo: azureData.listoParaVelneo || false,
+        
+        // ✅ INCLUIR DATOS COMPLETOS PARA EL FORMULARIO
+        polizaData: {
+          datosVelneo: datos, // Para compatibilidad
           timestamp: azureData.timestamp,
-          
-          // Mapear datos básicos
-          numeroPoliza: azureData.datosFormateados?.numeroPoliza || '',
-          asegurado: azureData.datosFormateados?.asegurado || '',
-          vigenciaDesde: azureData.datosFormateados?.vigenciaDesde || '',
-          vigenciaHasta: azureData.datosFormateados?.vigenciaHasta || '',
-          prima: azureData.datosFormateados?.primaComercial || 0,
-          compania: azureData.datosFormateados?.corredor || '',
-          
-          // Mapear datos del vehículo
-          vehiculo: azureData.datosFormateados?.vehiculo || '',
-          marca: azureData.datosFormateados?.marca || '',
-          modelo: azureData.datosFormateados?.modelo || '',
-          motor: azureData.datosFormateados?.motor || '',
-          chasis: azureData.datosFormateados?.chasis || '',
-          matricula: azureData.datosFormateados?.matricula || '',
-          
-          // Metadatos del procesamiento
-          nivelConfianza: azureData.resumen?.confianzaExtraccion || 0,
-          
-          // Datos estructurados para el formulario
-          polizaData: {
-            datosFormateados: azureData.datosFormateados,
-            resumen: azureData.resumen,
-            documentId: azureData.datosFormateados?.numeroPoliza || `doc_${Date.now()}`,
-            timestamp: azureData.timestamp,
-            tiempoProcesamiento: azureData.tiempoProcesamiento,
-            estadoFormateado: azureData.estado,
-            camposCompletos: azureData.datosFormateados?.camposCompletos || 0
-          }
-        };
+          tiempoProcesamiento: azureData.tiempoProcesamiento,
+          estadoFormateado: azureData.estado,
+          porcentajeCompletitud: azureData.porcentajeCompletitud,
+          camposCompletos: datos.metricas?.camposCompletos || 0
+        },
         
-        console.log('✅ Document processed successfully:', result);
-        return result;
-      } else {
-        throw new Error(response.error || 'Error procesando documento');
-      }
-    } catch (error: any) {
-      console.error('❌ Error processing document:', error);
+        // ✅ CLAVE: INCLUIR TODA LA ESTRUCTURA NUEVA
+        datosVelneo: datos
+      };
       
-      if (error.response?.status === 401) {
-        throw new Error('No autorizado. Verifica tu sesión.');
-      } else if (error.response?.status === 400) {
-        throw new Error('Archivo inválido. Solo se permiten PDFs válidos.');
-      } else if (error.response?.status === 413) {
-        throw new Error('El archivo es demasiado grande. Máximo 10MB.');
-      } else if (error.code === 'ECONNABORTED') {
-        throw new Error('Timeout al procesar el documento. Intenta de nuevo.');
-      } else {
-        throw new Error(error.message || 'Error desconocido al procesar documento');
-      }
+      console.log('✅ Document processed successfully:', result);
+      console.log('🔍 datosVelneo incluido:', !!result.datosVelneo);
+      console.log('📊 Campos en datosVelneo:', Object.keys(result.datosVelneo || {}));
+      
+      return result;
+    } else {
+      throw new Error(response.error || 'Error procesando documento');
     }
+  } catch (error: any) {
+    console.error('❌ Error processing document:', error);
+    
+    if (error.response?.status === 401) {
+      throw new Error('No autorizado. Verifica tu sesión.');
+    } else if (error.response?.status === 400) {
+      throw new Error('Archivo inválido. Solo se permiten PDFs válidos.');
+    } else if (error.response?.status === 413) {
+      throw new Error('El archivo es demasiado grande. Máximo 10MB.');
+    } else if (error.code === 'ECONNABORTED') {
+      throw new Error('Timeout al procesar el documento. Intenta de nuevo.');
+    }
+    
+    throw new Error(error.message || 'Error desconocido procesando documento');
   }
+}
 
   async createPoliza(formData: PolizaFormDataExtended): Promise<void> {
     try {

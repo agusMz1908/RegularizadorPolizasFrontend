@@ -22,4 +22,3 @@ export type {
 } from '../../types/poliza-unified';
 
 export { usePolizaWizard } from '../../hooks/usePolizaWizard';
-export type { WizardActions } from '../../hooks/usePolizaWizard';

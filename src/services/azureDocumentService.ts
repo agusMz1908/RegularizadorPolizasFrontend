@@ -3,6 +3,7 @@
 // 🎯 ALINEADO EXACTAMENTE CON TU BACKEND .NET
 
 import { useState } from 'react';
+import { DatosVelneo } from '../types/azure-document';
 
 // 🎯 TIPOS EXACTOS DE TU BACKEND - AzureProcessResponseDto
 export interface AzureProcessResponse {
@@ -83,6 +84,7 @@ export interface DocumentProcessResult {
   datosFormateados?: AzureDatosFormateados;
   tiempoProcesamiento?: number;
   resumen?: AzureResumen;
+  datosVelneo?: DatosVelneo
 }
 
 class AzureDocumentService {
