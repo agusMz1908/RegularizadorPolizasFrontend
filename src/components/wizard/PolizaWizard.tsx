@@ -1,7 +1,3 @@
-// src/components/wizard/PolizaWizard.tsx
-// ⚡ COMPONENTE PRINCIPAL DEL WIZARD - VERSIÓN FINAL
-// 🎯 INTEGRADO CON AZURE DOCUMENT SERVICE
-
 import React, { useState, useEffect } from 'react';
 import { 
   User, Building2, Upload, FileText, Eye, Check, 
@@ -38,17 +34,36 @@ interface PolizaFormData {
   telefono: string;
   email: string;
   corredor: string;
-  plan: string;
+  plan: string;          // Movido de cobertura a póliza
   ramo: string;
   observaciones: string;
   anio: string;
   documento: string;
+  
+  // Campos adicionales del vehículo que faltaban
+  destino: string;
+  combustible: string;
+  calidad: string;
+  categoria: string;
+  tipoVehiculo: string;
+  uso: string;
+  
+  // Campos de condiciones de pago
+  formaPago: string;
+  cantidadCuotas: number;
+  valorCuota: number;
+  moneda: string;
+  
+  // Datos de primera cuota
+  primeraCuotaFecha: string;
+  primeraCuotaMonto: number;
 }
+
 
 const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => {
   const wizard = usePolizaWizard();
   
-  // 📝 Estado del formulario
+  const [activeTab, setActiveTab] = useState('basicos');
   const [formData, setFormData] = useState<PolizaFormData>({
     numeroPoliza: '',
     vigenciaDesde: '',
@@ -73,148 +88,78 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     ramo: 'AUTOMOVILES',
     observaciones: 'Procesado automáticamente con Azure AI.',
     anio: '',
-    documento: ''
+    documento: '',
+      // Campos adicionales del vehículo que faltaban
+    destino: '',
+    combustible: '',
+    calidad: '',
+    categoria: '',
+    tipoVehiculo: '',
+    uso: '',
+    
+    // Campos de condiciones de pago
+    formaPago: '',
+    cantidadCuotas: 0,
+    valorCuota: 0,
+    moneda: '',
+
+    primeraCuotaFecha: '',
+    primeraCuotaMonto: 0,
   });
 
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (wizard.extractedData?.datosVelneo) {
-      const datos = wizard.extractedData.datosVelneo;
+  if (wizard.extractedData?.datosVelneo) {
+    const datos = wizard.extractedData.datosVelneo;
+    
+    console.log('📝 Llenando formulario con datos extraídos:', datos);
+    
+    const convertirFecha = (fecha: string | undefined): string => {
+      if (!fecha) return '';
       
-      console.log('📝 Llenando formulario con datos extraídos:', datos);
-      
-      // 🗓️ FUNCIÓN PARA CONVERTIR FECHAS STRING A FORMATO INPUT
-      const convertirFecha = (fecha: string | undefined): string => {
-        if (!fecha) return '';
-        
-        try {
-          console.log('🗓️ Convirtiendo fecha:', fecha);
-          
-          // CASO 1: Ya es formato ISO (2025-02-06T00:00:00 o 2025-02-06)
-          if (fecha.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(fecha)) {
-            const fechaISO = fecha.split('T')[0]; // Extraer solo la parte de fecha
-            console.log('✅ Fecha ISO detectada:', fecha, '→', fechaISO);
-            return fechaISO;
-          }
-          
-          // Limpiar la fecha de espacios y caracteres extraños
-          const fechaLimpia = fecha.trim().replace(/[^\d\/\-\.]/g, '');
-          
-          let fechaObj: Date | null = null;
-          
-          // PATRÓN 2: DD/MM/YYYY o DD/MM/YY
-          if (fechaLimpia.includes('/')) {
-            const partes = fechaLimpia.split('/');
-            if (partes.length === 3) {
-              let [dia, mes, anio] = partes;
-              
-              // Convertir año de 2 dígitos a 4 dígitos
-              if (anio.length === 2) {
-                const anioNum = parseInt(anio);
-                anio = anioNum > 50 ? `19${anio}` : `20${anio}`;
-              }
-              
-              const diaNum = parseInt(dia);
-              const mesNum = parseInt(mes);
-              const anioNum = parseInt(anio);
-              
-              if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anioNum > 1900) {
-                fechaObj = new Date(anioNum, mesNum - 1, diaNum);
-              }
-            }
-          }
-          
-          // PATRÓN 3: DD-MM-YYYY o DD-MM-YY
-          else if (fechaLimpia.includes('-') && !fechaLimpia.startsWith('20')) {
-            const partes = fechaLimpia.split('-');
-            if (partes.length === 3) {
-              let [dia, mes, anio] = partes;
-              
-              if (anio.length === 2) {
-                const anioNum = parseInt(anio);
-                anio = anioNum > 50 ? `19${anio}` : `20${anio}`;
-              }
-              
-              const diaNum = parseInt(dia);
-              const mesNum = parseInt(mes);
-              const anioNum = parseInt(anio);
-              
-              if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anioNum > 1900) {
-                fechaObj = new Date(anioNum, mesNum - 1, diaNum);
-              }
-            }
-          }
-          
-          // PATRÓN 4: DD.MM.YYYY
-          else if (fechaLimpia.includes('.')) {
-            const partes = fechaLimpia.split('.');
-            if (partes.length === 3) {
-              let [dia, mes, anio] = partes;
-              
-              if (anio.length === 2) {
-                const anioNum = parseInt(anio);
-                anio = anioNum > 50 ? `19${anio}` : `20${anio}`;
-              }
-              
-              const diaNum = parseInt(dia);
-              const mesNum = parseInt(mes);
-              const anioNum = parseInt(anio);
-              
-              if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anioNum > 1900) {
-                fechaObj = new Date(anioNum, mesNum - 1, diaNum);
-              }
-            }
-          }
-          
-          // PATRÓN 5: DDMMYYYY (sin separadores)
-          else if (fechaLimpia.length === 8 && /^\d{8}$/.test(fechaLimpia)) {
-            const dia = fechaLimpia.substring(0, 2);
-            const mes = fechaLimpia.substring(2, 4);
-            const anio = fechaLimpia.substring(4, 8);
-            
-            const diaNum = parseInt(dia);
-            const mesNum = parseInt(mes);
-            const anioNum = parseInt(anio);
-            
-            if (diaNum >= 1 && diaNum <= 31 && mesNum >= 1 && mesNum <= 12 && anioNum > 1900) {
-              fechaObj = new Date(anioNum, mesNum - 1, diaNum);
-            }
-          }
-          
-          // Verificar que la fecha es válida y convertir a formato YYYY-MM-DD
-          if (fechaObj && !isNaN(fechaObj.getTime())) {
-            const resultado = fechaObj.toISOString().split('T')[0];
-            console.log('✅ Fecha convertida:', fecha, '→', resultado);
-            return resultado;
-          }
-          
-          console.warn('⚠️ No se pudo parsear fecha:', fecha);
-          return '';
-          
-        } catch (error) {
-          console.warn('❌ Error parseando fecha:', fecha, error);
-          return '';
+      try {
+        if (fecha.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(fecha)) {
+          return fecha.split('T')[0];
         }
-      };
-      
-      setFormData(prev => ({
+        
+        const match = fecha.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (match) {
+          const dia = parseInt(match[1]);
+          const mes = parseInt(match[2]);
+          const anio = parseInt(match[3]);
+          
+          if (dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12) {
+            const fechaObj = new Date(anio, mes - 1, dia);
+            return fechaObj.toISOString().split('T')[0];
+          }
+        }
+        
+        return '';
+      } catch (error) {
+        console.error('Error convirtiendo fecha:', fecha, error);
+        return '';
+      }
+    };
+
+    setFormData(prev => ({
       ...prev,
-      // 📋 DATOS BÁSICOS DESDE datosPoliza y datosBasicos
-      numeroPoliza: datos.datosPoliza?.numeroPoliza || '',
-      asegurado: datos.datosBasicos?.asegurado || '',
-      documento: datos.datosBasicos?.documento || '',
       
-      // 📅 FECHAS DESDE datosPoliza
+      // DATOS BÁSICOS
+      numeroPoliza: datos.datosPoliza?.numeroPoliza || '',
+      asegurado: datos.datosBasicos?.asegurado || wizard.selectedCliente?.clinom || '',
+      documento: datos.datosBasicos?.documento || '',
+      corredor: datos.datosBasicos?.corredor || '',
+      
+      // FECHAS DE VIGENCIA
       vigenciaDesde: convertirFecha(datos.datosPoliza?.desde),
       vigenciaHasta: convertirFecha(datos.datosPoliza?.hasta),
       
-      // 💰 DATOS FINANCIEROS DESDE condicionesPago
-      primaComercial: datos.condicionesPago?.premio || 0,
-      premioTotal: datos.condicionesPago?.total || 0,
-      prima: datos.condicionesPago?.premio || 0,
+      // PLAN/COBERTURA (movido de cobertura a póliza)
+      plan: datos.datosCobertura?.cobertura || '',
+      ramo: datos.datosPoliza?.ramo || 'AUTOMOVILES',
       
-      // 🚗 DATOS DEL VEHÍCULO DESDE datosVehiculo
+      // DATOS DEL VEHÍCULO (completos)
       vehiculo: datos.datosVehiculo?.marcaModelo || '',
       marca: datos.datosVehiculo?.marca || '',
       modelo: datos.datosVehiculo?.modelo || '',
@@ -222,34 +167,74 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
       motor: datos.datosVehiculo?.motor || '',
       chasis: datos.datosVehiculo?.chasis || '',
       matricula: datos.datosVehiculo?.matricula || '',
+      destino: datos.datosVehiculo?.destino || '',           // ✅ NUEVO
+      combustible: datos.datosVehiculo?.combustible || '',   // ✅ NUEVO
+      calidad: datos.datosVehiculo?.calidad || '',           // ✅ NUEVO
+      categoria: datos.datosVehiculo?.categoria || '',       // ✅ NUEVO
+      tipoVehiculo: datos.datosVehiculo?.tipoVehiculo || '', // ✅ NUEVO
+      uso: datos.datosVehiculo?.uso || '',                   // ✅ NUEVO
       
-      // 👤 DATOS DEL CLIENTE DESDE datosBasicos
+      // DATOS DE CONTACTO
       email: datos.datosBasicos?.email || '',
       telefono: datos.datosBasicos?.telefono || '',
       direccion: datos.datosBasicos?.domicilio || '',
       localidad: datos.datosBasicos?.localidad || '',
       departamento: datos.datosBasicos?.departamento || '',
       
-      // 🏢 OTROS DATOS
-      corredor: datos.datosBasicos?.corredor || '',
-      ramo: datos.datosPoliza?.ramo || 'AUTOMOVILES',
-      plan: datos.datosCobertura?.cobertura || '',
+      // DATOS FINANCIEROS (ahora en condiciones de pago)
+      primaComercial: datos.condicionesPago?.premio || 0,    // ✅ MOVIDO
+      premioTotal: datos.condicionesPago?.total || 0,        // ✅ MOVIDO
+      prima: datos.condicionesPago?.premio || 0,
       
-      // 📝 OBSERVACIONES (agregar info de extracción)
-      observaciones: `Procesado automáticamente con Azure AI. 
-${datos.metricas?.camposExtraidos || 0} campos extraídos.
-${datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas ? 
-  `Cronograma de ${datos.condicionesPago.detalleCuotas.cantidadTotal} cuotas detectado.` : ''}`
+      // CONDICIONES DE PAGO - ✅ MODIFICADO: Insertamos automáticamente la forma de pago
+      formaPago: datos.condicionesPago?.formaPago || '',     // ✅ AHORA SE INSERTA AUTOMÁTICAMENTE
+      cantidadCuotas: datos.condicionesPago?.cuotas || 1,
+      valorCuota: datos.condicionesPago?.valorCuota || 0,
+      moneda: datos.condicionesPago?.moneda || datos.datosCobertura?.moneda || 'UYU',
+      
+      // PRIMERA CUOTA
+      primeraCuotaFecha: datos.condicionesPago?.detalleCuotas?.primeraCuota?.fechaVencimiento
+        ? convertirFecha(datos.condicionesPago.detalleCuotas.primeraCuota.fechaVencimiento)
+        : '',
+        
+      primeraCuotaMonto: datos.condicionesPago?.detalleCuotas?.primeraCuota?.monto || 0,
+      
+      observaciones: generarObservacionesAutomaticas(datos)
     }));
 
-    console.log('✅ Formulario llenado con nueva estructura:', {
-      numeroPoliza: datos.datosPoliza?.numeroPoliza,
-      asegurado: datos.datosBasicos?.asegurado,
-      premio: datos.condicionesPago?.premio,
-      vehiculo: datos.datosVehiculo?.marcaModelo
-    });
+    console.log('✅ Formulario llenado con estructura completa');
   }
 }, [wizard.extractedData]);
+
+const generarObservacionesAutomaticas = (datos: any): string => {
+  const observaciones = [];
+  
+  // Mensaje principal
+  observaciones.push('📄 Documento procesado automáticamente con Azure Document Intelligence');
+  observaciones.push(`📊 ${datos.metricas?.camposCompletos || 0} campos extraídos (${datos.porcentajeCompletitud || 0}% completitud)`);
+  
+  // Información de cuotas
+  if (datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && datos.condicionesPago.detalleCuotas.cuotas?.length > 0) {
+    observaciones.push('');
+    observaciones.push('💳 CRONOGRAMA DE CUOTAS DETECTADO:');
+    observaciones.push(`${datos.condicionesPago.formaPago} - ${datos.condicionesPago.cuotas} cuotas de ${datos.condicionesPago.moneda} ${datos.condicionesPago.valorCuota?.toLocaleString()}`);
+    observaciones.push('');
+    
+    // Detalle de todas las cuotas
+    datos.condicionesPago.detalleCuotas.cuotas.forEach((cuota: any, index: number) => {
+      const fecha = new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY');
+      observaciones.push(`Cuota ${cuota.numero}: ${fecha} - $${cuota.monto?.toLocaleString()}`);
+    });
+  }
+  
+  // Alertas si hay campos faltantes
+  if (!datos.tieneDatosMinimos) {
+    observaciones.push('');
+    observaciones.push('⚠️ REQUIERE VERIFICACIÓN MANUAL - Datos incompletos');
+  }
+  
+  return observaciones.join('\n');
+};
 
   // =====================================
   // 🎨 RENDERS DE CADA PASO
@@ -769,152 +754,193 @@ ${datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas ?
   );
 
   // 5️⃣ PASO: Formulario de validación
-  const renderFormStep = () => (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">✅ Validar Datos Extraídos</h2>
-        <p className="text-gray-600">Revisa y completa la información antes de crear la póliza</p>
-      </div>
+  const renderFormStep = () => {
+const tabs = [
+  { id: 'basicos', label: 'Datos Básicos', icon: User },
+  { id: 'poliza', label: 'Póliza', icon: FileText },
+  { id: 'vehiculo', label: 'Vehículo', icon: Car },
+  { id: 'pago', label: 'Condiciones Pago', icon: CreditCard },
+  { id: 'observaciones', label: 'Observaciones', icon: FileCheck }
+];
 
-      {wizard.extractedData && (
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          {/* Información de extracción */}
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center">
-                <CheckCircle className="w-5 h-5 text-blue-600 mr-2" />
-                <span className="font-medium text-blue-800">
-                  Documento procesado exitosamente con Azure AI
-                </span>
-              </div>
-              <div className="flex items-center space-x-4 text-sm text-blue-600">
-                {wizard.extractedData.nivelConfianza && (
-                  <span>Confianza: {Math.round(wizard.extractedData.nivelConfianza * 100)}%</span>
-                )}
-                {wizard.extractedData.tiempoProcesamiento && (
-                  <span>Tiempo: {(wizard.extractedData.tiempoProcesamiento / 1000).toFixed(1)}s</span>
-                )}
-              </div>
-            </div>
-          </div>
+const generarObservacionesAutomaticas = (datos: any): string => {
+  const observaciones = [];
+  const fecha = new Date().toLocaleDateString('es-UY');
+  const hora = new Date().toLocaleTimeString('es-UY', { hour: '2-digit', minute: '2-digit' });
+  
+  // Encabezado principal
+  observaciones.push('📄 PÓLIZA PROCESADA AUTOMÁTICAMENTE CON AZURE DOCUMENT INTELLIGENCE');
+  observaciones.push(`📅 Fecha de procesamiento: ${fecha} a las ${hora}`);
+  observaciones.push('');
+  
+  // Información de extracción
+  observaciones.push('📊 MÉTRICAS DE EXTRACCIÓN:');
+  observaciones.push(`• Campos extraídos: ${datos.metricas?.camposExtraidos || 0}`);
+  observaciones.push(`• Completitud: ${datos.porcentajeCompletitud || 0}%`);
+  observaciones.push(`• Datos mínimos: ${datos.tieneDatosMinimos ? 'Completos ✅' : 'Incompletos ⚠️'}`);
+  observaciones.push('');
+  
+  // Información de la póliza extraída
+  if (datos.datosPoliza?.numeroPoliza) {
+    observaciones.push('📋 DATOS DE PÓLIZA EXTRAÍDOS:');
+    observaciones.push(`• Número: ${datos.datosPoliza.numeroPoliza}`);
+    if (datos.datosPoliza.certificado) observaciones.push(`• Certificado: ${datos.datosPoliza.certificado}`);
+    if (datos.datosPoliza.endoso) observaciones.push(`• Endoso: ${datos.datosPoliza.endoso}`);
+    if (datos.datosCobertura?.cobertura) observaciones.push(`• Plan: ${datos.datosCobertura.cobertura}`);
+    observaciones.push('');
+  }
+  
+  // Información del vehículo
+  if (datos.datosVehiculo?.marcaModelo) {
+    observaciones.push('🚗 VEHÍCULO EXTRAÍDO:');
+    observaciones.push(`• ${datos.datosVehiculo.marcaModelo}`);
+    if (datos.datosVehiculo.anio) observaciones.push(`• Año: ${datos.datosVehiculo.anio}`);
+    if (datos.datosVehiculo.combustible) observaciones.push(`• Combustible: ${datos.datosVehiculo.combustible}`);
+    if (datos.datosVehiculo.uso) observaciones.push(`• Uso: ${datos.datosVehiculo.uso}`);
+    observaciones.push('');
+  }
+  
+  // Información de condiciones de pago
+  if (datos.condicionesPago) {
+    observaciones.push('💳 CONDICIONES DE PAGO EXTRAÍDAS:');
+    if (datos.condicionesPago.formaPago) {
+      observaciones.push(`• Forma de pago: ${datos.condicionesPago.formaPago}`);
+    }
+    if (datos.condicionesPago.cuotas && datos.condicionesPago.valorCuota) {
+      observaciones.push(`• ${datos.condicionesPago.cuotas} cuotas de ${datos.condicionesPago.moneda || 'UYU'} ${datos.condicionesPago.valorCuota.toLocaleString()}`);
+    }
+    if (datos.condicionesPago.premio) {
+      observaciones.push(`• Prima comercial: ${datos.condicionesPago.moneda || 'UYU'} ${datos.condicionesPago.premio.toLocaleString()}`);
+    }
+    if (datos.condicionesPago.total) {
+      observaciones.push(`• Premio total: ${datos.condicionesPago.moneda || 'UYU'} ${datos.condicionesPago.total.toLocaleString()}`);
+    }
+    observaciones.push('');
+  }
+  
+  // Cronograma de cuotas detallado
+  if (datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && datos.condicionesPago.detalleCuotas.cuotas?.length > 0) {
+    observaciones.push('📅 CRONOGRAMA DE CUOTAS DETECTADO:');
+    observaciones.push(`${datos.condicionesPago.formaPago} - ${datos.condicionesPago.cuotas} cuotas`);
+    observaciones.push('');
+    
+    // Encabezado de tabla
+    observaciones.push('Cuota | Fecha Vencimiento | Monto');
+    observaciones.push('------|------------------|------');
+    
+    // Detalle de cada cuota
+    datos.condicionesPago.detalleCuotas.cuotas.forEach((cuota: any) => {
+      const fecha = new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY');
+      const monto = cuota.monto?.toLocaleString() || '0';
+      observaciones.push(`${cuota.numero.toString().padStart(2, ' ')}    | ${fecha.padEnd(16, ' ')} | $${monto}`);
+    });
+    
+    observaciones.push('');
+    observaciones.push(`TOTAL: ${datos.condicionesPago.cuotas} cuotas - ${datos.condicionesPago.moneda || 'UYU'} ${datos.condicionesPago.total?.toLocaleString()}`);
+    observaciones.push('');
+  }
+  
+  // Alertas y notas especiales
+  if (!datos.tieneDatosMinimos) {
+    observaciones.push('⚠️ ALERTAS:');
+    observaciones.push('• REQUIERE VERIFICACIÓN MANUAL - Datos incompletos detectados');
+    observaciones.push('• Revisar campos faltantes antes de enviar a Velneo');
+    observaciones.push('');
+  }
+  
+  // Notas de escaneado adicionales
+  if (datos.observaciones?.notasEscaneado?.length > 0) {
+    observaciones.push('📝 NOTAS ADICIONALES:');
+    datos.observaciones.notasEscaneado.forEach((nota: string) => {
+      observaciones.push(`• ${nota}`);
+    });
+    observaciones.push('');
+  }
+  
+  // Footer
+  observaciones.push('---');
+  observaciones.push('✨ Generado automáticamente por RegularizadorPolizas v2.0');
+  observaciones.push('📧 Para soporte: soporte@regularizadorpolizas.com');
+  
+  return observaciones.join('\n');
+};
 
-          {/* Formulario */}
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'basicos':
+        return (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Datos básicos */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                <Hash className="w-5 h-5 mr-2" />
-                Datos Básicos
+                <User className="w-5 h-5 mr-2" />
+                Información del Cliente
               </h3>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Número de Póliza *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Corredor</label>
                 <input
                   type="text"
-                  value={formData.numeroPoliza}
-                  onChange={(e) => setFormData(prev => ({ ...prev, numeroPoliza: e.target.value }))}
+                  value={formData.corredor}
+                  onChange={(e) => setFormData(prev => ({ ...prev, corredor: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="Ingrese número de póliza"
                 />
               </div>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Asegurado *
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Asegurado *</label>
                 <input
                   type="text"
                   value={formData.asegurado}
                   onChange={(e) => setFormData(prev => ({ ...prev, asegurado: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="Nombre del asegurado"
+                  required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Documento
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Documento</label>
                 <input
                   type="text"
                   value={formData.documento}
                   onChange={(e) => setFormData(prev => ({ ...prev, documento: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="CI o RUC"
                 />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Vigencia Desde *
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.vigenciaDesde}
-                    onChange={(e) => setFormData(prev => ({ ...prev, vigenciaDesde: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Vigencia Hasta *
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.vigenciaHasta}
-                    onChange={(e) => setFormData(prev => ({ ...prev, vigenciaHasta: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  />
-                </div>
               </div>
             </div>
 
-            {/* Datos del vehículo */}
             <div className="space-y-4">
               <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                <Car className="w-5 h-5 mr-2" />
-                Vehículo
+                <MapPin className="w-5 h-5 mr-2" />
+                Datos de Contacto
               </h3>
-              
+
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Vehículo
-                </label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Dirección</label>
                 <input
                   type="text"
-                  value={formData.vehiculo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, vehiculo: e.target.value }))}
+                  value={formData.direccion}
+                  onChange={(e) => setFormData(prev => ({ ...prev, direccion: e.target.value }))}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="Descripción del vehículo"
                 />
               </div>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Marca
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Departamento</label>
                   <input
                     type="text"
-                    value={formData.marca}
-                    onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
+                    value={formData.departamento}
+                    onChange={(e) => setFormData(prev => ({ ...prev, departamento: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Marca"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Modelo
-                  </label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Localidad</label>
                   <input
                     type="text"
-                    value={formData.modelo}
-                    onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
+                    value={formData.localidad}
+                    onChange={(e) => setFormData(prev => ({ ...prev, localidad: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Modelo"
                   />
                 </div>
               </div>
@@ -922,130 +948,819 @@ ${datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas ?
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Año
+                    <Phone className="w-4 h-4 inline mr-1" />
+                    Teléfono
                   </label>
                   <input
                     type="text"
-                    value={formData.anio}
-                    onChange={(e) => setFormData(prev => ({ ...prev, anio: e.target.value }))}
+                    value={formData.telefono}
+                    onChange={(e) => setFormData(prev => ({ ...prev, telefono: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Año"
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Matrícula
+                    <Mail className="w-4 h-4 inline mr-1" />
+                    Email
                   </label>
                   <input
-                    type="text"
-                    value={formData.matricula}
-                    onChange={(e) => setFormData(prev => ({ ...prev, matricula: e.target.value }))}
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                    placeholder="Matrícula"
                   />
                 </div>
               </div>
             </div>
           </div>
+        );
 
-          {/* Datos financieros */}
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <DollarSign className="w-4 h-4 inline mr-1" />
-                Prima Comercial
-              </label>
-              <input
-                type="number"
-                value={formData.primaComercial}
-                onChange={(e) => setFormData(prev => ({ ...prev, primaComercial: parseFloat(e.target.value) || 0 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                <DollarSign className="w-4 h-4 inline mr-1" />
-                Premio Total
-              </label>
-              <input
-                type="number"
-                value={formData.premioTotal}
-                onChange={(e) => setFormData(prev => ({ ...prev, premioTotal: parseFloat(e.target.value) || 0 }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Plan
-              </label>
-              <input
-                type="text"
-                value={formData.plan}
-                onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                placeholder="Plan de cobertura"
-              />
-            </div>
-          </div>
+case 'poliza':
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <Hash className="w-5 h-5 mr-2" />
+          Datos de la Póliza
+        </h3>
 
-          {/* Observaciones */}
-          <div className="mt-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Observaciones
-            </label>
-            <textarea
-              value={formData.observaciones}
-              onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
-              rows={3}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Número de Póliza *</label>
+          <input
+            type="text"
+            value={formData.numeroPoliza}
+            onChange={(e) => setFormData(prev => ({ ...prev, numeroPoliza: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Ramo</label>
+          <select
+            value={formData.ramo}
+            onChange={(e) => setFormData(prev => ({ ...prev, ramo: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          >
+            <option value="AUTOMOVILES">Automóviles</option>
+            <option value="MOTOCICLETAS">Motocicletas</option>
+            <option value="CAMIONES">Camiones</option>
+            <option value="OTROS">Otros</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Shield className="w-4 h-4 inline mr-1" />
+            Plan/Cobertura *
+          </label>
+          <input
+            type="text"
+            value={formData.plan}
+            onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            placeholder="Ej: SEGURO GLOBAL"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Corredor</label>
+          <input
+            type="text"
+            value={formData.corredor}
+            onChange={(e) => setFormData(prev => ({ ...prev, corredor: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          />
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <Calendar className="w-5 h-5 mr-2" />
+          Vigencia y Certificación
+        </h3>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Vigencia Desde *</label>
+            <input
+              type="date"
+              value={formData.vigenciaDesde}
+              onChange={(e) => setFormData(prev => ({ ...prev, vigenciaDesde: e.target.value }))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-              placeholder="Observaciones adicionales..."
+              required
             />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Vigencia Hasta *</label>
+            <input
+              type="date"
+              value={formData.vigenciaHasta}
+              onChange={(e) => setFormData(prev => ({ ...prev, vigenciaHasta: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              required
+            />
+          </div>
+        </div>
 
-          {/* Botones */}
-          <div className="mt-6 pt-6 border-t border-gray-200 flex justify-between">
-            <button
-              onClick={() => wizard.goBack()}
-              className="flex items-center px-4 py-2 text-gray-600 hover:text-gray-800"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Volver al procesamiento
-            </button>
-
-            <button
-              onClick={async () => {
-                setSaving(true);
-                try {
-                  await wizard.createPoliza(formData);
-                  onComplete?.(formData);
-                } catch (error) {
-                  console.error('Error creando póliza:', error);
-                } finally {
-                  setSaving(false);
-                }
-              }}
-              disabled={saving || !formData.numeroPoliza || !formData.asegurado}
-              className="flex items-center px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Creando...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4 mr-2" />
-                  🎯 Crear Póliza
-                </>
+        {/* Mostrar información extraída del certificado y endoso */}
+        {wizard.extractedData?.datosVelneo?.datosPoliza && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h4 className="font-medium text-blue-800 mb-2">
+              <FileCheck className="w-4 h-4 inline mr-1" />
+              Información Extraída
+            </h4>
+            <div className="text-blue-700 text-sm space-y-1">
+              {wizard.extractedData.datosVelneo.datosPoliza.certificado && (
+                <p>Certificado: {wizard.extractedData.datosVelneo.datosPoliza.certificado}</p>
               )}
-            </button>
+              {wizard.extractedData.datosVelneo.datosPoliza.endoso && (
+                <p>Endoso: {wizard.extractedData.datosVelneo.datosPoliza.endoso}</p>
+              )}
+              {wizard.extractedData.datosVelneo.datosPoliza.tipoMovimiento && (
+                <p>Tipo: {wizard.extractedData.datosVelneo.datosPoliza.tipoMovimiento}</p>
+              )}
+            </div>
+          </div>
+        )}
+                <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <Building2 className="w-4 h-4 inline mr-1" />
+            Compañía de Seguros
+          </label>
+          <div className="w-full px-3 py-2 border border-gray-200 rounded-lg bg-gray-50 text-gray-700">
+            {wizard.selectedCompany?.comnom || 'No seleccionada'}
+          </div>
+          <p className="text-xs text-gray-500 mt-1">
+            Compañía seleccionada en el paso anterior
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
+      case 'vehiculo':
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <Car className="w-5 h-5 mr-2" />
+          Información del Vehículo
+        </h3>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Vehículo (Descripción Completa)</label>
+          <input
+            type="text"
+            value={formData.vehiculo}
+            onChange={(e) => setFormData(prev => ({ ...prev, vehiculo: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            placeholder="Descripción completa del vehículo"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Marca *</label>
+            <input
+              type="text"
+              value={formData.marca}
+              onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Modelo *</label>
+            <input
+              type="text"
+              value={formData.modelo}
+              onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              required
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Año</label>
+            <input
+              type="text"
+              value={formData.anio}
+              onChange={(e) => setFormData(prev => ({ ...prev, anio: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              placeholder="2024"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Matrícula</label>
+            <input
+              type="text"
+              value={formData.matricula}
+              onChange={(e) => setFormData(prev => ({ ...prev, matricula: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              placeholder="ABC1234"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Combustible</label>
+          <select
+            value={formData.combustible}
+            onChange={(e) => setFormData(prev => ({ ...prev, combustible: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          >
+            <option value="">Seleccionar combustible</option>
+            <option value="GASOLINA">Gasolina</option>
+            <option value="DIESEL">Diesel</option>
+            <option value="DIESEL (GAS-OIL)">Diesel (Gas-Oil)</option>
+            <option value="GAS">Gas</option>
+            <option value="ELECTRICO">Eléctrico</option>
+            <option value="HIBRIDO">Híbrido</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Destino</label>
+            <select
+              value={formData.destino}
+              onChange={(e) => setFormData(prev => ({ ...prev, destino: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="">Seleccionar destino</option>
+              <option value="PARTICULAR">Particular</option>
+              <option value="COMERCIAL">Comercial</option>
+              <option value="TRANSPORTE">Transporte</option>
+              <option value="CARGA">Carga</option>
+              <option value="PUBLICO">Público</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Uso</label>
+            <select
+              value={formData.uso}
+              onChange={(e) => setFormData(prev => ({ ...prev, uso: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="">Seleccionar uso</option>
+              <option value="PARTICULAR">Particular</option>
+              <option value="COMERCIAL">Comercial</option>
+              <option value="PUBLICO">Público</option>
+              <option value="OFICIAL">Oficial</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <Settings className="w-5 h-5 mr-2" />
+          Especificaciones Técnicas
+        </h3>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Motor</label>
+          <input
+            type="text"
+            value={formData.motor}
+            onChange={(e) => setFormData(prev => ({ ...prev, motor: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            placeholder="Número de motor"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Chasis</label>
+          <input
+            type="text"
+            value={formData.chasis}
+            onChange={(e) => setFormData(prev => ({ ...prev, chasis: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            placeholder="Número de chasis"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Tipo de Vehículo</label>
+          <select
+            value={formData.tipoVehiculo}
+            onChange={(e) => setFormData(prev => ({ ...prev, tipoVehiculo: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          >
+            <option value="">Seleccionar tipo</option>
+            <option value="AUTOMOVIL">Automóvil</option>
+            <option value="CAMIONETA">Camioneta</option>
+            <option value="CAMION">Camión</option>
+            <option value="MOTOCICLETA">Motocicleta</option>
+            <option value="OMNIBUS">Ómnibus</option>
+            <option value="FURGON">Furgón</option>
+            <option value="PICKUP">Pick-up</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Categoría</label>
+          <input
+            type="text"
+            value={formData.categoria}
+            onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            placeholder="Categoría del vehículo"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Calidad</label>
+          <select
+            value={formData.calidad}
+            onChange={(e) => setFormData(prev => ({ ...prev, calidad: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+          >
+            <option value="">Seleccionar calidad</option>
+            <option value="NUEVO">Nuevo</option>
+            <option value="USADO">Usado</option>
+            <option value="EXCELENTE">Excelente</option>
+            <option value="BUENO">Bueno</option>
+            <option value="REGULAR">Regular</option>
+          </select>
+        </div>
+
+        {/* ✅ REMOVIDO: Recuadro azul con información extraída del documento */}
+      </div>
+    </div>
+  );
+
+      case 'cobertura':
+        return (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <Shield className="w-5 h-5 mr-2" />
+                Plan de Cobertura
+              </h3>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Plan</label>
+                <input
+                  type="text"
+                  value={formData.plan}
+                  onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Ej: SEGURO GLOBAL"
+                />
+              </div>
+
+              {/* Mostrar información de cuotas si está disponible */}
+              {wizard.extractedData?.datosVelneo?.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h4 className="font-medium text-blue-800 mb-2">
+                    <Clock className="w-4 h-4 inline mr-1" />
+                    Cronograma de Cuotas Detectado
+                  </h4>
+                  <p className="text-blue-700 text-sm">
+                    Se detectó un cronograma de {wizard.extractedData.datosVelneo.condicionesPago.detalleCuotas.cantidadTotal} cuotas 
+                    ({wizard.extractedData.datosVelneo.condicionesPago.detalleCuotas.cantidadDetalladas} detalladas)
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                <DollarSign className="w-5 h-5 mr-2" />
+                Valores
+              </h3>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Prima Comercial</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.primaComercial}
+                  onChange={(e) => setFormData(prev => ({ ...prev, primaComercial: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Premio Total</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.premioTotal}
+                  onChange={(e) => setFormData(prev => ({ ...prev, premioTotal: parseFloat(e.target.value) || 0 }))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                />
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'pago':
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <DollarSign className="w-5 h-5 mr-2" />
+          Importes y Valores
+        </h3>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Prima Comercial</label>
+          <div className="relative">
+            <span className="absolute left-3 top-2 text-gray-500">$</span>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.primaComercial}
+              onChange={(e) => setFormData(prev => ({ ...prev, primaComercial: parseFloat(e.target.value) || 0 }))}
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              placeholder="123584.47"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Premio Total</label>
+          <div className="relative">
+            <span className="absolute left-3 top-2 text-gray-500">$</span>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.premioTotal}
+              onChange={(e) => setFormData(prev => ({ ...prev, premioTotal: parseFloat(e.target.value) || 0 }))}
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              placeholder="153790.00"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Moneda</label>
+            <select
+              value={formData.moneda}
+              onChange={(e) => setFormData(prev => ({ ...prev, moneda: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            >
+              <option value="UYU">Peso Uruguayo (UYU)</option>
+              <option value="USD">Dólar Americano (USD)</option>
+              <option value="UI">Unidades Indexadas (UI)</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Cantidad de Cuotas</label>
+            <input
+              type="number"
+              min="1"
+              max="24"
+              value={formData.cantidadCuotas}
+              onChange={(e) => setFormData(prev => ({ ...prev, cantidadCuotas: parseInt(e.target.value) || 1 }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Valor por Cuota</label>
+          <div className="relative">
+            <span className="absolute left-3 top-2 text-gray-500">$</span>
+            <input
+              type="number"
+              step="0.01"
+              value={formData.valorCuota}
+              onChange={(e) => setFormData(prev => ({ ...prev, valorCuota: parseFloat(e.target.value) || 0 }))}
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+              placeholder="15379.00"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+          <CreditCard className="w-5 h-5 mr-2" />
+          Condiciones de Pago
+        </h3>
+
+        {/* ✅ MODIFICADO: Cambio de select por input de texto */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">Forma de Pago</label>
+          <input
+            type="text"
+            value={formData.formaPago}
+            onChange={(e) => setFormData(prev => ({ ...prev, formaPago: e.target.value }))}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+            placeholder="Ej: TARJETA DE CRÉDITO, CONTADO, DÉBITO AUTOMÁTICO"
+          />
+        </div>
+
+        {/* ✅ REMOVIDO: Recuadro verde que mostraba la forma de pago detectada */}
+
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h4 className="font-medium text-blue-800 mb-3 flex items-center">
+            <Calendar className="w-4 h-4 mr-1" />
+            Primera Cuota
+          </h4>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-blue-700 mb-2">Fecha de Vencimiento</label>
+              <input
+                type="date"
+                value={formData.primeraCuotaFecha}
+                onChange={(e) => setFormData(prev => ({ ...prev, primeraCuotaFecha: e.target.value }))}
+                className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-blue-700 mb-2">Monto</label>
+              <div className="relative">
+                <span className="absolute left-3 top-2 text-blue-500">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.primeraCuotaMonto}
+                  onChange={(e) => setFormData(prev => ({ ...prev, primeraCuotaMonto: parseFloat(e.target.value) || 0 }))}
+                  className="w-full pl-8 pr-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ✅ REMOVIDO: Recuadro amarillo de cronograma completo detectado */}
+        {/* ✅ REMOVIDO: Recuadro de métricas de extracción */}
+      </div>
+    </div>
+  );
+
+      case 'observaciones':
+  return (
+    <div className="space-y-6">
+      <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+        <FileCheck className="w-5 h-5 mr-2" />
+        Observaciones y Notas
+      </h3>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Observaciones Automáticas
+          <span className="text-xs text-gray-500 ml-2">(Generadas automáticamente - Puedes editarlas)</span>
+        </label>
+        <textarea
+          value={formData.observaciones}
+          onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
+          rows={12}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 font-mono text-sm"
+          placeholder="Las observaciones se generarán automáticamente..."
+        />
+        
+        {/* Botón para regenerar observaciones */}
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            onClick={() => {
+              if (wizard.extractedData?.datosVelneo) {
+                const nuevasObservaciones = generarObservacionesAutomaticas(wizard.extractedData.datosVelneo);
+                setFormData(prev => ({ ...prev, observaciones: nuevasObservaciones }));
+              }
+            }}
+            className="text-sm text-purple-600 hover:text-purple-800 flex items-center"
+          >
+            <Settings className="w-3 h-3 mr-1" />
+            Regenerar observaciones automáticas
+          </button>
+        </div>
+      </div>
+
+      {/* Vista previa del cronograma si está disponible */}
+      {wizard.extractedData?.datosVelneo?.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h4 className="font-medium text-blue-800 mb-3 flex items-center">
+            <Calendar className="w-4 h-4 mr-1" />
+            Vista Previa - Cronograma de Cuotas
+          </h4>
+          
+          <div className="max-h-64 overflow-y-auto bg-white rounded border border-blue-200 p-3">
+            <div className="grid grid-cols-3 gap-4 text-sm font-medium text-blue-800 border-b border-blue-200 pb-2 mb-2">
+              <div>Cuota</div>
+              <div>Fecha Vencimiento</div>
+              <div>Monto</div>
+            </div>
+            
+            {wizard.extractedData.datosVelneo.condicionesPago.detalleCuotas.cuotas.map((cuota: any) => (
+              <div key={cuota.numero} className="grid grid-cols-3 gap-4 text-sm text-blue-700 py-1 border-b border-blue-100">
+                <div>Cuota {cuota.numero}</div>
+                <div>{new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY')}</div>
+                <div>${cuota.monto?.toLocaleString()}</div>
+              </div>
+            ))}
+            
+            <div className="grid grid-cols-3 gap-4 text-sm font-medium text-blue-800 pt-2 mt-2 border-t border-blue-200">
+              <div>Total:</div>
+              <div>{wizard.extractedData.datosVelneo.condicionesPago.cuotas} cuotas</div>
+              <div>${wizard.extractedData.datosVelneo.condicionesPago.total?.toLocaleString()}</div>
+            </div>
+          </div>
+          
+          <p className="text-blue-600 text-xs mt-2 italic">
+            ℹ️ Este cronograma se incluye automáticamente en las observaciones de la póliza
+          </p>
+        </div>
+      )}
+
+      {/* Información de procesamiento */}
+      {wizard.extractedData && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h4 className="font-medium text-gray-800 mb-3 flex items-center">
+            <Settings className="w-4 h-4 mr-1" />
+            Información de Procesamiento
+          </h4>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
+            <div className="bg-white rounded border border-gray-200 p-3">
+              <span className="text-gray-600 block text-xs">Archivo procesado:</span>
+              <p className="font-medium text-gray-900 truncate" title={wizard.uploadedFile?.name}>
+                {wizard.uploadedFile?.name}
+              </p>
+            </div>
+            
+            <div className="bg-white rounded border border-gray-200 p-3">
+              <span className="text-gray-600 block text-xs">Tiempo de procesamiento:</span>
+              <p className="font-medium text-gray-900">
+                {((wizard.extractedData.tiempoProcesamiento || 0) / 1000).toFixed(1)}s
+              </p>
+            </div>
+            
+            <div className="bg-white rounded border border-gray-200 p-3">
+              <span className="text-gray-600 block text-xs">Estado:</span>
+              <p className="font-medium text-green-700">
+                {wizard.extractedData.estadoProcesamiento}
+              </p>
+            </div>
+            
+            <div className="bg-white rounded border border-gray-200 p-3">
+              <span className="text-gray-600 block text-xs">Timestamp:</span>
+                <p className="font-medium text-gray-900 text-xs">
+                  {new Date(wizard.extractedData.timestamp || Date.now()).toLocaleString('es-UY')}
+                </p>
+            </div>
+          </div>
+
+          {/* Detalles adicionales */}
+          {wizard.extractedData?.datosVelneo && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                  <span className="text-gray-600">Campos extraídos:</span>
+                  <p className="font-medium">{wizard.extractedData.datosVelneo.metricas?.camposExtraidos || 0}</p>
+                </div>
+                <div>
+                  <span className="text-gray-600">Completitud:</span>
+                  <p className="font-medium">{wizard.extractedData.datosVelneo.porcentajeCompletitud || 0}%</p>
+                </div>
+                <div>
+                  <span className="text-gray-600">Datos mínimos:</span>
+                  <p className={`font-medium ${wizard.extractedData.datosVelneo.tieneDatosMinimos ? 'text-green-600' : 'text-red-600'}`}>
+                    {wizard.extractedData.datosVelneo.tieneDatosMinimos ? 'Completos' : 'Incompletos'}
+                  </p>
+                </div>
+                <div>
+                  <span className="text-gray-600">Listo para Velneo:</span>
+                  <p className={`font-medium ${wizard.extractedData.listoParaVelneo ? 'text-green-600' : 'text-yellow-600'}`}>
+                    {wizard.extractedData.listoParaVelneo ? 'Sí' : 'Requiere revisión'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Notas adicionales */}
+      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+        <h4 className="font-medium text-yellow-800 mb-2 flex items-center">
+          <AlertTriangle className="w-4 h-4 mr-1" />
+          Notas Importantes
+        </h4>
+        <ul className="text-yellow-700 text-sm space-y-1">
+          <li>• Las observaciones se generan automáticamente basadas en la información extraída</li>
+          <li>• El cronograma de cuotas se incluye automáticamente cuando es detectado</li>
+          <li>• Puedes editar las observaciones según sea necesario antes de crear la póliza</li>
+          <li>• La información de procesamiento se incluye para auditoría y debugging</li>
+        </ul>
+      </div>
+    </div>
+  );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="text-center mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">✅ Validar Datos Extraídos</h2>
+        <p className="text-gray-600">Revisa y completa la información antes de crear la póliza</p>
+      </div>
+
+      {/* Header con información del procesamiento */}
+      {wizard.extractedData && (
+        <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <CheckCircle className="w-5 h-5 text-blue-600 mr-2" />
+              <span className="font-medium text-blue-800">
+                Documento procesado exitosamente con Azure AI
+              </span>
+            </div>
+            <div className="flex items-center space-x-4 text-sm text-blue-600">
+              {wizard.extractedData.nivelConfianza && (
+                <span>Confianza: {Math.round(wizard.extractedData.nivelConfianza * 100)}%</span>
+              )}
+              {wizard.extractedData.tiempoProcesamiento && (
+                <span>Tiempo: {(wizard.extractedData.tiempoProcesamiento / 1000).toFixed(1)}s</span>
+              )}
+            </div>
           </div>
         </div>
       )}
+
+      {/* Tabs de navegación */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex space-x-8 overflow-x-auto">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center whitespace-nowrap ${
+                  activeTab === tab.id
+                    ? 'border-purple-500 text-purple-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <Icon className="w-4 h-4 mr-2" />
+                {tab.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Contenido del tab activo */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+        {renderTabContent()}
+      </div>
+
+      {/* Botones de navegación */}
+      <div className="flex justify-between items-center">
+        <button
+          onClick={wizard.goBack}
+          className="flex items-center px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Volver al procesamiento
+        </button>
+
+        <button
+          onClick={async () => {
+            setSaving(true);
+            try {
+              console.log('💾 Creando póliza con datos:', formData);
+              // Aquí implementarías la lógica para enviar a Velneo
+              await new Promise(resolve => setTimeout(resolve, 2000)); // Simular guardado
+              wizard.goToStep('success');
+            } catch (error) {
+              console.error('Error creando póliza:', error);
+            } finally {
+              setSaving(false);
+            }
+          }}
+          disabled={saving}
+          className="flex items-center px-6 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 disabled:opacity-50"
+        >
+          {saving ? (
+            <>
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              Creando Póliza...
+            </>
+          ) : (
+            <>
+              <Save className="w-4 h-4 mr-2" />
+              Crear Póliza
+            </>
+          )}
+        </button>
+      </div>
     </div>
   );
+};
 
   // 6️⃣ PASO: Éxito
   const renderSuccessStep = () => (

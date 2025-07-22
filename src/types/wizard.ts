@@ -21,6 +21,7 @@ export interface Company {
 }
 
 export interface DocumentProcessResult {
+  porcentajeCompletitud: any;
   // Metadatos del documento
   documentId: string;
   nombreArchivo?: string;

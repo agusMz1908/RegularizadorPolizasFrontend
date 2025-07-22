@@ -1,9 +1,14 @@
+// src/types/azure-document.ts - INTERFACES CORREGIDAS
+// ================================
+// ASEGURAR CONSISTENCIA CON EL BACKEND
+// ================================
+
 export interface AzureProcessResponse {
   archivo: string;
   timestamp: string;
   tiempoProcesamiento: number;
   estado: string; // "PROCESADO_CON_SMART_EXTRACTION"
-  datosVelneo: DatosVelneo;
+  datosVelneo: DatosVelneo; // ✅ ESTE ES EL CAMPO PRINCIPAL
   procesamientoExitoso: boolean;
   listoParaVelneo: boolean;
   porcentajeCompletitud: number;
@@ -90,243 +95,238 @@ export interface DatosCobertura {
 // 💰 CONDICIONES DE PAGO
 export interface CondicionesPago {
   formaPago: string;
+  cantidadCuotas: number;
+  prima: number;
   premio: number;
   total: number;
-  valorCuota: number;
   cuotas: number;
+  valorCuota: number;
   moneda: string;
+  monto: number;
   detalleCuotas: DetalleCuotas;
 }
 
-// 📅 DETALLE DE CUOTAS
 export interface DetalleCuotas {
-  cantidadTotal: number;
-  cuotas: Cuota[];
-  primeraCuota: Cuota;
-  montoPromedio: number;
   tieneCuotasDetalladas: boolean;
-  primerVencimiento: string;
-  primaCuota: number;
+  cantidadTotal: number;
+  cantidadDetalladas: number;
+  primeraCuota: CuotaDetalle; 
+  cuotas: CuotaDetalle[];
 }
 
-export interface Cuota {
+export interface CuotaDetalle {
   numero: number;
   fechaVencimiento: string;
-  monto: number;
-  estado: string; // "PENDIENTE" | "PAGADA" | "VENCIDA"
+  monto: number; 
 }
 
-// 🎁 BONIFICACIONES Y DESCUENTOS
+// 🎁 BONIFICACIONES
 export interface Bonificaciones {
-  bonificaciones: any[];
-  totalBonificaciones: number;
   descuentos: number;
   recargos: number;
-  impuestoMSP: number;
+  bonificacionEspecial: number;
 }
 
 // 📝 OBSERVACIONES
 export interface Observaciones {
   observacionesGenerales: string;
-  observacionesGestion: string;
-  notasEscaneado: string[];
-  informacionAdicional: string;
+  observacionesInternas: string;
+  notasEspeciales: string;
 }
 
 // 📊 MÉTRICAS DE EXTRACCIÓN
 export interface MetricasExtraccion {
   camposExtraidos: number;
   camposCompletos: number;
+  camposVacios: number;
   porcentajeCompletitud: number;
-  tieneDatosMinimos: boolean;
+  nivelConfianza: number;
+  tiempoExtraccion: number;
   camposFaltantes: string[];
-  camposConfianzaBaja: string[];
+  camposProblemáticos: string[];
 }
 
 // ================================
-// RESULTADO PROCESADO PARA EL WIZARD
+// PARA COMPATIBILIDAD CON WIZARD
 // ================================
 
 export interface DocumentProcessResult {
   documentId: string;
   nombreArchivo: string;
   estadoProcesamiento: string;
-  timestamp: string;
-  tiempoProcesamiento: number;
+  timestamp?: string;
   
-  // ✅ CAMPOS PRINCIPALES EXTRAÍDOS
-  numeroPoliza: string;
-  asegurado: string;
-  corredor: string;
-  compania: string;
-  
-  // ✅ VIGENCIA
-  vigenciaDesde: string;
-  vigenciaHasta: string;
-  
-  // ✅ DATOS FINANCIEROS
-  premio: number;
-  total: number;
-  moneda: string;
-  formaPago: string;
-  
-  // ✅ VEHÍCULO
-  vehiculo: string;
-  marca: string;
-  modelo: string;
-  anio: string;
-  motor: string;
-  chasis: string;
-  matricula: string;
-  combustible: string;
-  
-  // ✅ CLIENTE
-  documento: string;
-  email: string;
-  telefono: string;
-  domicilio: string;
-  departamento: string;
-  localidad: string;
-  
-  // ✅ METADATOS
-  procesamientoExitoso: boolean;
-  listoParaVelneo: boolean;
-  porcentajeCompletitud: number;
-  nivelConfianza: number;
-  requiereVerificacion: boolean;
-  
-  // ✅ DATOS COMPLETOS PARA FORMULARIO AVANZADO
-  datosVelneo: DatosVelneo;
-}
-
-// ================================
-// TIPOS AUXILIARES
-// ================================
-
-// ✅ ENUM PARA TIPOS DE CLIENTE
-export enum TipoCliente {
-  PERSONA = 'PERSONA',
-  EMPRESA = 'EMPRESA'
-}
-
-// ✅ ENUM PARA ESTADOS DE CUOTA
-export enum EstadoCuota {
-  PENDIENTE = 'PENDIENTE',
-  PAGADA = 'PAGADA',
-  VENCIDA = 'VENCIDA'
-}
-
-// ✅ FORMULARIO EXTENDIDO PARA LA UI
-export interface PolizaFormDataExtended {
-  // Básicos
-  numeroPoliza: string;
-  asegurado: string;
-  documento: string;
-  email: string;
-  telefono: string;
-  domicilio: string;
-  
-  // Póliza
-  compania: string;
-  ramo: string;
-  vigenciaDesde: string;
-  vigenciaHasta: string;
-  corredor: string;
-  
-  // Vehículo
-  marca: string;
-  modelo: string;
-  anio: string;
-  motor: string;
-  chasis: string;
-  matricula: string;
-  combustible: string;
-  uso: string;
-  
-  // Financiero
-  premio: number;
-  total: number;
-  moneda: string;
-  formaPago: string;
-  cuotas: number;
-  
-  // Observaciones
-  observacionesGenerales: string;
-  observacionesGestion: string;
+  // Datos principales extraídos
+  numeroPoliza?: string;
+  asegurado?: string;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  prima?: number;
   
   // Metadatos
-  tiempoProcesamiento: number;
-  porcentajeCompletitud: number;
+  nivelConfianza?: number;
+  requiereVerificacion?: boolean;
+  readyForVelneo?: boolean;
+  
+  // ✅ DATOS COMPLETOS DESDE EL BACKEND
+  datosVelneo?: DatosVelneo;  // La estructura completa del backend
+  tiempoProcesamiento?: number;
+  porcentajeCompletitud?: number;
 }
 
 // ================================
-// COMPATIBILIDAD CON TIPOS ANTERIORES
+// FUNCIONES DE UTILIDAD
 // ================================
 
-// Mantener compatibilidad con código existente
-export interface AzureDatosFormateados extends DatosVelneo {} // DEPRECATED
-export interface ExtractedField {
-  field: string;
-  value: string;
-  confidence: number;
-  needsReview: boolean;
-}
+export class AzureDocumentUtils {
+  /**
+   * Convierte fechas de diferentes formatos a formato ISO (YYYY-MM-DD)
+   */
+  static convertirFecha(fecha: string | undefined): string {
+    if (!fecha) return '';
+    
+    try {
+      // CASO 1: Ya es formato ISO
+      if (fecha.includes('T') || /^\d{4}-\d{2}-\d{2}/.test(fecha)) {
+        return fecha.split('T')[0];
+      }
+      
+      // CASO 2: Formato DD/MM/YYYY o similares
+      const fechaLimpia = fecha.trim().replace(/[^\d\/\-\.]/g, '');
+      
+      const formatosComunes = [
+        /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, // DD/MM/YYYY
+        /^(\d{1,2})-(\d{1,2})-(\d{4})$/,   // DD-MM-YYYY
+        /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/   // DD.MM.YYYY
+      ];
+      
+      for (const formato of formatosComunes) {
+        const match = fechaLimpia.match(formato);
+        if (match) {
+          const dia = parseInt(match[1]);
+          const mes = parseInt(match[2]);
+          const anio = parseInt(match[3]);
+          
+          if (dia >= 1 && dia <= 31 && mes >= 1 && mes <= 12) {
+            const fechaObj = new Date(anio, mes - 1, dia);
+            return fechaObj.toISOString().split('T')[0];
+          }
+        }
+      }
+      
+      return '';
+    } catch (error) {
+      console.error('Error convirtiendo fecha:', fecha, error);
+      return '';
+    }
+  }
 
-// Tipos de error
-export interface AzureErrorResponse {
-  error: string;
-  timestamp: string;
-  tiempoProcesamiento: number;
-  estado: string;
-  codigoError?: string;
-  detallesTecnicos?: string;
-  sugerencias?: string[];
-}
+  /**
+   * Valida si los datos mínimos están presentes
+   */
+  static validarDatosMinimos(datos: DatosVelneo): boolean {
+    return !!(
+      datos.datosPoliza?.numeroPoliza &&
+      datos.datosBasicos?.asegurado &&
+      datos.datosBasicos?.documento
+    );
+  }
 
-// Respuesta de información del modelo
-export interface AzureModelInfoResponse {
-  modelId: string;
-  description: string;
-  createdDateTime: string;
-  lastUpdatedDateTime: string;
-  status: string;
-}
+  /**
+   * Calcula el porcentaje de completitud de los datos
+   */
+  static calcularCompletitud(datos: DatosVelneo): number {
+    const camposEsenciales = [
+      datos.datosPoliza?.numeroPoliza,
+      datos.datosBasicos?.asegurado,
+      datos.datosBasicos?.documento,
+      datos.datosVehiculo?.marca,
+      datos.condicionesPago?.premio
+    ];
+    
+    const camposCompletos = camposEsenciales.filter(campo => 
+      campo && campo.toString().trim() !== ''
+    ).length;
+    
+    return Math.round((camposCompletos / camposEsenciales.length) * 100);
+  }
 
-// Respuesta de batch (si se necesita)
-export interface AzureBatchResponse {
-  archivos: string[];
-  procesamientosExitosos: number;
-  procesamientosFallidos: number;
-  tiempoTotal: number;
-  resultados: DocumentProcessResult[];
+  /**
+   * Extrae resumen de procesamiento
+   */
+  static generarResumen(datos: DatosVelneo): string {
+    const elementos = [];
+    
+    if (datos.porcentajeCompletitud) {
+      elementos.push(`${datos.porcentajeCompletitud}% completitud`);
+    }
+    
+    if (datos.camposCompletos) {
+      elementos.push(`${datos.camposCompletos} campos extraídos`);
+    }
+    
+    if (datos.condicionesPago?.cantidadCuotas) {
+      elementos.push(`${datos.condicionesPago.cantidadCuotas} cuotas`);
+    }
+    
+    if (!datos.tieneDatosMinimos) {
+      elementos.push('REQUIERE VERIFICACIÓN');
+    }
+    
+    return elementos.join(' • ');
+  }
 }
 
 // ================================
-// CONSTANTES ÚTILES
+// VALIDADORES
 // ================================
 
-export const MONEDAS = {
-  UYU: { codigo: 1, simbolo: '$', nombre: 'Peso Uruguayo' },
-  USD: { codigo: 2, simbolo: 'U$S', nombre: 'Dólar Americano' }
-} as const;
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+}
 
-export const TIPOS_CLIENTE = {
-  PERSONA: 'PERSONA',
-  EMPRESA: 'EMPRESA'
-} as const;
-
-export const TIPOS_USO_VEHICULO = {
-  PARTICULAR: 'PARTICULAR',
-  COMERCIAL: 'COMERCIAL',
-  TAXI: 'TAXI',
-  REMISE: 'REMISE'
-} as const;
-
-export const VALORES_TRAMITE = [
-  'Nuevo',
-  'Renovación', 
-  'Cambio',
-  'Endoso',
-  'No Renueva',
-  'Cancelación'
-] as const;
+export class AzureDocumentValidator {
+  /**
+   * Valida la estructura completa de datosVelneo
+   */
+  static validarEstructura(datos: DatosVelneo): ValidationResult {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    
+    // Validaciones críticas
+    if (!datos.datosPoliza?.numeroPoliza) {
+      errors.push('Número de póliza es requerido');
+    }
+    
+    if (!datos.datosBasicos?.asegurado) {
+      errors.push('Nombre del asegurado es requerido');
+    }
+    
+    if (!datos.datosBasicos?.documento) {
+      warnings.push('Documento del asegurado no encontrado');
+    }
+    
+    // Validaciones de fechas
+    if (datos.datosPoliza?.desde && datos.datosPoliza?.hasta) {
+      const desde = new Date(datos.datosPoliza.desde);
+      const hasta = new Date(datos.datosPoliza.hasta);
+      
+      if (desde >= hasta) {
+        errors.push('La fecha de vigencia "desde" debe ser anterior a "hasta"');
+      }
+    }
+    
+    // Validaciones financieras
+    if (datos.condicionesPago?.premio && datos.condicionesPago.premio <= 0) {
+      warnings.push('El premio de la póliza parece incorrecto');
+    }
+    
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings
+    };
+  }
+}

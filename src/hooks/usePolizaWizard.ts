@@ -254,7 +254,7 @@ export const usePolizaWizard = () => {
       console.log('✅ Documento procesado exitosamente:', result);
 
       // Verificar que tenemos datos válidos
-      if (!result || !result.datosFormateados) {
+      if (!result || !result.datosVelneo) {
         throw new Error('No se pudieron extraer datos del documento');
       }
 
@@ -265,7 +265,7 @@ export const usePolizaWizard = () => {
         currentStep: 'form'
       }));
 
-      console.log('📝 Datos listos para formulario:', result.datosFormateados);
+      console.log('📝 Datos listos para formulario:', result.datosVelneo);
 
     } catch (err: any) {
       console.error('❌ Error procesando documento:', err);
