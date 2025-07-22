@@ -343,7 +343,7 @@ export const usePolizaWizard = () => {
   // 🔍 BÚSQUEDA DE CLIENTES - ENDPOINT /all CORRECTO
   // =====================================
 
-const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
+  const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
   if (!searchTerm.trim() || searchTerm.length < 2) {
     setClienteResults([]);
     return;
@@ -360,12 +360,13 @@ const searchClientes = useCallback(async (searchTerm: string): Promise<void> => 
   try {
     console.log('🚀 Buscando clientes DIRECTO en Velneo con término:', searchTerm);
 
+    // ✅ NUEVO ENDPOINT DIRECTO - MÁS RÁPIDO
     const searchUrl = `${import.meta.env.VITE_API_URL}/clientes/direct`;
     const response = await fetch(
       `${searchUrl}?filtro=${encodeURIComponent(searchTerm)}`,
       {
         headers: getAuthHeaders(),
-        signal: AbortSignal.timeout(10000)
+        signal: AbortSignal.timeout(10000) // 10 segundos - más rápido
       }
     );
 
@@ -376,95 +377,38 @@ const searchClientes = useCallback(async (searchTerm: string): Promise<void> => 
       throw new Error(`Error buscando clientes: ${response.status}`);
     }
 
-    // ✅ PARSING DIRECTO CON .json()
     const data = await response.json();
     
     console.log('📥 Respuesta DIRECTA de Velneo:', {
-      tipo: typeof data,
-      esArray: Array.isArray(data),
-      keys: data && typeof data === 'object' && !Array.isArray(data) ? Object.keys(data) : 'N/A',
-      estructura: data && typeof data === 'object' ? 'Objeto' : 'Otro'
+      cantidad: data.clientes ? data.clientes.length : 'no clientes',
+      totalCount: data.total_count,
     });
-
-    // 🎯 MANEJAR LA ESTRUCTURA ESPECÍFICA DE VELNEO
-    let clientes: any[] = [];
     
-    if (data && typeof data === 'object' && !Array.isArray(data)) {
-      // Estructura de Velneo: {count: 27, total_count: 27, clientes: [...]}
-      if (data.clientes && Array.isArray(data.clientes)) {
-        clientes = data.clientes;
-        console.log('✅ Estructura Velneo detectada:', {
-          count: data.count,
-          total_count: data.total_count,
-          clientesEncontrados: clientes.length
-        });
-      } else {
-        console.warn('⚠️ Estructura inesperada - propiedades disponibles:', Object.keys(data));
-        // Buscar en otras propiedades posibles
-        const possibleKeys = ['data', 'items', 'results', 'clients'];
-        for (const key of possibleKeys) {
-          if (data[key] && Array.isArray(data[key])) {
-            clientes = data[key];
-            console.log(`✅ Clientes encontrados en data.${key}:`, clientes.length);
-            break;
-          }
-        }
-      }
-    } else if (Array.isArray(data)) {
-      // Si por alguna razón llegara como array directo
-      clientes = data;
-      console.log('✅ Array directo:', clientes.length, 'elementos');
-    } else {
-      console.error('❌ Estructura de datos inesperada:', data);
-      throw new Error('Formato de respuesta inesperado del servidor');
-    }
-
-    // 🔍 DEBUG: Verificar que tenemos datos
-    console.log('📋 Clientes a procesar:', clientes.length);
-    if (clientes.length > 0) {
-      console.log('📋 Primer cliente (muestra):', clientes[0]);
-    }
-
-    // 🔄 MAPEO ESPECÍFICO PARA LA ESTRUCTURA DE VELNEO
+    // Mapear respuesta de Velneo
+    const clientes = data.clientes || data.clients || data || [];
     const clientesMapeados = clientes.map((cliente: any) => ({
-      id: cliente.id,
-      clinom: cliente.clinom,           // "LEONARDO RODRIGUEZ"
-      cliced: cliente.cliced || '',     // documento/CI
-      cliruc: cliente.cliruc || '',     // RUC
-      cliemail: cliente.cliemail || '', // email
-      telefono: cliente.telefono || cliente.clicel || '', // teléfono
-      clidir: cliente.clidir,           // "TOMAS DE TEZANOS 1348"
+      id: cliente.id || cliente.clinro,
+      clinom: cliente.clinom || cliente.nombre,
+      cliced: cliente.cliced || cliente.documento,
+      cliruc: cliente.cliruc || cliente.ruc,
+      cliemail: cliente.cliemail || cliente.email,
+      telefono: cliente.telefono || cliente.clicel,
+      clidir: cliente.clidir || cliente.direccion,
       activo: cliente.activo !== false
     }));
-
-    console.log('📋 Resultado del mapeo:', {
-      clientesOriginales: clientes.length,
-      clientesMapeados: clientesMapeados.length,
-      muestra: clientesMapeados.slice(0, 2).map(c => ({
-        id: c.id,
-        nombre: c.clinom,
-        direccion: c.clidir
-      }))
-    });
-
-    // ✅ ESTABLECER RESULTADOS
+    
     setClienteResults(clientesMapeados);
-    console.log(`✅ Búsqueda DIRECTA completada: ${clientesMapeados.length} clientes encontrados`);
+    console.log(`✅ Búsqueda DIRECTA completada: ${clientesMapeados.length} clientes`);
     
   } catch (err: any) {
     console.error('❌ Error en búsqueda directa:', err);
     
-    // 🔄 FALLBACK al método anterior
-    console.warn('🔄 FALLBACK: Intentando con método anterior /all...');
-    
+    // 🔄 FALLBACK al método anterior si falla
     try {
       const fallbackUrl = `${import.meta.env.VITE_API_URL}/clientes/all`;
       const fallbackResponse = await fetch(
         `${fallbackUrl}?search=${encodeURIComponent(searchTerm)}`,
-        {
-          headers: getAuthHeaders(),
-          signal: AbortSignal.timeout(30000)
-        }
+        { headers: getAuthHeaders(), signal: AbortSignal.timeout(30000) }
       );
 
       if (fallbackResponse.ok) {
@@ -472,8 +416,6 @@ const searchClientes = useCallback(async (searchTerm: string): Promise<void> => 
         const clientesFallback = fallbackData.items || fallbackData || [];
         setClienteResults(clientesFallback);
         console.log(`✅ Fallback exitoso: ${clientesFallback.length} clientes`);
-        // No mostrar error al usuario, solo usar fallback
-        console.warn('⚠️ Se usó fallback - revisar endpoint directo');
       } else {
         throw new Error('Ambos endpoints fallaron');
       }
@@ -482,7 +424,6 @@ const searchClientes = useCallback(async (searchTerm: string): Promise<void> => 
       setError(err.message || 'Error al buscar clientes');
       setClienteResults([]);
     }
-    
   } finally {
     setLoadingClientes(false);
   }
