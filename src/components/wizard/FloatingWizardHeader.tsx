@@ -67,10 +67,6 @@ const FloatingWizardHeader: React.FC<FloatingWizardHeaderProps> = ({
                     Scanner Pólizas IA
                   </h1>
                   <div className="flex items-center space-x-2 mt-1">
-                    <Zap className={`w-4 h-4 ${isDarkMode ? 'text-yellow-400' : 'text-yellow-500'}`} />
-                    <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                      Procesamiento inteligente con Azure AI
-                    </span>
                   </div>
                 </div>
               </div>
@@ -170,31 +166,9 @@ const FloatingWizardHeader: React.FC<FloatingWizardHeaderProps> = ({
             }`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-4">
-                  <span className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <span className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-600'} font-bold`}>
                     Paso {getCurrentStepIndex() + 1} de {stepOrder.length}
                   </span>
-                  
-                  <div className="flex items-center space-x-2">
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                      isDarkMode 
-                        ? 'bg-blue-900/50 text-blue-300' 
-                        : 'bg-blue-100 text-blue-700'
-                    }`}>
-                      Azure AI
-                    </span>
-                    <span className={`px-2 py-1 text-xs rounded-full font-medium ${
-                      isDarkMode 
-                        ? 'bg-green-900/50 text-green-300' 
-                        : 'bg-green-100 text-green-700'
-                    }`}>
-                      95% precisión
-                    </span>
-                  </div>
-                </div>
-
-                {/* Tiempo estimado */}
-                <div className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                  ⏱️ Tiempo promedio: 30 segundos
                 </div>
               </div>
             </div>

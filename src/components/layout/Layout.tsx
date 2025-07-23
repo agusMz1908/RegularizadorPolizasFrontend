@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useTheme } from '../../context/ThemeContext';
 import { 
   Home, 
   Users, 
@@ -17,7 +18,10 @@ import {
   ScanLine,
   LogOut,
   HelpCircle,
-  Activity
+  Activity,
+  Sun,
+  Moon,
+  Monitor
 } from 'lucide-react';
 
 interface SidebarItem {
@@ -35,6 +39,7 @@ const Layout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [expandedItems, setExpandedItems] = useState<string[]>(['gestion']);
   const { user, logout } = useAuth();
+  const { theme, effectiveTheme, setTheme, toggleTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -119,6 +124,35 @@ const Layout: React.FC = () => {
           icon: <Building2 className="w-5 h-5" />,
           active: currentPage === 'companias',
           onClick: () => navigateTo('companias')
+        }
+      ]
+    },
+    {
+      id: 'apariencia',
+      label: 'Apariencia',
+      icon: <Sun className="w-6 h-6" />,
+      children: [
+        {
+          id: 'theme-light',
+          label: 'Claro',
+          icon: <Sun className="w-5 h-5" />,
+          active: theme === 'light',
+          onClick: () => setTheme('light')
+        },
+        {
+          id: 'theme-dark',
+          label: 'Oscuro',
+          icon: <Moon className="w-5 h-5" />,
+          active: theme === 'dark',
+          onClick: () => setTheme('dark')
+        },
+        {
+          id: 'theme-system',
+          label: 'Auto',
+          icon: <Monitor className="w-5 h-5" />,
+          active: theme === 'system',
+          onClick: () => setTheme('system'),
+          badge: effectiveTheme === 'dark' ? 'Oscuro' : 'Claro'
         }
       ]
     }
@@ -224,24 +258,6 @@ const Layout: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {/* Estado/Stats rápidos */}
-        {sidebarOpen && (
-          <div className="p-5 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Hoy</div>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{todayStats.documents}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Documentos</div>
-              </div>
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-4 shadow-sm border border-gray-100 dark:border-gray-700">
-                <div className="text-sm text-gray-500 dark:text-gray-400 mb-2">Éxito</div>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{todayStats.successRate}%</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">Tasa</div>
-              </div>
-            </div>
-          </div>
-        )}
         
         {/* Navegación principal */}
         <nav className="flex-1 p-3 space-y-3 overflow-y-auto">
@@ -264,6 +280,23 @@ const Layout: React.FC = () => {
               <span className="ml-4 font-medium text-base">Configuración</span>
             )}
           </div>
+
+          {/* NUEVO: Toggle de Tema - ahora solo cuando sidebar está cerrado */}
+          {!sidebarOpen && (
+            <div className="mx-2">
+              <button
+                onClick={toggleTheme}
+                className="w-12 h-12 flex items-center justify-center rounded-xl transition-all text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 mx-auto"
+                title={`Cambiar a ${effectiveTheme === 'dark' ? 'modo claro' : 'modo oscuro'}`}
+              >
+                {effectiveTheme === 'dark' ? (
+                  <Sun className="w-6 h-6" />
+                ) : (
+                  <Moon className="w-6 h-6" />
+                )}
+              </button>
+            </div>
+          )}
         </nav>
 
         {/* Footer con usuario y configuración */}
