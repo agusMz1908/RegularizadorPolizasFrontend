@@ -6,11 +6,19 @@ import {
   ArrowLeft, ArrowRight, Search, FileCheck, Building,
   Settings, Shield, CreditCard, Navigation, Clock, Hash,
   Star, Zap, Sparkles, Award, Target,
-  CheckCircle2
+  CheckCircle2,
+  Lightbulb,
+  Info
 } from 'lucide-react';
 import { usePolizaWizard } from '../../hooks/usePolizaWizard';
 import { useDarkMode } from '../../context/ThemeContext';
 import FloatingWizardHeader from './FloatingWizardHeader';
+import { 
+  extraerOperacionDesdeAzure,
+  determinarTramite,
+  determinarEstadoPoliza,
+  type TipoOperacion 
+} from '../../utils/operationLogic';
 
 interface PolizaWizardProps {
   onComplete?: (result: any) => void;
@@ -18,6 +26,7 @@ interface PolizaWizardProps {
 }
 
 interface PolizaFormData {
+  operacion: any;
   numeroPoliza: string;
   vigenciaDesde: string;
   vigenciaHasta: string;
@@ -54,6 +63,9 @@ interface PolizaFormData {
   moneda: string;
   primeraCuotaFecha: string;
   primeraCuotaMonto: number;
+  tramite: string;
+  tipo: string;
+  estadoPoliza: string;
 }
 
 const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => {
@@ -98,6 +110,10 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     moneda: '',
     primeraCuotaFecha: '',
     primeraCuotaMonto: 0,
+    tramite: '',
+    tipo: '',
+    estadoPoliza: '',
+    operacion: 0
   });
 
   const [saving, setSaving] = useState(false);
@@ -106,21 +122,6 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     ? 'bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900' 
     : 'bg-gradient-to-br from-gray-50 via-blue-50 to-purple-50';
 
-  const getCardClass = () => isDarkMode 
-    ? 'bg-gray-800 border-gray-700' 
-    : 'bg-white border-gray-100';
-
-  // Función para obtener clases de texto según modo oscuro
-  const getTextClass = () => isDarkMode 
-    ? 'text-gray-100' 
-    : 'text-gray-900';
-
-  // Función para obtener clases de texto secundario según modo oscuro
-  const getTextSecondaryClass = () => isDarkMode 
-    ? 'text-gray-300' 
-    : 'text-gray-600';
-
-  // useEffect para llenar el formulario (sin cambios)
   useEffect(() => {
     if (wizard.extractedData?.datosVelneo) {
       const datos = wizard.extractedData.datosVelneo;
@@ -191,6 +192,89 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
       }));
     }
   }, [wizard.extractedData]);
+
+  useEffect(() => {
+  if (wizard.extractedData) {
+    console.log('🔍 Aplicando lógica automática a datos extraídos:', wizard.extractedData);
+    
+    // ✅ Usar directamente wizard.extractedData (es DocumentProcessResult)
+    const datos = wizard.extractedData;
+    
+    // Extraer operación de Azure
+    const operacionDetectada = extraerOperacionDesdeAzure(datos);
+    console.log('🎯 Operación detectada:', operacionDetectada);
+    
+    // Aplicar lógica automática
+    const tramiteAuto = determinarTramite(operacionDetectada);
+    const estadoAuto = determinarEstadoPoliza(operacionDetectada, datos.vigenciaHasta);
+    
+    console.log('🔧 Campos automáticos:', { tramiteAuto, estadoAuto });
+    
+    // Actualizar solo los campos de operación, manteniendo los existentes
+    setFormData(prev => ({
+      ...prev,
+      // NUEVOS CAMPOS AUTOMÁTICOS
+      operacion: operacionDetectada,
+      tramite: tramiteAuto,
+      estadoPoliza: estadoAuto,
+      
+      // Actualizar observaciones con lógica
+      observaciones: generarObservacionesConLogica(datos, operacionDetectada, tramiteAuto, estadoAuto)
+    }));
+  }
+}, [wizard.extractedData]); // Solo depende de extractedData
+
+const generarObservacionesConLogica = (
+  datos: any, 
+  operacion: TipoOperacion, 
+  tramite: string, 
+  estado: string
+): string => {
+  const observaciones = [];
+  
+  observaciones.push('📄 Documento procesado automáticamente con Azure Document Intelligence');
+  observaciones.push(`🎯 Operación detectada: ${operacion} → Trámite: ${tramite}, Estado: ${estado}`);
+  observaciones.push(`📊 ${datos.metricas?.camposCompletos || 0} campos extraídos (${datos.porcentajeCompletitud || 0}% completitud)`);
+  
+  // Información sobre detección automática
+  if (datos.datosPoliza?.tipoMovimiento) {
+    observaciones.push(`🔍 Tipo de movimiento original: "${datos.datosPoliza.tipoMovimiento}"`);
+  }
+  
+  if (datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && datos.condicionesPago.detalleCuotas.cuotas?.length > 0) {
+    observaciones.push('');
+    observaciones.push('💳 CRONOGRAMA DE CUOTAS DETECTADO:');
+    observaciones.push(`${datos.condicionesPago.formaPago} - ${datos.condicionesPago.cuotas} cuotas de ${datos.condicionesPago.moneda} ${datos.condicionesPago.valorCuota?.toLocaleString()}`);
+  }
+  
+  if (!datos.tieneDatosMinimos) {
+    observaciones.push('');
+    observaciones.push('⚠️ REQUIERE VERIFICACIÓN MANUAL - Datos incompletos');
+  }
+  
+  observaciones.push('');
+  observaciones.push(`🕒 Procesado el ${new Date().toLocaleString('es-UY')}`);
+  
+  return observaciones.join('\n');
+};
+
+// ============================================
+// PASO 5: HANDLER PARA CAMBIOS MANUALES - Agregar después de generarObservacionesConLogica
+// ============================================
+
+const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
+  console.log('🔄 Cambiando operación manualmente a:', nuevaOperacion);
+  
+  const nuevoTramite = determinarTramite(nuevaOperacion);
+  const nuevoEstado = determinarEstadoPoliza(nuevaOperacion, formData.vigenciaHasta);
+  
+  setFormData(prev => ({
+    ...prev,
+    operacion: nuevaOperacion,
+    tramite: nuevoTramite,
+    estadoPoliza: nuevoEstado
+  }));
+};
 
   const generarObservacionesAutomaticas = (datos: any): string => {
     const observaciones = [];
@@ -614,6 +698,172 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     </div>
   );
 
+  const renderSeccionStep = () => (
+  <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+    <div className="text-center mb-8">
+      <h2 className="text-3xl font-bold mb-2">Seleccionar Sección</h2>
+      <p className={`text-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+        Elige la sección que corresponde a esta póliza
+      </p>
+    </div>
+
+    {/* Estado de carga */}
+    {wizard.loadingSecciones && (
+      <div className="flex justify-center items-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-3 text-lg">Cargando secciones...</span>
+      </div>
+    )}
+
+    {/* Error loading secciones */}
+    {wizard.error && wizard.error.includes('secciones') && (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center">
+          <div className="flex-shrink-0">
+            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-red-800">Error al cargar secciones</h3>
+            <p className="text-sm text-red-700 mt-1">{wizard.error}</p>
+          </div>
+          <div className="ml-auto">
+            <button
+              onClick={wizard.loadSecciones}
+              className="text-sm text-red-800 hover:text-red-900 font-medium"
+            >
+              Reintentar
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Grid de secciones */}
+    {!wizard.loadingSecciones && wizard.secciones.length > 0 && (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {wizard.secciones.map((seccion) => (
+          <div
+            key={seccion.id}
+            onClick={() => wizard.selectSeccion(seccion)}
+            className={`
+              relative rounded-lg border-2 cursor-pointer transition-all duration-200 p-6
+              ${wizard.selectedSeccion?.id === seccion.id
+                ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-105'
+                : `border-gray-200 hover:border-blue-300 hover:shadow-md ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'}`
+              }
+            `}
+          >
+            {/* Indicador de selección */}
+            {wizard.selectedSeccion?.id === seccion.id && (
+              <div className="absolute top-3 right-3">
+                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </div>
+              </div>
+            )}
+
+            {/* Icono de la sección */}
+            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-100 mb-4">
+              {seccion.icono ? (
+                <span className="text-2xl">{seccion.icono}</span>
+              ) : (
+                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              )}
+            </div>
+
+            {/* Información de la sección */}
+            <div>
+              <h3 className={`text-lg font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                {seccion.name}
+              </h3>
+              
+              {seccion.descripcion && (
+                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                  {seccion.descripcion}
+                </p>
+              )}
+
+              {/* Badge de estado */}
+              <div className="mt-3">
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  seccion.activo 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {seccion.activo ? 'Activa' : 'Inactiva'}
+                </span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+
+    {/* Estado cuando no hay secciones */}
+    {!wizard.loadingSecciones && wizard.secciones.length === 0 && (
+      <div className="text-center py-12">
+        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        </svg>
+        <h3 className="mt-4 text-lg font-medium text-gray-900">No hay secciones disponibles</h3>
+        <p className="mt-2 text-gray-500">
+          No se encontraron secciones activas para seleccionar.
+        </p>
+        <button
+          onClick={wizard.loadSecciones}
+          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+        >
+          Recargar secciones
+        </button>
+      </div>
+    )}
+
+    {/* Información de la compañía seleccionada */}
+    {wizard.selectedCompany && (
+      <div className={`mt-8 p-4 rounded-lg border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+        <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+          Compañía seleccionada:
+        </h4>
+        <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+          {wizard.selectedCompany.comnom} ({wizard.selectedCompany.comalias})
+        </p>
+      </div>
+    )}
+
+    {/* Botones de navegación */}
+    <div className="flex justify-between mt-8">
+      <button
+        onClick={wizard.goBack}
+        className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+          isDarkMode 
+            ? 'bg-gray-700 text-white hover:bg-gray-600' 
+            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+        }`}
+      >
+        ← Volver a Compañía
+      </button>
+
+      <button
+        onClick={() => wizard.goToStep('upload')}
+        disabled={!wizard.selectedSeccion}
+        className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+          wizard.selectedSeccion
+            ? 'bg-blue-600 text-white hover:bg-blue-700'
+            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+        }`}
+      >
+        Continuar a Subir Documento →
+      </button>
+    </div>
+  </div>
+);
+
   // 3️⃣ PASO: Upload de Archivo - REDISEÑADO
   const renderUploadStep = () => (
   <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
@@ -1007,11 +1257,71 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
 
     const renderTabContent = () => {
       switch (activeTab) {
-        case 'basicos':
+case 'basicos':
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Columna izquierda - Información del Cliente */}
       <div className="space-y-6">
+        {/* NUEVA SECCIÓN: Tipo de Operación */}
+        <div className={`rounded-2xl p-6 ${
+          isDarkMode 
+            ? 'bg-gradient-to-br from-gray-800 to-amber-900/20 border border-amber-800/50' 
+            : 'bg-gradient-to-r from-amber-50 to-orange-100'
+        }`}>
+          <h3 className={`text-lg font-medium flex items-center ${
+            isDarkMode 
+              ? 'text-amber-300' 
+              : 'text-amber-900'
+          } mb-4`}>
+            <Settings className="w-5 h-5 mr-2" />
+            Tipo de Operación
+          </h3>
+          
+          <div className="space-y-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode 
+                  ? 'text-amber-300' 
+                  : 'text-amber-800'
+              } mb-2`}>Operación *</label>
+              <select
+                value={formData.operacion || 'EMISION'}
+                onChange={(e) => {
+                  const nuevaOperacion = e.target.value;
+                  setFormData(prev => {
+                    // Aplicar lógica automática
+                    const tramiteAuto = nuevaOperacion === 'EMISION' ? 'Nuevo' :
+                                      nuevaOperacion === 'RENOVACION' ? 'Renovacion' :
+                                      nuevaOperacion === 'ENDOSO' ? 'Endoso' : 'Cambio';
+                    
+                    const estadoAuto = nuevaOperacion === 'EMISION' ? 'VIG' :
+                                      nuevaOperacion === 'RENOVACION' ? 'VIG' :
+                                      nuevaOperacion === 'ENDOSO' ? 'END' : 'VIG';
+                    
+                    return {
+                      ...prev,
+                      operacion: nuevaOperacion,
+                      tramite: tramiteAuto,
+                      estadoPoliza: estadoAuto
+                    };
+                  });
+                }}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-amber-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-amber-700/30 text-gray-100 focus:ring-amber-500/30' 
+                    : 'bg-white border-amber-200 focus:ring-amber-100'
+                }`}
+                required
+              >
+                <option value="EMISION">🆕 Emisión (Nueva Póliza)</option>
+                <option value="RENOVACION">🔄 Renovación</option>
+                <option value="ENDOSO">📝 Endoso</option>
+                <option value="CAMBIO">⚡ Cambio</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
         <div className={`space-y-6 rounded-2xl p-6 ${
           isDarkMode 
             ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
@@ -1084,8 +1394,170 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
                 placeholder="CI o RUC"
               />
             </div>
+
+            {/* CAMPOS AUTOMÁTICOS: Trámite y Tipo en la misma línea */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-bold ${
+                  isDarkMode 
+                    ? 'text-blue-300' 
+                    : 'text-blue-800'
+                } mb-2`}>
+                  Trámite 
+                  <span className="text-xs text-gray-500 ml-1">(Auto)</span>
+                </label>
+                <select
+                  value={formData.tramite || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tramite: e.target.value }))}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                      : 'bg-white border-blue-200 focus:ring-blue-100'
+                  } ${formData.tramite ? 'bg-green-50' : ''}`}
+                >
+                  <option value="">Seleccionar trámite</option>
+                  <option value="Nuevo">Nuevo</option>
+                  <option value="Renovacion">Renovación</option>
+                  <option value="Cambio">Cambio</option>
+                  <option value="Endoso">Endoso</option>
+                </select>
+              </div>
+              <div>
+                <label className={`block text-sm font-bold ${
+                  isDarkMode 
+                    ? 'text-blue-300' 
+                    : 'text-blue-800'
+                } mb-2`}>Tipo</label>
+                <select
+                  value={formData.tipo || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tipo: e.target.value }))}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                      : 'bg-white border-blue-200 focus:ring-blue-100'
+                  }`}
+                >
+                  <option value="">Seleccionar tipo</option>
+                  <option value="Lineas Personales">Líneas Personales</option>
+                  <option value="Lineas Comerciales">Líneas Comerciales</option>
+                </select>
+              </div>
+            </div>
+
+            {/* CAMPO AUTOMÁTICO: Estado Póliza */}
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode 
+                  ? 'text-blue-300' 
+                  : 'text-blue-800'
+              } mb-2`}>
+                Estado Póliza 
+                <span className="text-xs text-gray-500 ml-1">(Auto)</span>
+              </label>
+              <select
+                value={formData.estadoPoliza || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, estadoPoliza: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                    : 'bg-white border-blue-200 focus:ring-blue-100'
+                } ${formData.estadoPoliza ? 'bg-green-50' : ''}`}
+              >
+                <option value="">Seleccionar estado</option>
+                <option value="CAN">CAN (Cancelado)</option>
+                <option value="VIG">VIG (Vigente)</option>
+                <option value="END">END (Endoso)</option>
+                <option value="VEN">VEN (Vencida)</option>
+              </select>
+              
+              {/* Indicador visual del automatismo */}
+              {formData.operacion && (
+                <div className={`mt-2 text-xs ${
+                  isDarkMode ? 'text-blue-300' : 'text-blue-600'
+                } flex items-center`}>
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Configurado automáticamente para {formData.operacion}
+                </div>
+              )}
+            </div>
           </div>
         </div>
+        
+        {/* NUEVA SECCIÓN: Alertas y Validación de Lógica */}
+        {formData.operacion && (
+          <div className={`rounded-2xl p-6 ${
+            isDarkMode 
+              ? 'bg-gradient-to-br from-gray-800 to-purple-900/20 border border-purple-800/50' 
+              : 'bg-gradient-to-r from-purple-50 to-purple-100'
+          }`}>
+            <h3 className={`text-lg font-medium flex items-center ${
+              isDarkMode 
+                ? 'text-purple-300' 
+                : 'text-purple-900'
+            } mb-4`}>
+              <AlertTriangle className="w-5 h-5 mr-2" />
+              Validación Automática
+            </h3>
+            
+            {/* Alertas de validación */}
+            <div className="space-y-3">
+              {/* Configuración correcta */}
+              {formData.operacion && formData.tramite && formData.estadoPoliza && (
+                <div className={`rounded-lg p-4 border ${
+                  isDarkMode 
+                    ? 'bg-green-900/20 border-green-800/50 text-green-300' 
+                    : 'bg-green-50 border-green-200 text-green-800'
+                }`}>
+                  <div className="flex items-start">
+                    <CheckCircle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <h4 className="font-medium mb-1">Configuración Automática Aplicada</h4>
+                      <p className="text-sm opacity-90">
+                        <strong>{formData.operacion}</strong> → 
+                        Trámite: <strong>{formData.tramite}</strong> → 
+                        Estado: <strong>{formData.estadoPoliza}</strong>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Información sobre la lógica */}
+              <div className={`rounded-lg p-4 border ${
+                isDarkMode 
+                  ? 'bg-blue-900/20 border-blue-800/50 text-blue-300' 
+                  : 'bg-blue-50 border-blue-200 text-blue-800'
+              }`}>
+                <div className="flex items-start">
+                  <Info className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium mb-2">Lógica de Negocio</h4>
+                    <div className="text-sm space-y-1 opacity-90">
+                      <div>• <strong>EMISIÓN:</strong> Nuevas pólizas → "Nuevo" → "VIG"</div>
+                      <div>• <strong>RENOVACIÓN:</strong> Renovar → "Renovación" → "VIG"</div>
+                      <div>• <strong>ENDOSO:</strong> Modificar → "Endoso" → "END"</div>
+                      <div>• <strong>CAMBIO:</strong> Cambios → "Cambio" → "VIG"</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Tip sobre override manual */}
+              <div className={`rounded-lg p-3 border-dashed border-2 ${
+                isDarkMode 
+                  ? 'border-gray-600 text-gray-400' 
+                  : 'border-gray-300 text-gray-600'
+              }`}>
+                <div className="flex items-center">
+                  <Lightbulb className="w-4 h-4 mr-2 flex-shrink-0" />
+                  <p className="text-sm">
+                    <strong>Tip:</strong> Puedes modificar manualmente cualquier campo si la detección automática no es correcta.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Columna derecha - Datos de Contacto */}
@@ -2683,6 +3155,7 @@ case 'observaciones':
     switch (wizard.currentStep) {
       case 'cliente': return renderClienteStep();
       case 'company': return renderCompanyStep();
+      case 'seccion': return renderSeccionStep();
       case 'upload': return renderUploadStep();
       case 'extract': return renderExtractStep();
       case 'form': return renderFormStep();

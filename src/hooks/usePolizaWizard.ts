@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { azureDocumentService, DocumentProcessResult } from '../services/azureDocumentService';
+import { seccionService } from '../services/seccionService';
+import { Seccion, SeccionLookup } from '../types/seccion';
 
 // 🎯 TIPOS DEL WIZARD
-export type WizardStep = 'cliente' | 'company' | 'upload' | 'extract' | 'form' | 'success';
+export type WizardStep = 'cliente' | 'company' | 'seccion' | 'upload' | 'extract' | 'form' | 'success';
 
 export interface Cliente {
   id: number;
@@ -31,10 +33,21 @@ export interface WizardState {
   isComplete: boolean;
 }
 
+export interface WizardState {
+  currentStep: WizardStep;
+  selectedCliente: Cliente | null;
+  selectedCompany: Company | null;
+  selectedSeccion: Seccion | null; 
+  uploadedFile: File | null;
+  extractedData: DocumentProcessResult | null;
+  isComplete: boolean;
+}
+
 const initialState: WizardState = {
   currentStep: 'cliente',
   selectedCliente: null,
   selectedCompany: null,
+  selectedSeccion: null, 
   uploadedFile: null,
   extractedData: null,
   isComplete: false,
@@ -47,25 +60,21 @@ export const usePolizaWizard = () => {
   const [processing, setProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  
-  // 🔍 ESTADOS DE BÚSQUEDA DE CLIENTES
+
   const [clienteSearch, setClienteSearch] = useState('');
   const [clienteResults, setClienteResults] = useState<Cliente[]>([]);
   const [loadingClientes, setLoadingClientes] = useState(false);
   
-  // 🏢 ESTADOS DE COMPAÑÍAS
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loadingCompanies, setLoadingCompanies] = useState(false);
 
-  // 🚀 INICIALIZACIÓN
+  const [secciones, setSecciones] = useState<Seccion[]>([]);
+  const [seccionesLookup, setSeccionesLookup] = useState<SeccionLookup[]>([]);
+  const [loadingSecciones, setLoadingSecciones] = useState(false);
+
   useEffect(() => {
     loadCompanies();
-    // ✅ NO cargar clientes al inicio - solo cuando busque
   }, []);
-
-  // =====================================
-  // 🔑 UTILIDADES DE AUTENTICACIÓN
-  // =====================================
 
   const getAuthToken = useCallback((): string | null => {
     const tokenKey = import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token';
@@ -79,10 +88,6 @@ export const usePolizaWizard = () => {
       'Accept': 'application/json',
     };
   }, [getAuthToken]);
-
-  // =====================================
-  // 🧭 NAVEGACIÓN DEL WIZARD
-  // =====================================
 
   const goToStep = useCallback((step: WizardStep) => {
     setState(prev => ({ ...prev, currentStep: step }));
@@ -127,17 +132,12 @@ export const usePolizaWizard = () => {
 
   const reset = useCallback(() => {
     setState(initialState);
-    setClienteSearch('');
-    setClienteResults([]);
     setError(null);
-    setLoading(false);
     setProcessing(false);
     setProcessingProgress(0);
+    setClienteSearch('');
+    setClienteResults([]);
   }, []);
-
-  // =====================================
-  // 👥 SELECCIONES
-  // =====================================
 
   const selectCliente = useCallback((cliente: Cliente) => {
     setState((prev: WizardState) => ({ 
@@ -172,8 +172,7 @@ export const usePolizaWizard = () => {
       return;
     }
 
-    // Validar archivo
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024;
     if (file.size > maxSize) {
       setError('El archivo es demasiado grande. Máximo 10MB.');
       return;
@@ -198,12 +197,7 @@ export const usePolizaWizard = () => {
     });
   }, []);
 
-  // =====================================
-  // 🤖 PROCESAMIENTO CON AZURE AI
-  // =====================================
-
   const processDocument = useCallback(async (): Promise<void> => {
-    // Validaciones previas
     if (!state.uploadedFile) {
       setError('No hay archivo para procesar');
       return;
@@ -219,7 +213,6 @@ export const usePolizaWizard = () => {
       return;
     }
 
-    // Verificar autenticación
     const token = getAuthToken();
     if (!token) {
       setError('No hay sesión activa. Por favor, inicia sesión.');
@@ -242,7 +235,6 @@ export const usePolizaWizard = () => {
     setState(prev => ({ ...prev, currentStep: 'extract' }));
 
     try {
-      // 🤖 LLAMAR AL SERVICIO AZURE
       const result = await azureDocumentService.processDocument(
         state.uploadedFile,
         (progress) => {
@@ -252,13 +244,10 @@ export const usePolizaWizard = () => {
       );
 
       console.log('✅ Documento procesado exitosamente:', result);
-
-      // Verificar que tenemos datos válidos
       if (!result || !result.datosVelneo) {
         throw new Error('No se pudieron extraer datos del documento');
       }
 
-      // Actualizar estado con los datos extraídos
       setState(prev => ({
         ...prev,
         extractedData: result,
@@ -271,16 +260,11 @@ export const usePolizaWizard = () => {
       console.error('❌ Error procesando documento:', err);
       setError(err.message || 'Error procesando el documento');
       
-      // Volver al paso anterior en caso de error
       setState(prev => ({ ...prev, currentStep: 'upload' }));
     } finally {
       setProcessing(false);
     }
   }, [state.uploadedFile, state.selectedCliente, state.selectedCompany, getAuthToken]);
-
-  // =====================================
-  // 📝 CREAR PÓLIZA FINAL
-  // =====================================
 
   const createPoliza = useCallback(async (formData: any): Promise<void> => {
     if (!state.selectedCliente || !state.selectedCompany || !state.extractedData) {
@@ -320,7 +304,6 @@ export const usePolizaWizard = () => {
       //   })
       // });
 
-      // Simular creación por ahora
       await new Promise(resolve => setTimeout(resolve, 2000));
 
       setState(prev => ({
@@ -339,10 +322,6 @@ export const usePolizaWizard = () => {
     }
   }, [state.selectedCliente, state.selectedCompany, state.extractedData, getAuthToken, getAuthHeaders]);
 
-  // =====================================
-  // 🔍 BÚSQUEDA DE CLIENTES - ENDPOINT /all CORRECTO
-  // =====================================
-
   const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
   if (!searchTerm.trim() || searchTerm.length < 2) {
     setClienteResults([]);
@@ -360,13 +339,12 @@ export const usePolizaWizard = () => {
   try {
     console.log('🚀 Buscando clientes DIRECTO en Velneo con término:', searchTerm);
 
-    // ✅ NUEVO ENDPOINT DIRECTO - MÁS RÁPIDO
     const searchUrl = `${import.meta.env.VITE_API_URL}/clientes/direct`;
     const response = await fetch(
       `${searchUrl}?filtro=${encodeURIComponent(searchTerm)}`,
       {
         headers: getAuthHeaders(),
-        signal: AbortSignal.timeout(10000) // 10 segundos - más rápido
+        signal: AbortSignal.timeout(10000)
       }
     );
 
@@ -384,7 +362,6 @@ export const usePolizaWizard = () => {
       totalCount: data.total_count,
     });
     
-    // Mapear respuesta de Velneo
     const clientes = data.clientes || data.clients || data || [];
     const clientesMapeados = clientes.map((cliente: any) => ({
       id: cliente.id || cliente.clinro,
@@ -403,7 +380,6 @@ export const usePolizaWizard = () => {
   } catch (err: any) {
     console.error('❌ Error en búsqueda directa:', err);
     
-    // 🔄 FALLBACK al método anterior si falla
     try {
       const fallbackUrl = `${import.meta.env.VITE_API_URL}/clientes/all`;
       const fallbackResponse = await fetch(
@@ -429,41 +405,32 @@ export const usePolizaWizard = () => {
   }
 }, [getAuthToken, getAuthHeaders]);
 
-  // =====================================
-  // 🏢 CARGAR COMPAÑÍAS
-  // =====================================
-
-  const loadCompanies = useCallback(async (): Promise<void> => {
-    const token = getAuthToken();
-    if (!token) {
-      console.log('⚠️ No hay token, postponiendo carga de compañías');
-      return;
-    }
-
+  const loadCompanies = useCallback(async () => {
     setLoadingCompanies(true);
-    
     try {
-      console.log('🏢 Cargando compañías...');
+      const token = await getAuthToken();
+      if (!token) {
+        console.warn('⚠️ No auth token available, skipping companies load');
+        return;
+      }
 
-      // ✅ ENDPOINT CORRECTO: /api/Companies/active (compañías activas)
-      const companiesUrl = `${import.meta.env.VITE_API_URL}/Companies/active`;
-      const response = await fetch(companiesUrl, {
-        headers: getAuthHeaders(),
-        signal: AbortSignal.timeout(15000)
+      const headers = getAuthHeaders();
+      console.log('🚀 Loading companies from Velneo...');
+      
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/Companies/active`, {
+        method: 'GET',
+        headers
       });
 
       if (!response.ok) {
         if (response.status === 401) {
-          console.log('⚠️ Token expirado al cargar compañías');
-          return; // No mostrar error, solo no cargar
+          console.warn('⚠️ Unauthorized - token may be expired');
+          return;
         }
         throw new Error(`Error cargando compañías: ${response.status}`);
       }
 
-      // ✅ Tu backend devuelve directamente el array de CompanyDto[]
       const companiesList = await response.json();
-      
-      // Mapear a formato esperado por el wizard
       const mappedCompanies = companiesList.map((company: any) => ({
         id: company.id,
         comnom: company.comnom,
@@ -474,6 +441,8 @@ export const usePolizaWizard = () => {
       setCompanies(mappedCompanies);
       console.log('🏢 Compañías cargadas:', mappedCompanies.length);
 
+      await loadSecciones();
+
     } catch (err: any) {
       console.error('❌ Error cargando compañías:', err);
       setError('Error cargando compañías');
@@ -483,9 +452,36 @@ export const usePolizaWizard = () => {
     }
   }, [getAuthToken, getAuthHeaders]);
 
-  // =====================================
-  // 🛠️ UTILIDADES ADICIONALES
-  // =====================================
+  const loadSecciones = useCallback(async () => {
+    setLoadingSecciones(true);
+    try {
+      const [activeSecciones, lookupSecciones] = await Promise.all([
+        seccionService.getActiveSecciones(),
+        seccionService.getSeccionesForLookup()
+      ]);
+
+      setSecciones(activeSecciones);
+      setSeccionesLookup(lookupSecciones);
+      console.log('🎯 Secciones cargadas:', activeSecciones.length);
+
+    } catch (err: any) {
+      console.error('❌ Error cargando secciones:', err);
+      setError('Error cargando secciones');
+      setSecciones([]);
+      setSeccionesLookup([]);
+    } finally {
+      setLoadingSecciones(false);
+    }
+  }, []);
+
+    const selectSeccion = useCallback((seccion: Seccion) => {
+    console.log('🎯 Sección seleccionada:', seccion.name);
+    setState(prev => ({
+      ...prev,
+      selectedSeccion: seccion,
+      currentStep: 'upload' 
+    }));
+  }, []);
 
   const retryProcessing = useCallback(async () => {
     if (state.uploadedFile && state.currentStep === 'upload') {
@@ -499,6 +495,8 @@ export const usePolizaWizard = () => {
         return !!state.selectedCliente;
       case 'company':
         return !!state.selectedCompany;
+      case 'seccion':
+        return !!state.selectedSeccion;
       case 'upload':
         return !!state.uploadedFile;
       case 'extract':
@@ -510,48 +508,42 @@ export const usePolizaWizard = () => {
     }
   }, [state, processing]);
 
-  // =====================================
-  // 🎯 RETORNAR INTERFAZ COMPLETA
-  // =====================================
-
   return {
-    // Estado del wizard
     ...state,
-    
-    // Estados de carga
+
     loading,
     processing,
     processingProgress,
     error,
     
-    // Navegación
     goToStep,
     goBack,
     reset,
     
-    // Selecciones
     selectCliente,
     selectCompany,
     setUploadedFile,
     
-    // Procesamiento
     processDocument,
     createPoliza,
     retryProcessing,
-    
-    // Búsqueda de clientes
+
     clienteSearch,
     setClienteSearch,
     clienteResults,
     searchClientes,
     loadingClientes,
     
-    // Compañías
     companies,
     loadCompanies,
     loadingCompanies,
+
+     secciones,
+    seccionesLookup, 
+    loadSecciones,
+    loadingSecciones,
+    selectSeccion,
     
-    // Utilities
     setError,
     validateCurrentStep,
     getAuthToken,

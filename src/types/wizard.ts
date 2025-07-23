@@ -1,4 +1,6 @@
+import { OPERACIONES_CONFIG, TipoOperacion } from "../utils/operationLogic";
 import { DatosVelneo } from "./azure-document";
+import { Seccion } from "./seccion";
 
 export interface Cliente {
   id: number;
@@ -22,7 +24,6 @@ export interface Company {
 
 export interface DocumentProcessResult {
   porcentajeCompletitud: any;
-  // Metadatos del documento
   documentId: string;
   nombreArchivo?: string;
   estadoProcesamiento: string;
@@ -103,6 +104,8 @@ export interface PolizaFormData {
   descuentos?: number;
   recargos?: number;
   codigoPostal?: string;
+  seccion?: string; // ✅ NUEVO
+  seccionId?: number; // ✅ NUEVO
 }
 
 // 🔧 INTERFAZ EXTENDIDA PARA EL FORMULARIO COMPLETO
@@ -162,12 +165,22 @@ export interface PolizaCreateRequest {
   procesadoConIA?: boolean;
 }
 
-export type WizardStep = 'cliente' | 'company' | 'upload' | 'extract' | 'form' | 'success';
+export type WizardStep = 'cliente' | 'company' | 'seccion' | 'upload' | 'extract' | 'form' | 'success';
+
+export interface Ramo {
+  id: string;
+  nombre: string;
+  descripcion: string;
+  icon: string;
+  activo: boolean;
+  companias?: number[]; 
+}
 
 export interface WizardState {
   currentStep: WizardStep;
   selectedCliente: Cliente | null;
   selectedCompany: Company | null;
+  selectedSeccion: Seccion | null; 
   uploadedFile: File | null;
   extractedData: DocumentProcessResult | null;
   isComplete: boolean;
