@@ -2161,28 +2161,6 @@ case 'vehiculo':
                   <option value="PUBLICO">Público</option>
                 </select>
               </div>
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                } mb-2`}>Uso</label>
-                <select
-                  value={formData.uso}
-                  onChange={(e) => setFormData(prev => ({ ...prev, uso: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                >
-                  <option value="">Seleccionar uso</option>
-                  <option value="PARTICULAR">Particular</option>
-                  <option value="COMERCIAL">Comercial</option>
-                  <option value="PUBLICO">Público</option>
-                  <option value="OFICIAL">Oficial</option>
-                </select>
-              </div>
             </div>
           </div>
         </div>
@@ -2242,33 +2220,6 @@ case 'vehiculo':
                 placeholder="Número de chasis"
               />
             </div>
-
-            <div>
-              <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
-              } mb-2`}>Tipo de Vehículo</label>
-              <select
-                value={formData.tipoVehiculo}
-                onChange={(e) => setFormData(prev => ({ ...prev, tipoVehiculo: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                    : 'bg-white border-blue-200 focus:ring-blue-100'
-                }`}
-              >
-                <option value="">Seleccionar tipo</option>
-                <option value="AUTOMOVIL">Automóvil</option>
-                <option value="CAMIONETA">Camioneta</option>
-                <option value="CAMION">Camión</option>
-                <option value="MOTOCICLETA">Motocicleta</option>
-                <option value="OMNIBUS">Ómnibus</option>
-                <option value="FURGON">Furgón</option>
-                <option value="PICKUP">Pick-up</option>
-              </select>
-            </div>
-
             <div>
               <label className={`block text-sm font-bold ${
                 isDarkMode 
