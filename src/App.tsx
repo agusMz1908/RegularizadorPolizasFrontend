@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import LoginForm from './components/auth/LoginForm';
 import Layout from './components/layout/Layout';
 import Dashboard from './pages/Dashboard';
@@ -34,10 +35,15 @@ const AppContent: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Verificando sesión...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300 text-lg font-medium">Verificando sesión...</p>
+          <div className="mt-4 flex items-center justify-center space-x-2">
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse delay-75"></div>
+            <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse delay-150"></div>
+          </div>
         </div>
       </div>
     );
@@ -84,15 +90,17 @@ const AppContent: React.FC = () => {
   );
 };
 
-// Componente principal con Providers
+// Componente principal con todos los Providers
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <div className="App">
-          <AppContent />
-        </div>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <div className="App min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
+            <AppContent />
+          </div>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

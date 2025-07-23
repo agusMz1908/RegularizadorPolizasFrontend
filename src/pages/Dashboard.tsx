@@ -1,253 +1,202 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  FileText, 
-  DollarSign, 
-  CheckCircle, 
-  Clock, 
-  RefreshCw 
-} from 'lucide-react';
+import { FileText, DollarSign, TrendingUp, Clock, Building2, Activity } from 'lucide-react';
 
-// Interfaces para los datos
-interface CompanyStats {
-  companyId: string;
-  companyCode: string;
+interface DashboardStats {
   documentsToday: number;
-  documentsMonth: number;
   costToday: number;
-  costMonth: number;
   successRate: number;
-  avgProcessingTime: number;
+  avgTime: number;
+}
+
+interface CompanyStats {
+  company: string;
+  documents: number;
+  maxDocuments: number;
+  cost: number;
+  avgTime: number;
+  successRate: number;
 }
 
 interface RecentActivity {
   id: string;
-  documentName: string;
-  companyCode: string;
-  status: 'completed' | 'processing' | 'error' | 'sent_to_velneo';
-  timestamp: string;
+  fileName: string;
+  company: string;
+  status: 'Procesado' | 'Procesando' | 'Error' | 'Enviado a Velneo';
+  time: string;
   processingTime?: number;
 }
 
-// Mock data para desarrollo
-const mockCompanyStats: CompanyStats[] = [
-  {
-    companyId: '1',
-    companyCode: 'BSE',
-    documentsToday: 12,
-    documentsMonth: 340,
-    costToday: 1.44,
-    costMonth: 40.80,
-    successRate: 94.2,
-    avgProcessingTime: 2.3
-  },
-  {
-    companyId: '2', 
-    companyCode: 'SUR',
-    documentsToday: 8,
-    documentsMonth: 220,
-    costToday: 0.96,
-    costMonth: 26.40,
-    successRate: 89.1,
-    avgProcessingTime: 3.1
-  },
-  {
-    companyId: '3',
-    companyCode: 'SOS',
-    documentsToday: 5,
-    documentsMonth: 145,
-    costToday: 0.60,
-    costMonth: 17.40,
-    successRate: 92.8,
-    avgProcessingTime: 2.8
-  }
-];
-
-const mockRecentActivity: RecentActivity[] = [
-  {
-    id: '1',
-    documentName: 'poliza_bse_001.pdf',
-    companyCode: 'BSE',
-    status: 'completed',
-    timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-    processingTime: 2.1
-  },
-  {
-    id: '2',
-    documentName: 'poliza_sur_045.pdf', 
-    companyCode: 'SUR',
-    status: 'sent_to_velneo',
-    timestamp: new Date(Date.now() - 12 * 60 * 1000).toISOString(),
-    processingTime: 3.4
-  },
-  {
-    id: '3',
-    documentName: 'poliza_sos_023.pdf',
-    companyCode: 'SOS',
-    status: 'processing',
-    timestamp: new Date(Date.now() - 2 * 60 * 1000).toISOString()
-  },
-  {
-    id: '4',
-    documentName: 'poliza_bse_002.pdf',
-    companyCode: 'BSE',
-    status: 'error',
-    timestamp: new Date(Date.now() - 18 * 60 * 1000).toISOString()
-  }
-];
-
 const Dashboard: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [companyStats, setCompanyStats] = useState<CompanyStats[]>([]);
-  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    documentsToday: 25,
+    costToday: 3.00,
+    successRate: 92.0,
+    avgTime: 2.7
+  });
 
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        // TODO: Reemplazar con llamadas reales a la API
-        // const [statsResponse, activityResponse] = await Promise.all([
-        //   fetch('/api/dashboard/stats'),
-        //   fetch('/api/dashboard/recent-activity')
-        // ]);
-        
-        // Simular carga de datos
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        setCompanyStats(mockCompanyStats);
-        setRecentActivity(mockRecentActivity);
-      } catch (error) {
-        console.error('Error loading dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [companyStats, setCompanyStats] = useState<CompanyStats[]>([
+    {
+      company: 'BSE',
+      documents: 12,
+      maxDocuments: 340,
+      cost: 40.80,
+      avgTime: 2.3,
+      successRate: 94.2
+    },
+    {
+      company: 'SUR',
+      documents: 8,
+      maxDocuments: 220,
+      cost: 26.40,
+      avgTime: 3.1,
+      successRate: 89.1
+    },
+    {
+      company: 'SOS',
+      documents: 5,
+      maxDocuments: 145,
+      cost: 17.40,
+      avgTime: 2.8,
+      successRate: 92.8
+    }
+  ]);
 
-    loadDashboardData();
-  }, []);
+  const [recentActivity, setRecentActivity] = useState<RecentActivity[]>([
+    {
+      id: '1',
+      fileName: 'poliza_bse_001.pdf',
+      company: 'BSE',
+      status: 'Procesado',
+      time: '00:02 p. m.',
+      processingTime: 2.1
+    },
+    {
+      id: '2',
+      fileName: 'poliza_sur_045.pdf',
+      company: 'SUR',
+      status: 'Enviado a Velneo',
+      time: '04:35 p. m.',
+      processingTime: 3.4
+    },
+    {
+      id: '3',
+      fileName: 'poliza_sos_023.pdf',
+      company: 'SOS',
+      status: 'Procesando',
+      time: '05:30 p. m.'
+    },
+    {
+      id: '4',
+      fileName: 'poliza_bse_002.pdf',
+      company: 'BSE',
+      status: 'Error',
+      time: '04:50 p. m.'
+    }
+  ]);
 
-  // Calcular estadísticas totales
-  const totalStats = companyStats.reduce((totals, company) => ({
-    documentsToday: totals.documentsToday + company.documentsToday,
-    documentsMonth: totals.documentsMonth + company.documentsMonth,
-    costToday: totals.costToday + company.costToday,
-    costMonth: totals.costMonth + company.costMonth,
-    avgSuccessRate: companyStats.length > 0 ? 
-      companyStats.reduce((sum, c) => sum + c.successRate, 0) / companyStats.length : 0,
-    avgProcessingTime: companyStats.length > 0 ? 
-      companyStats.reduce((sum, c) => sum + c.avgProcessingTime, 0) / companyStats.length : 0
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'Procesado':
+        return 'text-green-600 dark:text-green-400 bg-green-100 dark:bg-green-900/20';
+      case 'Procesando':
+        return 'text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/20';
+      case 'Error':
+        return 'text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/20';
+      case 'Enviado a Velneo':
+        return 'text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/20';
+      default:
+        return 'text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-900/20';
+    }
+  };
+
+  const totalStats = companyStats.reduce((acc, company) => ({
+    totalDocs: acc.totalDocs + company.documents,
+    totalCost: acc.totalCost + company.cost,
+    avgSuccessRate: (acc.avgSuccessRate + company.successRate) / 2,
+    avgProcessingTime: (acc.avgProcessingTime + company.avgTime) / 2
   }), {
-    documentsToday: 0,
-    documentsMonth: 0,
-    costToday: 0,
-    costMonth: 0,
+    totalDocs: 0,
+    totalCost: 0,
     avgSuccessRate: 0,
     avgProcessingTime: 0
   });
 
-  // Función para obtener color del estado
-  const getStatusColor = (status: RecentActivity['status']) => {
-    switch (status) {
-      case 'completed': return 'bg-green-100 text-green-800';
-      case 'sent_to_velneo': return 'bg-blue-100 text-blue-800';
-      case 'processing': return 'bg-yellow-100 text-yellow-800';
-      case 'error': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
-  };
-
-  const getStatusText = (status: RecentActivity['status']) => {
-    switch (status) {
-      case 'completed': return 'Procesado';
-      case 'sent_to_velneo': return 'Enviado a Velneo';
-      case 'processing': return 'Procesando';
-      case 'error': return 'Error';
-      default: return 'Desconocido';
-    }
-  };
-
-  const formatTime = (timestamp: string) => {
-    return new Date(timestamp).toLocaleTimeString('es-UY', { 
-      hour: '2-digit', 
-      minute: '2-digit' 
-    });
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-96 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Cargando dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-8">
+    <div className="p-6 bg-gray-50 dark:bg-gray-900 min-h-screen transition-colors duration-300">
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          Dashboard
+        </h1>
+        <p className="text-gray-600 dark:text-gray-300">
+          Resumen de actividad y estadísticas del sistema
+        </p>
+      </div>
+
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         {/* Documentos Hoy */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <FileText className="h-6 w-6 text-blue-600 mr-3" />
+              <FileText className="h-6 w-6 text-blue-600 dark:text-blue-400 mr-3" />
               <div>
-                <p className="text-sm font-medium text-gray-500">Documentos Hoy</p>
-                <p className="text-xl font-bold text-gray-900">{totalStats.documentsToday}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Documentos Hoy</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.documentsToday}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500">{totalStats.documentsMonth}</p>
-              <p className="text-xs text-gray-400">este mes</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">+12%</p>
+              <p className="text-xs text-green-600 dark:text-green-400 font-medium">desde ayer</p>
             </div>
           </div>
         </div>
 
-        {/* Costo */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        {/* Costo Hoy */}
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <DollarSign className="h-6 w-6 text-green-600 mr-3" />
+              <DollarSign className="h-6 w-6 text-green-600 dark:text-green-400 mr-3" />
               <div>
-                <p className="text-sm font-medium text-gray-500">Costo Hoy</p>
-                <p className="text-xl font-bold text-gray-900">${totalStats.costToday.toFixed(2)}</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Costo Hoy</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">${stats.costToday.toFixed(2)}</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-500">${totalStats.costMonth.toFixed(2)}</p>
-              <p className="text-xs text-gray-400">este mes</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">$84.60</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">este mes</p>
             </div>
           </div>
         </div>
 
         {/* Tasa de Éxito */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <CheckCircle className="h-6 w-6 text-emerald-600 mr-3" />
+              <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-400 mr-3" />
               <div>
-                <p className="text-sm font-medium text-gray-500">Tasa de Éxito</p>
-                <p className="text-xl font-bold text-gray-900">{totalStats.avgSuccessRate.toFixed(1)}%</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Tasa de Éxito</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.successRate.toFixed(1)}%</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-400">promedio</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">promedio</p>
             </div>
           </div>
         </div>
 
         {/* Tiempo Promedio */}
-        <div className="bg-white rounded-lg shadow-sm p-6 border border-gray-200">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700 hover:shadow-md transition-all duration-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <Clock className="h-6 w-6 text-purple-600 mr-3" />
+              <Clock className="h-6 w-6 text-purple-600 dark:text-purple-400 mr-3" />
               <div>
-                <p className="text-sm font-medium text-gray-500">Tiempo Promedio</p>
-                <p className="text-xl font-bold text-gray-900">{totalStats.avgProcessingTime.toFixed(1)}s</p>
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Tiempo Promedio</p>
+                <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.avgTime.toFixed(1)}s</p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-xs text-gray-400">por documento</p>
+              <p className="text-xs text-gray-400 dark:text-gray-500">por documento</p>
             </div>
           </div>
         </div>
@@ -256,102 +205,104 @@ const Dashboard: React.FC = () => {
       {/* Grid de dos columnas */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Estadísticas por Compañía */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Estadísticas por Compañía</h3>
-            <p className="text-sm text-gray-600">Rendimiento de cada compañía aseguradora</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Estadísticas por Compañía</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Rendimiento de cada compañía aseguradora</p>
           </div>
           <div className="p-6">
             {companyStats.length > 0 ? (
-              <div className={`grid gap-4 ${
+              <div className={`grid gap-6 ${
                 companyStats.length === 1 ? 'grid-cols-1' :
                 companyStats.length === 2 ? 'grid-cols-2' :
-                companyStats.length === 3 ? 'grid-cols-3' :
-                'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'
+                companyStats.length === 3 ? 'grid-cols-1 lg:grid-cols-1' :
+                'grid-cols-1 lg:grid-cols-2'
               }`}>
-                {companyStats.map((company) => (
-                  <div 
-                    key={company.companyId}
-                    className="border rounded-lg p-4 hover:border-gray-300 transition-colors"
-                  >
-                    <h4 className="font-semibold text-gray-900 mb-3 text-center">{company.companyCode}</h4>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Docs hoy:</span>
-                        <span className="font-medium">{company.documentsToday}</span>
+                {companyStats.map((company, index) => (
+                  <div key={index} className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                          <Building2 className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="ml-3">
+                          <h4 className="font-bold text-gray-900 dark:text-white">{company.company}</h4>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">Compañía</p>
+                        </div>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Docs mes:</span>
-                        <span className="font-medium">{company.documentsMonth}</span>
+                      <div className="text-right">
+                        <p className="text-lg font-bold text-gray-900 dark:text-white">{company.documents}</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">docs hoy</p>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Costo mes:</span>
-                        <span className="font-medium">${company.costMonth.toFixed(2)}</span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-300">Docs mes:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{company.maxDocuments}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Éxito:</span>
-                        <span className="font-medium">{company.successRate}%</span>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-300">Costo mes:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">${company.cost.toFixed(2)}</span>
                       </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-500">Tiempo avg:</span>
-                        <span className="font-medium">{company.avgProcessingTime}s</span>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-300">Éxito:</span>
+                        <span className="font-medium text-green-600 dark:text-green-400">{company.successRate.toFixed(1)}%</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-300">Tiempo avg:</span>
+                        <span className="font-medium text-gray-900 dark:text-white">{company.avgTime.toFixed(1)}s</span>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center text-gray-500 py-8">
-                <RefreshCw className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No hay datos disponibles</p>
+              <div className="text-center py-8">
+                <Building2 className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-3" />
+                <p className="text-gray-500 dark:text-gray-400">No hay estadísticas disponibles</p>
               </div>
             )}
           </div>
         </div>
 
         {/* Actividad Reciente */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Actividad Reciente</h3>
-            <p className="text-sm text-gray-600">Últimos documentos procesados</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Actividad Reciente</h3>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Últimos documentos procesados</p>
           </div>
           <div className="p-6">
-            {recentActivity.length > 0 ? (
-              <div className="space-y-4">
-                {recentActivity.map((activity) => (
-                  <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <p className="text-sm font-medium text-gray-900 truncate">
-                          {activity.documentName}
-                        </p>
-                        <span className="text-xs text-gray-500 ml-2">
-                          {formatTime(activity.timestamp)}
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-600">
-                          {activity.companyCode}
-                        </span>
-                        <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>
-                          {getStatusText(activity.status)}
-                        </span>
-                      </div>
+            <div className="space-y-4">
+              {recentActivity.map((activity) => (
+                <div key={activity.id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                  <div className="flex items-center space-x-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+                      <FileText className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900 dark:text-white text-sm">
+                        {activity.fileName}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{activity.company}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(activity.status)}`}>
+                      {activity.status}
+                    </span>
+                    <div className="text-right">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">{activity.time}</p>
                       {activity.processingTime && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Procesado en {activity.processingTime}s
+                        <p className="text-xs text-gray-400 dark:text-gray-500">
+                          {activity.processingTime}s
                         </p>
                       )}
                     </div>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-center text-gray-500 py-8">
-                <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p>No hay actividad reciente</p>
-              </div>
-            )}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

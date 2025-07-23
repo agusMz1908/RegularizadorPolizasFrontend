@@ -41,23 +41,6 @@ export type {
   BreadcrumbItem,
 } from './types/common';
 
-export type {
-  // Azure Document Intelligence types
-  AzureProcessResponse,
-  AzureBatchResponse,
-  AzureModelInfoResponse,
-  AzureErrorResponse,
-  AzureDatosFormateados,
-  AzureClienteInfo,
-  AzureClienteMatch,
-  AzureBusquedaCliente,
-  AzureResumen,
-  AzureBatchError,
-  AzureBatchEstadisticas,
-  AzureModelHealth,
-  DatosClienteExtraidos,
-  AzureDocumentRequest,
-} from './types/azure-document';
 
 // ================================
 // SERVICES
@@ -104,7 +87,6 @@ export { AzureDocumentProcessor } from './components/azure/AzureDocumentProcesso
 // ================================
 // POLIZA COMPONENTS
 // ================================
-export { PolizaForm } from './components/poliza/PolizaForm';
 /* 
 =================================================================
 📋 NUEVAS EXPORTACIONES AGREGADAS:
