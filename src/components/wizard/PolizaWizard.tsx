@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import { usePolizaWizard } from '../../hooks/usePolizaWizard';
 import { useDarkMode } from '../../context/ThemeContext';
+import FloatingWizardHeader from './FloatingWizardHeader';
 
 interface PolizaWizardProps {
   onComplete?: (result: any) => void;
@@ -214,40 +215,29 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     return observaciones.join('\n');
   };
 
-  // =====================================
-  // 🎨 RENDERS DE CADA PASO - DISEÑO MODERNO
-  // =====================================
-
   // 1️⃣ PASO: Selección de Cliente - REDISEÑADO
   const renderClienteStep = () => (
   <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
     {/* Header mejorado con gradiente */}
-    <div className={`text-center mb-12 p-8 rounded-3xl shadow-xl ${
-      isDarkMode 
-        ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700' 
-        : 'bg-gradient-to-br from-blue-50 to-purple-50 border border-blue-100'
-    }`}>
-      {/* Add background container here */}
-      <div className={`inline-flex items-center justify-center w-20 h-20 rounded-2xl ${
-        isDarkMode 
-          ? 'bg-gradient-to-br from-blue-600 to-purple-700' 
-          : 'bg-gradient-to-br from-blue-500 to-purple-600'
-      } shadow-lg mb-6`}>
-        <User className="w-10 h-10 text-white" />
+    <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+            isDarkMode 
+              ? 'bg-gradient-to-br from-blue-700 to-purple-800' 
+              : 'bg-gradient-to-br from-blue-500 to-purple-600'
+          }`}>
+            <User className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Seleccionar Cliente
+            </h2>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Busca y selecciona el cliente para crear la póliza
+            </p>
+          </div>
+        </div>
       </div>
-      <h2 className={`text-4xl font-bold ${
-        isDarkMode 
-          ? 'bg-gradient-to-r from-blue-300 to-purple-300' 
-          : 'bg-gradient-to-r from-gray-900 to-gray-600'
-      } bg-clip-text text-transparent mb-4`}>
-        Seleccionar Cliente
-      </h2>
-      <p className={`text-xl ${
-        isDarkMode ? 'text-gray-300' : 'text-gray-600'
-      } max-w-2xl mx-auto`}>
-        Busca y selecciona el cliente para comenzar el proceso de creación de la póliza
-      </p>
-    </div>
 
       {/* Card principal con sombra moderna */}
             <div className={`rounded-3xl shadow-xl border overflow-hidden ${
@@ -434,29 +424,9 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
               } mb-3`}>
                 Comienza tu búsqueda
               </h3>
-              <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mb-6`}>
+              <p className={`${isDarkMode ? 'text-white' : 'text-gray-600'} mb-6 font-bold`}>
                 Escribe al menos 2 caracteres para encontrar clientes
               </p>
-              <div className="flex items-center justify-center space-x-6">
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center">
-                    <User className="w-4 h-4 text-blue-600" />
-                  </div>
-                  <span className="text-sm text-gray-600">Nombre</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center">
-                    <FileText className="w-4 h-4 text-green-600" />
-                  </div>
-                  <span className="text-sm text-gray-600">CI</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center">
-                    <Building className="w-4 h-4 text-purple-600" />
-                  </div>
-                  <span className="text-sm text-gray-600">RUC</span>
-                </div>
-              </div>
             </div>
           )}
         </div>
@@ -464,47 +434,30 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     </div>
   );
 
-  // 2️⃣ PASO: Selección de Compañía - REDISEÑADO
   const renderCompanyStep = () => (
     <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
       {/* Header mejorado */}
-      <div className="text-center mb-12">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-blue-600 shadow-lg mb-6">
-          <Building2 className="w-10 h-10 text-white" />
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+            isDarkMode 
+              ? 'bg-gradient-to-br from-emerald-700 to-blue-800' 
+              : 'bg-gradient-to-br from-emerald-500 to-blue-600'
+          }`}>
+            <Building2 className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Seleccionar Compañía
+            </h2>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Elige la compañía de seguros para la póliza
+            </p>
+          </div>
         </div>
-        <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-4">
-          Seleccionar Compañía
-        </h2>
-        <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-          Elige la compañía de seguros para procesar la póliza
-        </p>
-      </div>
+        </div>
 
       <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-        {/* Cliente seleccionado - Card mejorada */}
-        {wizard.selectedCliente && (
-          <div className="p-8 bg-gradient-to-r from-green-50 via-emerald-50 to-green-50 border-b border-green-100">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-green-800">Cliente seleccionado</p>
-                  <h3 className="text-xl font-bold text-green-900">{wizard.selectedCliente.clinom}</h3>
-                  <div className="flex items-center space-x-4 mt-1 text-sm text-green-700">
-                    {wizard.selectedCliente.cliced && <span>CI: {wizard.selectedCliente.cliced}</span>}
-                    {wizard.selectedCliente.cliemail && <span>📧 {wizard.selectedCliente.cliemail}</span>}
-                  </div>
-                </div>
-              </div>
-              <div className="px-4 py-2 bg-green-500 text-white rounded-full text-sm font-medium">
-                ✓ Paso 1 completado
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="p-8">
           {/* Loading mejorado */}
           {wizard.loadingCompanies && (
@@ -529,8 +482,6 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
                   <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
                     {wizard.companies.length} compañía{wizard.companies.length !== 1 ? 's' : ''}
                   </span>
-                  <Award className="w-5 h-5 text-yellow-500" />
-                  <span className="text-sm text-gray-600">Verificadas</span>
                 </div>
               </div>
 
@@ -641,76 +592,31 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
   const renderUploadStep = () => (
   <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
     {/* Header mejorado con fondo */}
-    <div className={`text-center mb-12 p-8 rounded-3xl shadow-xl ${
-      isDarkMode 
-        ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700' 
-        : 'bg-gradient-to-br from-purple-50 to-pink-100 border border-purple-100'
-    }`}>
-      <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 shadow-lg mb-6">
-        <Upload className="w-10 h-10 text-white" />
+    <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+            isDarkMode 
+              ? 'bg-gradient-to-br from-purple-700 to-pink-800' 
+              : 'bg-gradient-to-br from-purple-500 to-pink-600'
+          }`}>
+            <Upload className="w-6 h-6 text-white" />
+          </div>
+          <div>
+            <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Subir Póliza
+            </h2>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Sube el PDF para procesar con IA
+            </p>
+          </div>
+        </div>
       </div>
-      <h2 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent mb-4">
-        Subir Póliza
-      </h2>
-      <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-        Arrastra o selecciona el archivo PDF de la póliza para procesarlo con IA
-      </p>
-    </div>
 
     <div className={`rounded-3xl shadow-xl border overflow-hidden ${
       isDarkMode 
         ? 'bg-gray-800 border-gray-700' 
         : 'bg-white border-gray-100'
     }`}>
-      {/* Selecciones anteriores - Grid mejorado */}
-      <div className={`p-8 ${
-        isDarkMode 
-          ? 'bg-gradient-to-r from-gray-900 to-blue-900 border-b border-gray-700' 
-          : 'bg-gradient-to-r from-gray-50 to-blue-50 border-b border-gray-100'
-      }`}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {wizard.selectedCliente && (
-            <div className={`flex items-center space-x-4 p-4 rounded-2xl shadow-sm ${
-              isDarkMode 
-                ? 'bg-gray-700 border border-green-800' 
-                : 'bg-white border border-green-200'
-            }`}>
-              <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
-                <User className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className={`text-sm font-medium ${
-                  isDarkMode ? 'text-green-300' : 'text-green-800'
-                } mb-1`}>Cliente</p>
-                <p className={`font-bold ${isDarkMode ? 'text-green-200' : 'text-green-900'}`}>
-                  {wizard.selectedCliente.clinom}
-                </p>
-              </div>
-            </div>
-          )}
-          
-          {wizard.selectedCompany && (
-            <div className={`flex items-center space-x-4 p-4 rounded-2xl shadow-sm ${
-              isDarkMode 
-                ? 'bg-gray-700 border border-blue-800' 
-                : 'bg-white border border-blue-200'
-            }`}>
-              <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-                <Building className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <p className={`text-sm font-medium ${
-                  isDarkMode ? 'text-blue-300' : 'text-blue-800'
-                } mb-1`}>Compañía</p>
-                <p className={`font-bold ${isDarkMode ? 'text-blue-200' : 'text-blue-900'}`}>
-                  {wizard.selectedCompany.comnom}
-                </p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
       <div className="p-8">
         {/* Zona de drop mejorada con soporte para dark mode y hover */}
         <div className={`border-3 border-dashed rounded-3xl p-12 text-center transition-all duration-300 group ${
@@ -885,20 +791,25 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
   const renderExtractStep = () => (
   <div className={`max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
     {/* Header mejorado */}
-    <div className="text-center mb-12">
-      <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 shadow-lg mb-6">
-        <div className="relative">
-          <Sparkles className="w-10 h-10 text-white animate-pulse" />
-          <div className="absolute -top-1 -right-1 w-3 h-3 bg-yellow-400 rounded-full animate-ping"></div>
+    <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center space-x-4">
+          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+            isDarkMode 
+              ? 'bg-gradient-to-br from-indigo-700 to-purple-800' 
+              : 'bg-gradient-to-br from-indigo-500 to-purple-600'
+          }`}>
+            <Sparkles className="w-6 h-6 text-white animate-pulse" />
+          </div>
+          <div>
+            <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              Procesando con IA
+            </h2>
+            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+              Extrayendo datos de forma inteligente
+            </p>
+          </div>
         </div>
       </div>
-      <h2 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-4">
-        🤖 Procesando con Azure AI
-      </h2>
-      <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-        Nuestra inteligencia artificial está extrayendo datos de forma inteligente
-      </p>
-    </div>
 
     <div className={`rounded-3xl shadow-xl border p-12 ${
       isDarkMode 
@@ -966,7 +877,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
           <p className={`text-lg ${
             isDarkMode ? 'text-gray-300' : 'text-gray-600'
           }`}>
-            Azure Document Intelligence está analizando la póliza con IA avanzada
+            Analizando la póliza con IA..
           </p>
         </div>
 
@@ -1001,55 +912,6 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
             </div>
           </div>
         )}
-
-        {/* Características del procesamiento con dark mode */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-          <div className={`text-center p-4 rounded-xl ${
-            isDarkMode 
-              ? 'bg-gray-700' 
-              : 'bg-blue-50'
-          }`}>
-            <Zap className={`w-8 h-8 mx-auto mb-2 ${
-              isDarkMode ? 'text-blue-400' : 'text-blue-600'
-            }`} />
-            <p className={`text-sm font-medium ${
-              isDarkMode ? 'text-blue-300' : 'text-blue-900'
-            }`}>Súper Rápido</p>
-            <p className={`text-xs ${
-              isDarkMode ? 'text-blue-400' : 'text-blue-700'
-            }`}>Procesamiento en segundos</p>
-          </div>
-          <div className={`text-center p-4 rounded-xl ${
-            isDarkMode 
-              ? 'bg-gray-700' 
-              : 'bg-green-50'
-          }`}>
-            <Target className={`w-8 h-8 mx-auto mb-2 ${
-              isDarkMode ? 'text-green-400' : 'text-green-600'
-            }`} />
-            <p className={`text-sm font-medium ${
-              isDarkMode ? 'text-green-300' : 'text-green-900'
-            }`}>Alta Precisión</p>
-            <p className={`text-xs ${
-              isDarkMode ? 'text-green-400' : 'text-green-700'
-            }`}>IA entrenada específicamente</p>
-          </div>
-          <div className={`text-center p-4 rounded-xl ${
-            isDarkMode 
-              ? 'bg-gray-700' 
-              : 'bg-purple-50'
-          }`}>
-            <Shield className={`w-8 h-8 mx-auto mb-2 ${
-              isDarkMode ? 'text-purple-400' : 'text-purple-600'
-            }`} />
-            <p className={`text-sm font-medium ${
-              isDarkMode ? 'text-purple-300' : 'text-purple-900'
-            }`}>Seguro</p>
-            <p className={`text-xs ${
-              isDarkMode ? 'text-purple-400' : 'text-purple-700'
-            }`}>Datos protegidos</p>
-          </div>
-        </div>
       </div>
     </div>
   </div>
@@ -2532,7 +2394,7 @@ case 'observaciones':
                 <div>
                   <p className="text-sm font-medium text-blue-800">Procesamiento completado</p>
                   <h3 className="font-bold text-blue-900 text-lg">
-                    Documento procesado exitosamente con Azure AI
+                    Documento procesado exitosamente con IA
                   </h3>
                 </div>
               </div>
@@ -2723,10 +2585,6 @@ case 'observaciones':
     </div>
   );
 
-  // =====================================
-  // 🎨 RENDER PRINCIPAL - REDISEÑADO
-  // =====================================
-
   const renderCurrentStep = () => {
     switch (wizard.currentStep) {
       case 'cliente': return renderClienteStep();
@@ -2739,137 +2597,14 @@ case 'observaciones':
     }
   };
 
-  const stepLabels = {
-    cliente: 'Cliente',
-    company: 'Compañía',
-    upload: 'Archivo',
-    extract: 'Procesando',
-    form: 'Validación',
-    success: 'Éxito'
-  };
-
-const stepOrder = ['cliente', 'company', 'upload', 'extract', 'form', 'success'];
-
   return (
     <div className={`min-h-screen ${getBgClass()}`}>
-  {/* Header con progreso - FIXED */}
-  <div className={`backdrop-blur-sm border-b sticky top-0 z-10 shadow-sm ${
-    isDarkMode 
-      ? 'bg-gray-900 border-gray-700'  // Changed from bg-gray-900/90
-      : 'bg-white border-gray-200'
-  }`}>
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div className="flex items-center justify-between h-20">
-        {/* Logo y título */}
-        <div className="flex items-center space-x-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center shadow-lg ${
-            isDarkMode 
-              ? 'bg-gradient-to-br from-purple-700 to-blue-700' 
-              : 'bg-gradient-to-br from-purple-600 to-blue-600'
-          }`}>
-            <Sparkles className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h1 className={`text-2xl font-bold ${
-              isDarkMode 
-                ? 'bg-gradient-to-r from-blue-300 to-purple-300' 
-                : 'bg-gradient-to-r from-gray-900 to-gray-600'
-            } bg-clip-text text-transparent`}>
-              🤖 Asistente de Pólizas IA
-            </h1>
-            <div className="flex items-center space-x-2">
-              <span className={`px-3 py-1 text-xs rounded-full font-bold ${
-                isDarkMode 
-                  ? 'bg-blue-900 text-blue-300' 
-                  : 'bg-blue-100 text-blue-800'
-              }`}>
-                ✨ Powered by Azure AI
-              </span>
-              <span className={`px-3 py-1 text-xs rounded-full font-bold ${
-                isDarkMode 
-                  ? 'bg-green-900 text-green-300' 
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                🚀 v2.0
-              </span>
-            </div>
-          </div>
-        </div>
-        
-        {/* Indicador de progreso */}
-        <div className="hidden lg:flex items-center space-x-3">
-          {stepOrder.map((step, index) => {
-            const isActive = wizard.currentStep === step;
-            const isCompleted = stepOrder.indexOf(wizard.currentStep) > index;
-            
-            return (
-              <div key={step} className="flex items-center">
-                <div className="flex flex-col items-center">
-                  <div
-                    className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-bold transition-all duration-300 ${
-                      isActive
-                        ? isDarkMode 
-                          ? 'bg-gradient-to-br from-purple-700 to-blue-700 text-white shadow-lg scale-110' 
-                          : 'bg-gradient-to-br from-purple-600 to-blue-600 text-white shadow-lg scale-110'
-                        : isCompleted
-                        ? isDarkMode 
-                          ? 'bg-gradient-to-br from-green-700 to-emerald-700 text-white shadow-md' 
-                          : 'bg-gradient-to-br from-green-500 to-emerald-500 text-white shadow-md'
-                        : isDarkMode
-                          ? 'bg-gray-700 text-gray-400'
-                          : 'bg-gray-200 text-gray-600'
-                    }`}
-                  >
-                    {isCompleted ? '✓' : index + 1}
-                  </div>
-                  <span className={`mt-2 text-xs font-bold transition-colors ${
-                    isActive 
-                      ? isDarkMode 
-                        ? 'text-purple-400' 
-                        : 'text-purple-600' 
-                      : isCompleted 
-                        ? isDarkMode 
-                          ? 'text-green-400' 
-                          : 'text-green-600' 
-                        : isDarkMode 
-                          ? 'text-gray-500' 
-                          : 'text-gray-500'
-                  }`}>
-                    {stepLabels[step as keyof typeof stepLabels]}
-                  </span>
-                </div>
-                {index < stepOrder.length - 1 && (
-                  <div className={`w-12 h-1 mx-2 rounded-full transition-colors ${
-                    isCompleted 
-                      ? isDarkMode 
-                        ? 'bg-green-600' 
-                        : 'bg-green-300' 
-                      : isDarkMode 
-                        ? 'bg-gray-600' 
-                        : 'bg-gray-200'
-                  }`}></div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Botón cancelar - FIXED VISIBILITY */}
-        {onCancel && (
-          <button
-            onClick={onCancel}
-            className={`w-10 h-10 rounded-xl transition-colors flex items-center justify-center ${
-              isDarkMode 
-                ? 'bg-red-900 hover:bg-red-800 text-red-300' 
-                : 'bg-red-100 hover:bg-red-200 text-red-600'
-            }`}
-          >
-            <X className="w-5 h-5" />
-          </button>
-        )}
-      </div>
-    </div>
-  </div>
+      {/* NUEVO HEADER FLOTANTE - reemplaza el header anterior */}
+      <FloatingWizardHeader 
+        currentStep={wizard.currentStep}
+        isDarkMode={isDarkMode}
+        onCancel={onCancel}
+      />
 
       {/* Contenido principal */}
       <div className="py-12">
