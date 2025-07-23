@@ -5,7 +5,8 @@ import {
   Edit3, Save, X, CheckCircle, AlertTriangle, Loader2,
   ArrowLeft, ArrowRight, Search, FileCheck, Building,
   Settings, Shield, CreditCard, Navigation, Clock, Hash,
-  Star, Zap, Sparkles, Award, Target
+  Star, Zap, Sparkles, Award, Target,
+  CheckCircle2
 } from 'lucide-react';
 import { usePolizaWizard } from '../../hooks/usePolizaWizard';
 import { useDarkMode } from '../../context/ThemeContext';
@@ -232,7 +233,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
             <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Seleccionar Cliente
             </h2>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-600'} text-xl`}>
               Busca y selecciona el cliente para crear la póliza
             </p>
           </div>
@@ -287,150 +288,130 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
             </div>
           )}
 
-          {/* Resultados mejorados */}
           {wizard.clienteResults.length > 0 && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Header con estadísticas */}
               <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   Resultados encontrados
                 </h3>
                 <div className="flex items-center space-x-3">
-                  <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    isDarkMode 
+                      ? 'bg-blue-900 text-blue-200' 
+                      : 'bg-blue-100 text-blue-800'
+                  }`}>
                     {wizard.clienteResults.length} cliente{wizard.clienteResults.length !== 1 ? 's' : ''}
                   </span>
-                  <div className="h-4 w-px bg-gray-300"></div>
-                  <Zap className="w-4 h-4 text-green-500" />
-                  <span className="text-sm text-green-600 font-medium">Búsqueda instantánea</span>
                 </div>
               </div>
 
-              {/* Grid de resultados */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-h-96 overflow-y-auto pr-2">
+              {/* Lista mejorada - una columna, más compacta */}
+              <div className="space-y-3 max-h-80 sm:max-h-96 lg:max-h-[32rem] xl:max-h-[40rem] overflow-y-auto pr-2">
                 {wizard.clienteResults.map((cliente, index) => (
                   <div
                     key={cliente.id}
                     onClick={() => wizard.selectCliente(cliente)}
-                    className="group relative p-6 border-2 border-gray-200 rounded-2xl hover:border-blue-300 hover:shadow-lg cursor-pointer transition-all duration-300 bg-white hover:bg-blue-50"
+                    className={`group relative p-4 border rounded-xl hover:shadow-md cursor-pointer transition-all duration-200 ${
+                      isDarkMode 
+                        ? 'border-gray-600 bg-gray-700 hover:border-blue-500 hover:bg-gray-650' 
+                        : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50'
+                    }`}
                   >
-                    {/* Badge de ranking */}
-                    {index < 3 && (
-                      <div className="absolute top-4 right-4">
-                        <div className="flex items-center space-x-1 px-2 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold rounded-full">
-                          <Star className="w-3 h-3" />
-                          <span>Top {index + 1}</span>
+                    <div className="flex items-center justify-between">
+                      {/* Información principal - lado izquierdo */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start space-x-4">
+                          {/* Avatar/Icono */}
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                            isDarkMode 
+                              ? 'bg-gradient-to-br from-blue-600 to-purple-700' 
+                              : 'bg-gradient-to-br from-blue-500 to-purple-600'
+                          }`}>
+                            <User className="w-5 h-5 text-white" />
+                          </div>
+
+                          {/* Datos del cliente */}
+                          <div className="flex-1 min-w-0">
+                            {/* Fila superior: Nombre + Documentos */}
+                            <div className="flex items-center space-x-3 mb-1">
+                              <h4 className={`font-bold text-lg truncate ${
+                                isDarkMode 
+                                  ? 'text-white group-hover:text-blue-300' 
+                                  : 'text-gray-900 group-hover:text-blue-900'
+                              } transition-colors`}>
+                                {cliente.clinom}
+                              </h4>
+                              
+                              {/* Documentos inline con el nombre */}
+                              <div className="flex items-center space-x-2">
+                                {cliente.cliced && (
+                                  <div className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium ${
+                                    isDarkMode 
+                                      ? 'bg-blue-800 text-blue-200' 
+                                      : 'bg-blue-100 text-blue-800'
+                                  }`}>
+                                    <span>CI:</span>
+                                    <span>{cliente.cliced}</span>
+                                  </div>
+                                )}
+                                {cliente.cliruc && (
+                                  <div className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium ${
+                                    isDarkMode 
+                                      ? 'bg-green-800 text-green-200' 
+                                      : 'bg-green-100 text-green-800'
+                                  }`}>
+                                    <span>RUC:</span>
+                                    <span>{cliente.cliruc}</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Fila inferior: Email, Teléfono y Dirección en una línea */}
+                            <div className={`flex items-center space-x-4 text-sm ${
+                              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                            }`}>
+                              {cliente.cliemail && (
+                                <div className="flex items-center space-x-1">
+                                  <Mail className="w-3 h-3" />
+                                  <span className="truncate max-w-40">{cliente.cliemail}</span>
+                                </div>
+                              )}
+                              {cliente.telefono && (
+                                <div className="flex items-center space-x-1">
+                                  <Phone className="w-3 h-3" />
+                                  <span>{cliente.telefono}</span>
+                                </div>
+                              )}
+                              {cliente.clidir && (
+                                <div className="flex items-center space-x-1">
+                                  <MapPin className="w-3 h-3" />
+                                  <span className="truncate max-w-32">{cliente.clidir}</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    )}
 
-                    <div className="space-y-4">
-                      {/* Nombre principal */}
-                      <div>
-                        <h4 className="font-bold text-lg text-gray-900 group-hover:text-blue-900 transition-colors">
-                          {cliente.clinom}
-                        </h4>
-                      </div>
-                      
-                      {/* Información en cards */}
-                      <div className="grid grid-cols-2 gap-3">
-                        {cliente.cliced && (
-                          <div className="flex items-center space-x-2 p-2 bg-blue-50 rounded-lg">
-                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            <span className="text-sm font-medium text-blue-800">CI: {cliente.cliced}</span>
-                          </div>
-                        )}
-                        {cliente.cliruc && (
-                          <div className="flex items-center space-x-2 p-2 bg-green-50 rounded-lg">
-                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                            <span className="text-sm font-medium text-green-800">RUC: {cliente.cliruc}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Contacto */}
-                      <div className="space-y-2">
-                        {cliente.cliemail && (
-                          <div className="flex items-center space-x-2 text-gray-600">
-                            <Mail className="w-4 h-4" />
-                            <span className="text-sm truncate">{cliente.cliemail}</span>
-                          </div>
-                        )}
-                        {cliente.telefono && (
-                          <div className="flex items-center space-x-2 text-gray-600">
-                            <Phone className="w-4 h-4" />
-                            <span className="text-sm">{cliente.telefono}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Dirección */}
-                      {cliente.clidir && (
-                        <div className="flex items-start space-x-2 text-gray-500">
-                          <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          <span className="text-sm">{cliente.clidir}</span>
+                      {/* Acción - lado derecho */}
+                      <div className="flex items-center space-x-3 ml-4">
+                        <div className={`text-xs ${isDarkMode ? 'text-white' : 'text-gray-500'} text-xl font-bold`}>
+                          Seleccionar
                         </div>
-                      )}
-
-                      {/* Botón de acción */}
-                      <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                        <span className="text-xs text-gray-500">Haz clic para seleccionar</span>
-                        <ArrowRight className="w-5 h-5 text-blue-500 group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${
+                          isDarkMode ? 'text-blue-400' : 'text-blue-500'
+                        }`} />
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* Footer informativo */}
-              <div className="text-center pt-4 border-t border-gray-100">
-                <p className="text-sm text-gray-500">
-                  💡 Los resultados están ordenados por relevancia
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Estados vacíos mejorados */}
-          {wizard.clienteSearch.length >= 2 && !wizard.loadingClientes && wizard.clienteResults.length === 0 && (
-            <div className="text-center py-16">
-              <div className={`w-24 h-24 rounded-2xl flex items-center justify-center mx-auto mb-6 ${
-                isDarkMode ? 'bg-gray-700' : 'bg-gray-100'
-              }`}>
-                <Search className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className={`text-xl font-semibold ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              } mb-3`}>Sin resultados</h3>
-              <p className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'} mb-2`}>
-                No se encontraron clientes con el criterio "{wizard.clienteSearch}"
-              </p>
-              <p className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} text-sm`}>
-                Intenta con otro nombre o documento
-              </p>
-            </div>
-          )}
-
-          {wizard.clienteSearch.length < 2 && wizard.clienteResults.length === 0 && (
-            <div className="text-center py-16">
-              <div className={`w-24 h-24 rounded-2xl flex items-center justify-center mx-auto mb-6 ${
-                isDarkMode 
-                  ? 'bg-gradient-to-br from-blue-900 to-purple-900' 
-                  : 'bg-gradient-to-br from-blue-100 to-purple-100'
-              }`}>
-                <Search className={`w-12 h-12 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-              </div>
-              <h3 className={`text-xl font-semibold ${
-                isDarkMode ? 'text-white' : 'text-gray-900'
-              } mb-3`}>
-                Comienza tu búsqueda
-              </h3>
-              <p className={`${isDarkMode ? 'text-white' : 'text-gray-600'} mb-6 font-bold`}>
-                Escribe al menos 2 caracteres para encontrar clientes
-              </p>
             </div>
           )}
         </div>
-      </div>
+      </div>     
     </div>
   );
 
@@ -450,7 +431,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
             <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Seleccionar Compañía
             </h2>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-600'} text-xl`}>
               Elige la compañía de seguros para la póliza
             </p>
           </div>
@@ -472,76 +453,117 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
 
           {/* Lista de compañías mejorada */}
           {wizard.companies.length > 0 && (
-            <div className="space-y-6">
+            <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                   Compañías disponibles
                 </h3>
                 <div className="flex items-center space-x-3">
-                  <span className="px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    isDarkMode 
+                      ? 'bg-emerald-900 text-emerald-200' 
+                      : 'bg-emerald-100 text-emerald-800'
+                  }`}>
                     {wizard.companies.length} compañía{wizard.companies.length !== 1 ? 's' : ''}
                   </span>
                 </div>
               </div>
 
-              {/* Grid de compañías */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Lista mejorada - una columna, más compacta */}
+              <div className="space-y-3 max-h-80 sm:max-h-96 lg:max-h-[32rem] xl:max-h-[40rem] overflow-y-auto pr-2">
                 {wizard.companies.map((company, index) => (
                   <div
                     key={company.id}
                     onClick={() => wizard.selectCompany(company)}
-                    className="group relative p-6 border-2 border-gray-200 rounded-2xl hover:border-blue-300 hover:shadow-xl cursor-pointer transition-all duration-300 bg-white hover:bg-blue-50"
+                    className={`group relative p-4 border rounded-xl hover:shadow-md cursor-pointer transition-all duration-200 ${
+                      isDarkMode 
+                        ? 'border-gray-600 bg-gray-700 hover:border-emerald-500 hover:bg-gray-650' 
+                        : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50'
+                    }`}
                   >
-                    {/* Badge premium */}
-                    {index < 2 && (
-                      <div className="absolute top-4 right-4">
-                        <div className="px-2 py-1 bg-gradient-to-r from-yellow-400 to-orange-500 text-white text-xs font-bold rounded-full">
-                          ⭐ Popular
+                    <div className="flex items-center justify-between">
+                      {/* Información principal - lado izquierdo */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-4">
+                          {/* Icono de compañía */}
+                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                            isDarkMode 
+                              ? 'bg-gradient-to-br from-emerald-600 to-blue-700 group-hover:from-emerald-500 group-hover:to-blue-600' 
+                              : 'bg-gradient-to-br from-emerald-100 to-blue-100 group-hover:from-emerald-200 group-hover:to-blue-200'
+                          }`}>
+                            <Building2 className={`w-5 h-5 transition-colors ${
+                              isDarkMode 
+                                ? 'text-white' 
+                                : 'text-emerald-600 group-hover:text-emerald-700'
+                            }`} />
+                          </div>
+
+                          {/* Datos de la compañía */}
+                          <div className="flex-1 min-w-0">
+                            {/* Fila superior: Nombre + Código */}
+                            <div className="flex items-center space-x-3 mb-1">
+                              <h4 className={`font-bold text-lg truncate ${
+                                isDarkMode 
+                                  ? 'text-white group-hover:text-emerald-300' 
+                                  : 'text-gray-900 group-hover:text-emerald-900'
+                              } transition-colors`}>
+                                {company.comnom}
+                              </h4>
+                              
+                              {/* Código como badge si es diferente al nombre */}
+                              {company.comalias && company.comalias !== company.comnom && (
+                                <div className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium ${
+                                  isDarkMode 
+                                    ? 'bg-gray-600 text-gray-200' 
+                                    : 'bg-gray-100 text-gray-700'
+                                }`}>
+                                  <span>Código:</span>
+                                  <span>{company.comalias}</span>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Fila inferior: Estado y información adicional */}
+                            <div className={`flex items-center space-x-4 text-sm ${
+                              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                            }`}>
+                              <div className="flex items-center space-x-2">
+                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                                <span className="text-green-600 font-medium">Activa y verificada</span>
+                              </div>
+                              
+                              {/* Información adicional si está disponible */}
+                              {company.activo && (
+                                <div className="flex items-center space-x-1">
+                                  <div className={`w-2 h-2 rounded-full ${
+                                    isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
+                                  }`}></div>
+                                  <span className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>
+                                    Operativa
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    )}
 
-                    <div className="space-y-4">
-                      {/* Icono y título */}
-                      <div className="flex items-start space-x-3">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-100 to-purple-100 rounded-xl flex items-center justify-center group-hover:from-blue-200 group-hover:to-purple-200 transition-colors">
-                          <Building2 className="w-6 h-6 text-blue-600 group-hover:text-blue-700" />
+                      {/* Acción - lado derecho */}
+                      <div className="flex items-center space-x-3 ml-4">
+                        <div className={`text-xs ${isDarkMode ? 'text-white' : 'text-gray-500'} text-xl font-bold`}>
+                          Seleccionar
                         </div>
-                        <div className="flex-1">
-                          <h4 className="font-bold text-lg text-gray-900 group-hover:text-blue-900 transition-colors">
-                            {company.comnom}
-                          </h4>
-                          {company.comalias && company.comalias !== company.comnom && (
-                            <p className="text-sm text-gray-600">Código: {company.comalias}</p>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Estado */}
-                      <div className="flex items-center space-x-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                        <span className="text-sm font-medium text-green-600">Activa y verificada</span>
-                      </div>
-
-                      {/* Botón de acción */}
-                      <div className="flex items-center justify-between pt-4 border-t border-gray-100">
-                        <span className="text-xs text-gray-500">Seleccionar compañía</span>
-                        <ArrowRight className="w-5 h-5 text-blue-500 group-hover:translate-x-1 transition-transform" />
+                        <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${
+                          isDarkMode ? 'text-emerald-400' : 'text-emerald-500'
+                        }`} />
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
-
-              {/* Footer */}
-              <div className="text-center pt-4 border-t border-gray-100">
-                <p className="text-sm text-gray-500">
-                  🏢 Todas las compañías están activas y verificadas
-                </p>
-              </div>
             </div>
-          )}
+            )}
 
           {/* Estado sin compañías */}
           {!wizard.loadingCompanies && wizard.companies.length === 0 && (
@@ -567,11 +589,15 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
         {/* Navegación */}
         <div className="flex justify-between items-center p-8 bg-gray-50 border-t border-gray-100">
           <button
-            onClick={wizard.goBack}
-            className="inline-flex items-center px-6 py-3 bg-white border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-colors font-medium"
+            onClick={() => wizard.goBack()}
+            className={`inline-flex items-center px-6 py-3 rounded-xl transition-colors font-medium ${
+              isDarkMode 
+                ? 'bg-gray-700 border border-gray-600 text-gray-300 hover:bg-gray-600' 
+                : 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50'
+            }`}
           >
             <ArrowLeft className="w-5 h-5 mr-2" />
-            Volver a cliente
+            Volver a clientes
           </button>
           
           {wizard.selectedCompany && (
@@ -605,7 +631,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
             <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
               Subir Póliza
             </h2>
-            <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+            <p className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-600'} text-xl`}>
               Sube el PDF para procesar con IA
             </p>
           </div>
@@ -707,38 +733,53 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
 
         {/* Archivo seleccionado - Card mejorada con dark mode */}
         {wizard.uploadedFile && (
-          <div className={`mt-8 p-6 rounded-2xl ${
+  <div className={`mt-8 p-6 rounded-2xl ${
+    isDarkMode 
+      ? 'bg-gradient-to-r from-purple-900/30 to-pink-900/30 border border-purple-700' 
+      : 'bg-gradient-to-r from-purple-50 to-pink-50 border-2 border-purple-200'
+  }`}>
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-4">
+        {/* Icono con gradiente purple/pink */}
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+          isDarkMode 
+            ? 'bg-gradient-to-br from-purple-600 to-pink-600' 
+            : 'bg-gradient-to-br from-purple-500 to-pink-500'
+        }`}>
+          <FileText className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <p className={`font-bold text-lg ${
             isDarkMode 
-              ? 'bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-800' 
-              : 'bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-200'
+              ? 'text-purple-200' 
+              : 'text-purple-900'
           }`}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-green-500 rounded-xl flex items-center justify-center">
-                  <FileText className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className={`font-bold ${
-                    isDarkMode ? 'text-green-200' : 'text-green-900'
-                  } text-lg`}>{wizard.uploadedFile.name}</p>
-                  <p className={isDarkMode ? 'text-green-400' : 'text-green-700'}>
-                    {(wizard.uploadedFile.size / 1024 / 1024).toFixed(2)} MB • Listo para procesar
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => wizard.setUploadedFile(null)}
-                className={`w-10 h-10 rounded-xl transition-colors flex items-center justify-center ${
-                  isDarkMode 
-                    ? 'bg-red-900 hover:bg-red-800 text-red-300' 
-                    : 'bg-red-100 hover:bg-red-200 text-red-600'
-                }`}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-          </div>
-        )}
+            {wizard.uploadedFile.name}
+          </p>
+          <p className={`${
+            isDarkMode 
+              ? 'text-purple-400' 
+              : 'text-purple-700'
+          }`}>
+            {(wizard.uploadedFile.size / 1024 / 1024).toFixed(2)} MB • Listo para procesar
+          </p>
+        </div>
+      </div>
+      
+      {/* Botón de eliminar */}
+      <button
+        onClick={() => wizard.setUploadedFile(null)}
+        className={`w-10 h-10 rounded-xl transition-colors flex items-center justify-center ${
+          isDarkMode 
+            ? 'bg-red-900 hover:bg-red-800 text-red-300' 
+            : 'bg-red-100 hover:bg-red-200 text-red-600'
+        }`}
+      >
+        <X className="w-5 h-5" />
+      </button>
+    </div>
+  </div>
+)}
       </div>
 
       {/* Navegación */}
@@ -776,8 +817,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
               </>
             ) : (
               <>
-                <Sparkles className="w-5 h-5 mr-2" />
-                🚀 Procesar con Azure AI
+                PROCESAR
               </>
             )}
           </button>
@@ -2382,39 +2422,93 @@ case 'observaciones':
     };
 
     return (
-            <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
+      <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
         {/* Header con información del procesamiento mejorado */}
-        {wizard.extractedData && (
-          <div className="mb-8 p-6 bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-2 border-blue-200 rounded-2xl shadow-sm">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-blue-500 rounded-xl flex items-center justify-center">
-                  <Sparkles className="w-6 h-6 text-white" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-blue-800">Procesamiento completado</p>
-                  <h3 className="font-bold text-blue-900 text-lg">
-                    Documento procesado exitosamente con IA
-                  </h3>
-                </div>
-              </div>
-              <div className="flex items-center space-x-6 text-sm">
-                {wizard.extractedData.nivelConfianza && (
-                  <div className="text-center p-2 bg-white rounded-lg border border-blue-200">
-                    <p className="font-bold text-blue-600 text-lg">{Math.round(wizard.extractedData.nivelConfianza * 100)}%</p>
-                    <p className="text-blue-800 text-xs">Confianza</p>
-                  </div>
-                )}
-                {wizard.extractedData.tiempoProcesamiento && (
-                  <div className="text-center p-2 bg-white rounded-lg border border-green-200">
-                    <p className="font-bold text-green-600 text-lg">{(wizard.extractedData.tiempoProcesamiento / 1000).toFixed(1)}s</p>
-                    <p className="text-green-800 text-xs">Tiempo</p>
-                  </div>
-                )}
-              </div>
-            </div>
+{wizard.extractedData && (
+  <div className={`mb-8 p-6 rounded-2xl shadow-sm border-2 ${
+    isDarkMode 
+      ? 'bg-gradient-to-r from-gray-800 via-blue-900/50 to-purple-900/50 border-blue-700' 
+      : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-200'
+  }`}>
+    <div className="flex items-center justify-between">
+      <div className="flex items-center space-x-4">
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+          isDarkMode 
+            ? 'bg-gradient-to-br from-blue-600 to-purple-600' 
+            : 'bg-blue-500'
+        }`}>
+          <CheckCircle2 className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <p className={`text-sm font-medium ${
+            isDarkMode 
+              ? 'text-blue-400' 
+              : 'text-blue-800'
+          }`}>
+            Procesamiento completado
+          </p>
+          <h3 className={`font-bold text-lg ${
+            isDarkMode 
+              ? 'text-white' 
+              : 'text-blue-900'
+          }`}>
+            Documento procesado exitosamente con IA
+          </h3>
+        </div>
+      </div>
+      
+      <div className="flex items-center space-x-6 text-sm">
+        {/* Confianza */}
+        {wizard.extractedData.nivelConfianza && (
+          <div className={`text-center p-2 rounded-lg border ${
+            isDarkMode 
+              ? 'bg-gray-800 border-blue-600' 
+              : 'bg-white border-blue-200'
+          }`}>
+            <p className={`font-bold text-lg ${
+              isDarkMode 
+                ? 'text-blue-400' 
+                : 'text-blue-600'
+            }`}>
+              {Math.round(wizard.extractedData.nivelConfianza * 100)}%
+            </p>
+            <p className={`text-xs ${
+              isDarkMode 
+                ? 'text-blue-300' 
+                : 'text-blue-800'
+            }`}>
+              Confianza
+            </p>
           </div>
         )}
+        
+        {/* Tiempo */}
+        {wizard.extractedData.tiempoProcesamiento && (
+          <div className={`text-center p-2 rounded-lg border ${
+            isDarkMode 
+              ? 'bg-gray-800 border-green-600' 
+              : 'bg-white border-green-200'
+          }`}>
+            <p className={`font-bold text-lg ${
+              isDarkMode 
+                ? 'text-green-400' 
+                : 'text-green-600'
+            }`}>
+              {(wizard.extractedData.tiempoProcesamiento / 1000).toFixed(1)}s
+            </p>
+            <p className={`text-xs ${
+              isDarkMode 
+                ? 'text-green-300' 
+                : 'text-green-800'
+            }`}>
+              Tiempo
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
 
         {/* Pestañas modernas */}
         <div className="mb-8">
@@ -2607,7 +2701,7 @@ case 'observaciones':
       />
 
       {/* Contenido principal */}
-      <div className="py-12">
+      <div className="pt-2">
         {renderCurrentStep()}
       </div>
 
