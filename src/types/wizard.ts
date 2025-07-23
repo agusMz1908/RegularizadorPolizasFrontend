@@ -104,11 +104,17 @@ export interface PolizaFormData {
   descuentos?: number;
   recargos?: number;
   codigoPostal?: string;
-  seccion?: string; // ✅ NUEVO
-  seccionId?: number; // ✅ NUEVO
+  seccion?: string;
+  seccionId?: number;
+  
+  certificado?: string;        // Campo certificado del escaneo
+  estadoPoliza?: string;       // Estado póliza movido de datos básicos
+  compania?: string;           // Compañía como string editable
+  ramo?: string;               // Ramo ya existía pero lo confirmamos
+  plan?: string;               // Plan/cobertura ya existía
+  corredor?: string;           // Corredor ya existía
 }
 
-// 🔧 INTERFAZ EXTENDIDA PARA EL FORMULARIO COMPLETO
 export interface PolizaFormDataExtended {
   // Información de la Póliza
   numeroPoliza: string;
@@ -165,7 +171,7 @@ export interface PolizaCreateRequest {
   procesadoConIA?: boolean;
 }
 
-export type WizardStep = 'cliente' | 'company' | 'seccion' | 'upload' | 'extract' | 'form' | 'success';
+export type WizardStep = 'cliente' | 'company' | 'seccion' | 'operacion' | 'upload' | 'extract' | 'form' | 'success';
 
 export interface Ramo {
   id: string;
@@ -180,7 +186,8 @@ export interface WizardState {
   currentStep: WizardStep;
   selectedCliente: Cliente | null;
   selectedCompany: Company | null;
-  selectedSeccion: Seccion | null; 
+  selectedSeccion: Seccion | null;
+  selectedOperacion: TipoOperacion | null; 
   uploadedFile: File | null;
   extractedData: DocumentProcessResult | null;
   isComplete: boolean;

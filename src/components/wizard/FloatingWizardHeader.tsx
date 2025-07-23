@@ -8,7 +8,9 @@ import {
   Cpu, 
   CheckCircle2, 
   Trophy,
-  Zap
+  Zap,
+  Target,      
+  Settings    
 } from 'lucide-react';
 
 interface FloatingWizardHeaderProps {
@@ -22,11 +24,13 @@ const FloatingWizardHeader: React.FC<FloatingWizardHeaderProps> = ({
   isDarkMode = false, 
   onCancel
 }) => {
-  const stepOrder = ['cliente', 'company', 'upload', 'extract', 'form', 'success'];
-  
+  const stepOrder = ['cliente', 'company', 'seccion', 'operacion', 'upload', 'extract', 'form', 'success'];
+
   const stepIcons = {
     cliente: Users,
     company: Building2,
+    seccion: Target,    
+    operacion: Settings,  
     upload: Upload,
     extract: Cpu,
     form: CheckCircle2,
@@ -36,6 +40,8 @@ const FloatingWizardHeader: React.FC<FloatingWizardHeaderProps> = ({
   const stepLabels = {
     cliente: 'Cliente',
     company: 'Compañía',
+    seccion: 'Sección',  
+    operacion: 'Operación', 
     upload: 'Archivo',
     extract: 'Procesando',
     form: 'Validación',

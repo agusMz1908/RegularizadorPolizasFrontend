@@ -2,9 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import { azureDocumentService, DocumentProcessResult } from '../services/azureDocumentService';
 import { seccionService } from '../services/seccionService';
 import { Seccion, SeccionLookup } from '../types/seccion';
+import { TipoOperacion } from '../utils/operationLogic';
 
-// 🎯 TIPOS DEL WIZARD
-export type WizardStep = 'cliente' | 'company' | 'seccion' | 'upload' | 'extract' | 'form' | 'success';
+export type WizardStep = 'cliente' | 'company' | 'seccion' | 'operacion' | 'upload' | 'extract' | 'form' | 'success';
 
 export interface Cliente {
   id: number;
@@ -28,6 +28,8 @@ export interface WizardState {
   currentStep: WizardStep;
   selectedCliente: Cliente | null;
   selectedCompany: Company | null;
+  selectedSeccion: Seccion | null;
+  selectedOperacion: TipoOperacion | null;
   uploadedFile: File | null;
   extractedData: DocumentProcessResult | null;
   isComplete: boolean;
@@ -47,7 +49,8 @@ const initialState: WizardState = {
   currentStep: 'cliente',
   selectedCliente: null,
   selectedCompany: null,
-  selectedSeccion: null, 
+  selectedSeccion: null,
+  selectedOperacion: null, 
   uploadedFile: null,
   extractedData: null,
   isComplete: false,
@@ -94,41 +97,49 @@ export const usePolizaWizard = () => {
     setError(null);
   }, []);
 
-  const goBack = useCallback(() => {
-    setState((prev: WizardState) => {
-      let newStep: WizardStep;
-      let newState = { ...prev };
-      
-      switch (prev.currentStep) {
-        case 'company':
-          newStep = 'cliente';
-          newState.selectedCliente = null;
-          break;
-        case 'upload':
-          newStep = 'company';
-          newState.selectedCompany = null;
-          break;
-        case 'extract':
-          newStep = 'upload';
-          newState.uploadedFile = null;
-          setProcessing(false);
-          setProcessingProgress(0);
-          break;
-        case 'form':
-          newStep = 'extract';
-          newState.extractedData = null;
-          break;
-        case 'success':
-          newStep = 'form';
-          break;
-        default:
-          return prev;
-      }
-      
-      return { ...newState, currentStep: newStep };
-    });
-    setError(null);
-  }, []);
+const goBack = useCallback(() => {
+  setState((prev: WizardState) => {
+    let newStep: WizardStep;
+    let newState = { ...prev };
+    
+    switch (prev.currentStep) {
+      case 'company':
+        newStep = 'cliente';
+        newState.selectedCliente = null;
+        break;
+      case 'seccion':
+        newStep = 'company';
+        newState.selectedCompany = null;
+        break;
+      case 'operacion':
+        newStep = 'seccion';
+        newState.selectedSeccion = null;
+        break;
+      case 'upload':
+        newStep = 'operacion'; 
+        newState.selectedOperacion = null;
+        break;
+      case 'extract':
+        newStep = 'upload';
+        newState.uploadedFile = null;
+        setProcessing(false);
+        setProcessingProgress(0);
+        break;
+      case 'form':
+        newStep = 'extract';
+        newState.extractedData = null;
+        break;
+      case 'success':
+        newStep = 'form';
+        break;
+      default:
+        return prev;
+    }
+    
+    return { ...newState, currentStep: newStep };
+  });
+  setError(null);
+}, []);
 
   const reset = useCallback(() => {
     setState(initialState);
@@ -152,16 +163,25 @@ export const usePolizaWizard = () => {
     console.log('👤 Cliente seleccionado:', cliente);
   }, []);
 
-  const selectCompany = useCallback((company: Company) => {
-    setState((prev: WizardState) => ({ 
-      ...prev, 
-      selectedCompany: company, 
-      currentStep: 'upload' 
-    }));
-    setError(null);
-    
-    console.log('🏢 Compañía seleccionada:', company);
-  }, []);
+const selectCompany = useCallback((company: Company) => {
+  setState((prev: WizardState) => ({ 
+    ...prev, 
+    selectedCompany: company, 
+    currentStep: 'seccion' //
+  }));
+  setError(null);
+  
+  console.log('🏢 Compañía seleccionada:', company);
+}, []);
+
+const selectOperacion = useCallback((operacion: TipoOperacion) => {
+  console.log('⚙️ Operación seleccionada:', operacion);
+  setState(prev => ({
+    ...prev,
+    selectedOperacion: operacion,
+    currentStep: 'upload'
+  }));
+}, []);
 
   const setUploadedFile = useCallback((file: File | null) => {
     if (!file) {
@@ -475,11 +495,11 @@ export const usePolizaWizard = () => {
   }, []);
 
     const selectSeccion = useCallback((seccion: Seccion) => {
-    console.log('🎯 Sección seleccionada:', seccion.name);
+    console.log('🎯 Sección seleccionada:', seccion.seccion);
     setState(prev => ({
       ...prev,
       selectedSeccion: seccion,
-      currentStep: 'upload' 
+      currentStep: 'operacion' 
     }));
   }, []);
 
@@ -489,24 +509,26 @@ export const usePolizaWizard = () => {
     }
   }, [state.uploadedFile, state.currentStep, processDocument]);
 
-  const validateCurrentStep = useCallback((): boolean => {
-    switch (state.currentStep) {
-      case 'cliente':
-        return !!state.selectedCliente;
-      case 'company':
-        return !!state.selectedCompany;
-      case 'seccion':
-        return !!state.selectedSeccion;
-      case 'upload':
-        return !!state.uploadedFile;
-      case 'extract':
-        return processing || !!state.extractedData;
-      case 'form':
-        return !!state.extractedData;
-      default:
-        return true;
-    }
-  }, [state, processing]);
+const validateCurrentStep = useCallback((): boolean => {
+  switch (state.currentStep) {
+    case 'cliente':
+      return !!state.selectedCliente;
+    case 'company':
+      return !!state.selectedCompany;
+    case 'seccion':
+      return !!state.selectedSeccion;
+    case 'operacion':
+      return !!state.selectedOperacion; 
+    case 'upload':
+      return !!state.uploadedFile;
+    case 'extract':
+      return processing || !!state.extractedData;
+    case 'form':
+      return !!state.extractedData;
+    default:
+      return true;
+  }
+}, [state, processing]);
 
   return {
     ...state,
@@ -537,6 +559,7 @@ export const usePolizaWizard = () => {
     companies,
     loadCompanies,
     loadingCompanies,
+    selectOperacion,
 
      secciones,
     seccionesLookup, 

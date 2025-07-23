@@ -1,14 +1,15 @@
 export interface Seccion {
-  id: number;
-  name: string;
-  descripcion?: string;
-  icono?: string;
-  activo: boolean;
+    id: number;
+    seccion: string;
+    icono?: string;
+    activo: boolean;
+    fechaCreacion: string;
+    fechaModifcacion: string;
 }
 
 export interface SeccionLookup {
   id: number;
-  name: string;
+  seccion: string;
   icono?: string;
   activo: boolean;
 }

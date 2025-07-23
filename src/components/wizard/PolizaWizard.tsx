@@ -17,7 +17,8 @@ import {
   extraerOperacionDesdeAzure,
   determinarTramite,
   determinarEstadoPoliza,
-  type TipoOperacion 
+  type TipoOperacion ,
+  OPERACIONES_CONFIG
 } from '../../utils/operationLogic';
 
 interface PolizaWizardProps {
@@ -66,6 +67,8 @@ interface PolizaFormData {
   tramite: string;
   tipo: string;
   estadoPoliza: string;
+  certificado?: string;      
+  compania?: string;          
 }
 
 const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => {
@@ -94,8 +97,8 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     email: '',
     corredor: '',
     plan: '',
-    ramo: 'AUTOMOVILES',
-    observaciones: 'Procesado automáticamente con Azure AI.',
+    ramo: '',
+    observaciones: '',
     anio: '',
     documento: '',
     destino: '',
@@ -113,7 +116,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     tramite: '',
     tipo: '',
     estadoPoliza: '',
-    operacion: 0
+    operacion: '',
   });
 
   const [saving, setSaving] = useState(false);
@@ -125,6 +128,9 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
   useEffect(() => {
     if (wizard.extractedData?.datosVelneo) {
       const datos = wizard.extractedData.datosVelneo;
+
+      const operacionSeleccionada = wizard.selectedOperacion || 'EMISION';
+      const configOperacion = OPERACIONES_CONFIG[operacionSeleccionada];
       
       const convertirFecha = (fecha: string | undefined): string => {
         if (!fecha) return '';
@@ -188,7 +194,7 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
           ? convertirFecha(datos.condicionesPago.detalleCuotas.primeraCuota.fechaVencimiento)
           : '',
         primeraCuotaMonto: datos.condicionesPago?.detalleCuotas?.primeraCuota?.monto || 0,
-        observaciones: generarObservacionesAutomaticas(datos)
+        observaciones: generarObservacionesAutomaticas(datos, operacionSeleccionada, configOperacion)
       }));
     }
   }, [wizard.extractedData]);
@@ -218,11 +224,47 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
       tramite: tramiteAuto,
       estadoPoliza: estadoAuto,
       
+      // ✅ AGREGAR SOLO ESTAS DOS LÍNEAS (sección seleccionada):
+      seccion: wizard.selectedSeccion?.seccion || '',
+      seccionId: wizard.selectedSeccion?.id || 0,
+      
       // Actualizar observaciones con lógica
       observaciones: generarObservacionesConLogica(datos, operacionDetectada, tramiteAuto, estadoAuto)
     }));
   }
-}, [wizard.extractedData]); // Solo depende de extractedData
+}, [wizard.extractedData, wizard.selectedSeccion]);
+
+useEffect(() => {
+  if (wizard.currentStep === 'form' && wizard.selectedSeccion?.seccion && !formData.ramo) {
+    setFormData(prev => ({
+      ...prev,
+      ramo: wizard.selectedSeccion?.seccion?.toUpperCase() || ''
+    }));
+  }
+}, [wizard.currentStep, wizard.selectedSeccion?.seccion, formData.ramo]);
+
+useEffect(() => {
+  const certificadoEscaneado = wizard.extractedData?.datosVelneo?.datosPoliza?.certificado;
+  if (certificadoEscaneado && !formData.certificado) {
+    setFormData(prev => ({
+      ...prev,
+      certificado: certificadoEscaneado
+    }));
+  }
+}, [wizard.extractedData, formData.certificado]);
+
+useEffect(() => {
+  if (formData.operacion) {
+    const tramiteAuto = getTramiteAutoFromOperacion(formData.operacion);
+    const estadoAuto = getEstadoAutoFromOperacion(formData.operacion);
+    
+    setFormData(prev => ({
+      ...prev,
+      tramite: tramiteAuto,
+      estadoPoliza: estadoAuto
+    }));
+  }
+}, [formData.operacion]);
 
 const generarObservacionesConLogica = (
   datos: any, 
@@ -276,20 +318,37 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
   }));
 };
 
-  const generarObservacionesAutomaticas = (datos: any): string => {
+  const generarObservacionesAutomaticas = (datos: any, operacion: TipoOperacion, config: any): string => {
     const observaciones = [];
+    
+    // Información de la operación
+    observaciones.push(`${config.icon} OPERACIÓN: ${operacion}`);
+    observaciones.push(`📋 Trámite: ${config.tramite} | Estado: ${config.estadoPoliza}`);
+    observaciones.push('');
+    
+    // Información del procesamiento
     observaciones.push('📄 Documento procesado automáticamente con Azure Document Intelligence');
     observaciones.push(`📊 ${datos.metricas?.camposCompletos || 0} campos extraídos (${datos.porcentajeCompletitud || 0}% completitud)`);
     
+    // Cronograma de cuotas si existe
     if (datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && datos.condicionesPago.detalleCuotas.cuotas?.length > 0) {
       observaciones.push('');
       observaciones.push('💳 CRONOGRAMA DE CUOTAS DETECTADO:');
       observaciones.push(`${datos.condicionesPago.formaPago} - ${datos.condicionesPago.cuotas} cuotas de ${datos.condicionesPago.moneda} ${datos.condicionesPago.valorCuota?.toLocaleString()}`);
       observaciones.push('');
-      datos.condicionesPago.detalleCuotas.cuotas.forEach((cuota: any, index: number) => {
+      datos.condicionesPago.detalleCuotas.cuotas.forEach((cuota: any) => {
         const fecha = new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY');
         observaciones.push(`Cuota ${cuota.numero}: ${fecha} - $${cuota.monto?.toLocaleString()}`);
       });
+    }
+    
+    // Advertencias según el tipo de operación
+    if (operacion === 'RENOVACION') {
+      observaciones.push('');
+      observaciones.push('🔄 RENOVACIÓN: Verificar que la póliza anterior esté por vencer');
+    } else if (operacion === 'ENDOSO') {
+      observaciones.push('');
+      observaciones.push('📝 ENDOSO: Verificar cambios respecto a la póliza original');
     }
     
     if (!datos.tieneDatosMinimos) {
@@ -698,168 +757,351 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
     </div>
   );
 
-  const renderSeccionStep = () => (
-  <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-    <div className="text-center mb-8">
-      <h2 className="text-3xl font-bold mb-2">Seleccionar Sección</h2>
-      <p className={`text-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-        Elige la sección que corresponde a esta póliza
-      </p>
-    </div>
-
-    {/* Estado de carga */}
-    {wizard.loadingSecciones && (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-lg">Cargando secciones...</span>
+    const renderOperacionStep = () => (
+    <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+      <div className="text-center mb-8">
+        <h2 className="text-3xl font-bold mb-2">Tipo de Operación</h2>
+        <p className={`text-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          Selecciona el tipo de operación que vas a realizar
+        </p>
       </div>
-    )}
 
-    {/* Error loading secciones */}
-    {wizard.error && wizard.error.includes('secciones') && (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center">
-          <div className="flex-shrink-0">
-            <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <div className="ml-3">
-            <h3 className="text-sm font-medium text-red-800">Error al cargar secciones</h3>
-            <p className="text-sm text-red-700 mt-1">{wizard.error}</p>
-          </div>
-          <div className="ml-auto">
-            <button
-              onClick={wizard.loadSecciones}
-              className="text-sm text-red-800 hover:text-red-900 font-medium"
-            >
-              Reintentar
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-
-    {/* Grid de secciones */}
-    {!wizard.loadingSecciones && wizard.secciones.length > 0 && (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {wizard.secciones.map((seccion) => (
+      {/* Grid de operaciones */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {Object.entries(OPERACIONES_CONFIG).map(([key, config]) => (
           <div
-            key={seccion.id}
-            onClick={() => wizard.selectSeccion(seccion)}
+            key={key}
+            onClick={() => wizard.selectOperacion(key as TipoOperacion)}
             className={`
-              relative rounded-lg border-2 cursor-pointer transition-all duration-200 p-6
-              ${wizard.selectedSeccion?.id === seccion.id
-                ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-105'
-                : `border-gray-200 hover:border-blue-300 hover:shadow-md ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'}`
+              relative rounded-xl border-2 cursor-pointer transition-all duration-300 p-6 group
+              ${wizard.selectedOperacion === key
+                ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-105 ring-4 ring-blue-200'
+                : `border-gray-200 hover:border-blue-300 hover:shadow-lg hover:scale-102 ${
+                    isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'
+                  }`
               }
             `}
           >
             {/* Indicador de selección */}
-            {wizard.selectedSeccion?.id === seccion.id && (
-              <div className="absolute top-3 right-3">
-                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
-                  <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
+            {wizard.selectedOperacion === key && (
+              <div className="absolute -top-2 -right-2">
+                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
+                  <CheckCircle2 className="w-5 h-5 text-white" />
                 </div>
               </div>
             )}
 
-            {/* Icono de la sección */}
-            <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-100 mb-4">
-              {seccion.icono ? (
-                <span className="text-2xl">{seccion.icono}</span>
-              ) : (
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                </svg>
-              )}
-            </div>
-
-            {/* Información de la sección */}
-            <div>
-              <h3 className={`text-lg font-medium mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                {seccion.name}
+            {/* Icono y título */}
+            <div className="text-center">
+              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-200">
+                {config.icon}
+              </div>
+              
+              <h3 className={`text-xl font-bold mb-2 ${
+                wizard.selectedOperacion === key 
+                  ? 'text-blue-600' 
+                  : isDarkMode ? 'text-white' : 'text-gray-900'
+              }`}>
+                {config.operacion}
               </h3>
               
-              {seccion.descripcion && (
-                <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  {seccion.descripcion}
-                </p>
-              )}
+              <p className={`text-sm ${
+                isDarkMode ? 'text-gray-300' : 'text-gray-600'
+              } mb-3`}>
+                {config.descripcion}
+              </p>
 
-              {/* Badge de estado */}
-              <div className="mt-3">
-                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                  seccion.activo 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {seccion.activo ? 'Activa' : 'Inactiva'}
-                </span>
+              {/* Metadatos técnicos */}
+              <div className={`text-xs space-y-1 p-3 rounded-lg ${
+                isDarkMode ? 'bg-gray-700/50' : 'bg-gray-100'
+              }`}>
+                <div className="flex justify-between">
+                  <span className="font-medium">Trámite:</span>
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                    config.tramite === 'Nuevo' ? 'bg-green-100 text-green-800' :
+                    config.tramite === 'Renovacion' ? 'bg-blue-100 text-blue-800' :
+                    config.tramite === 'Endoso' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-purple-100 text-purple-800'
+                  }`}>
+                    {config.tramite}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium">Estado:</span>
+                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                    config.estadoPoliza === 'VIG' ? 'bg-green-100 text-green-800' :
+                    config.estadoPoliza === 'END' ? 'bg-orange-100 text-orange-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {config.estadoPoliza}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
-    )}
 
-    {/* Estado cuando no hay secciones */}
-    {!wizard.loadingSecciones && wizard.secciones.length === 0 && (
-      <div className="text-center py-12">
-        <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-        </svg>
-        <h3 className="mt-4 text-lg font-medium text-gray-900">No hay secciones disponibles</h3>
-        <p className="mt-2 text-gray-500">
-          No se encontraron secciones activas para seleccionar.
-        </p>
+      {/* Información contextual */}
+      <div className={`rounded-xl p-6 mb-8 ${
+        isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-blue-50 border border-blue-200'
+      }`}>
+        <div className="flex items-start">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mr-4 ${
+            isDarkMode ? 'bg-blue-900' : 'bg-blue-100'
+          }`}>
+            <Info className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
+          </div>
+          <div>
+            <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>
+              ¿Cómo elegir la operación correcta?
+            </h4>
+            <div className={`text-sm space-y-2 ${isDarkMode ? 'text-gray-300' : 'text-blue-800'}`}>
+              <div><strong>Emisión:</strong> Para pólizas completamente nuevas que no existían antes</div>
+              <div><strong>Renovación:</strong> Para continuar una póliza que está por vencer</div>
+              <div><strong>Endoso:</strong> Para modificar datos importantes de una póliza vigente</div>
+              <div><strong>Cambio:</strong> Para ajustes menores que no requieren endoso formal</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Información de selecciones previas */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        {wizard.selectedCliente && (
+          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+            <h5 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
+              Cliente seleccionado:
+            </h5>
+            <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+              {wizard.selectedCliente.clinom}
+            </p>
+          </div>
+        )}
+      </div>
+
+      {/* Botones de navegación */}
+      <div className="flex justify-between">
         <button
-          onClick={wizard.loadSecciones}
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          onClick={wizard.goBack}
+          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+            isDarkMode 
+              ? 'bg-gray-700 text-white hover:bg-gray-600' 
+              : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+          }`}
         >
-          Recargar secciones
+          ← Volver a Secciones
+        </button>
+
+        <button
+          onClick={() => wizard.goToStep('upload')}
+          disabled={!wizard.selectedOperacion}
+          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+            wizard.selectedOperacion
+              ? 'bg-blue-600 text-white hover:bg-blue-700'
+              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+          }`}
+        >
+          Continuar a Subir Documento →
         </button>
       </div>
-    )}
+    </div>
+  );
 
-    {/* Información de la compañía seleccionada */}
-    {wizard.selectedCompany && (
-      <div className={`mt-8 p-4 rounded-lg border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-        <h4 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-          Compañía seleccionada:
-        </h4>
-        <p className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-          {wizard.selectedCompany.comnom} ({wizard.selectedCompany.comalias})
-        </p>
-      </div>
-    )}
-
-    {/* Botones de navegación */}
-    <div className="flex justify-between mt-8">
-      <button
-        onClick={wizard.goBack}
-        className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+  const renderSeccionStep = () => (
+  <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
+    {/* Header mejorado */}
+    <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center space-x-4">
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
           isDarkMode 
-            ? 'bg-gray-700 text-white hover:bg-gray-600' 
-            : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-        }`}
-      >
-        ← Volver a Compañía
-      </button>
+            ? 'bg-gradient-to-br from-indigo-700 to-purple-800' 
+            : 'bg-gradient-to-br from-indigo-500 to-purple-600'
+        }`}>
+          <Navigation className="w-6 h-6 text-white" />
+        </div>
+        <div>
+          <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Seleccionar Sección
+          </h2>
+          <p className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} text-xl`}>
+            Elige la sección que corresponde a esta póliza
+          </p>
+        </div>
+      </div>
+    </div>
 
-      <button
-        onClick={() => wizard.goToStep('upload')}
-        disabled={!wizard.selectedSeccion}
-        className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-          wizard.selectedSeccion
-            ? 'bg-blue-600 text-white hover:bg-blue-700'
-            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-        }`}
-      >
-        Continuar a Subir Documento →
-      </button>
+    <div className={`rounded-3xl shadow-xl border overflow-hidden ${
+      isDarkMode 
+        ? 'bg-gray-800 border-gray-700' 
+        : 'bg-white border-gray-100'
+    }`}>
+      <div className="p-8">
+        {/* Estado de carga */}
+        {wizard.loadingSecciones && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative">
+              <div className="w-12 h-12 border-4 border-blue-200 rounded-full animate-spin"></div>
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+            </div>
+            <p className="text-gray-600 mt-4 text-lg">Cargando secciones...</p>
+          </div>
+        )}
+
+        {/* Lista de secciones rediseñada */}
+        {!wizard.loadingSecciones && wizard.secciones.length > 0 && (
+          <div className="space-y-4">
+            {/* Header con estadísticas */}
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Secciones disponibles
+              </h3>
+              <div className="flex items-center space-x-3">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  isDarkMode 
+                    ? 'bg-purple-900 text-purple-200' 
+                    : 'bg-purple-100 text-purple-800'
+                }`}>
+                  {wizard.secciones.length} sección{wizard.secciones.length !== 1 ? 'es' : ''}
+                </span>
+              </div>
+            </div>
+
+            {/* Lista de secciones - estilo similar a cliente/company */}
+            <div className="space-y-3 max-h-80 sm:max-h-96 lg:max-h-[32rem] xl:max-h-[40rem] overflow-y-auto pr-2">
+              {wizard.secciones.map((seccion) => (
+                <div
+                  key={seccion.id}
+                  onClick={() => wizard.selectSeccion(seccion)}
+                  className={`group relative p-4 border rounded-xl hover:shadow-md cursor-pointer transition-all duration-200 ${
+                    isDarkMode 
+                      ? 'border-gray-600 bg-gray-700 hover:border-purple-500 hover:bg-gray-650' 
+                      : 'border-gray-200 bg-white hover:border-purple-300 hover:bg-purple-50'
+                  } ${wizard.selectedSeccion?.id === seccion.id 
+                    ? (isDarkMode 
+                        ? 'border-purple-500 bg-purple-900/20' 
+                        : 'border-purple-400 bg-purple-50 shadow-md')
+                    : ''}`}
+                >
+                  <div className="flex items-center justify-between">
+                    {/* Información principal */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-4">
+                        {/* Icono de sección */}
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          isDarkMode 
+                            ? 'bg-gradient-to-br from-indigo-600 to-purple-700' 
+                            : 'bg-gradient-to-br from-indigo-100 to-purple-100'
+                        }`}>
+                          <Navigation className={`w-5 h-5 ${
+                            isDarkMode 
+                              ? 'text-purple-300' 
+                              : 'text-purple-600'
+                          }`} />
+                        </div>
+
+                        {/* Datos de la sección */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center space-x-3 mb-1">
+                            <h4 className={`font-bold text-lg ${
+                              isDarkMode 
+                                ? 'text-white group-hover:text-purple-300' 
+                                : 'text-gray-900 group-hover:text-purple-900'
+                            }`}>
+                              {seccion.seccion}
+                            </h4>
+                          </div>
+
+                          {/* Badge de estado */}
+                          <div className="mt-2">
+                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              seccion.activo 
+                                ? (isDarkMode 
+                                    ? 'bg-green-900 text-green-200' 
+                                    : 'bg-green-100 text-green-800') 
+                                : (isDarkMode 
+                                    ? 'bg-gray-600 text-gray-300' 
+                                    : 'bg-gray-100 text-gray-800')
+                            }`}>
+                              {seccion.activo ? 'Activa' : 'Inactiva'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Acción - lado derecho */}
+                    <div className="flex items-center space-x-3 ml-4">
+                      {wizard.selectedSeccion?.id === seccion.id && (
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center ${
+                          isDarkMode 
+                            ? 'bg-green-600' 
+                            : 'bg-green-500'
+                        }`}>
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <div className={`text-xs ${isDarkMode ? 'text-white' : 'text-gray-500'} text-xl font-bold`}>
+                        Seleccionar
+                      </div>
+                      <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${
+                        isDarkMode ? 'text-purple-400' : 'text-purple-500'
+                      }`} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Estado sin secciones */}
+        {!wizard.loadingSecciones && wizard.secciones.length === 0 && (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Navigation className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Sin secciones disponibles</h3>
+            <p className="text-gray-600 mb-6">
+              No se encontraron secciones activas en el sistema
+            </p>
+            <button
+              onClick={wizard.loadSecciones}
+              className="inline-flex items-center px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-colors font-medium"
+            >
+              <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+              Recargar secciones
+            </button>
+          </div>
+        )}
+      </div>
+      {/* Botones de navegación */}
+      <div className="flex justify-between items-center p-8 bg-gray-50 border-t border-gray-100">
+        <button
+          onClick={wizard.goBack}
+          className={`inline-flex items-center px-6 py-3 rounded-xl transition-colors font-medium ${
+            isDarkMode 
+              ? 'bg-gray-700 border border-gray-600 text-gray-300 hover:bg-gray-600' 
+              : 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Volver a compañías
+        </button>
+
+        <button
+          onClick={() => wizard.goToStep('upload')}
+          disabled={!wizard.selectedSeccion}
+          className={`inline-flex items-center px-8 py-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg ${
+            wizard.selectedSeccion
+              ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-500 hover:to-indigo-500' 
+              : 'bg-gray-300 text-gray-500'
+          }`}
+        >
+          Continuar
+          <ArrowRight className="w-5 h-5 ml-2" />
+        </button>
+      </div>
     </div>
   </div>
 );
@@ -1047,7 +1289,7 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
           }`}
         >
           <ArrowLeft className="w-5 h-5 mr-2" />
-          Volver a compañías
+          Volver a secciones
         </button>
 
         {wizard.uploadedFile && (
@@ -1256,72 +1498,12 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
   
 
     const renderTabContent = () => {
-      switch (activeTab) {
-case 'basicos':
+    switch (activeTab) {
+  case 'basicos':
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
       {/* Columna izquierda - Información del Cliente */}
       <div className="space-y-6">
-        {/* NUEVA SECCIÓN: Tipo de Operación */}
-        <div className={`rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-amber-900/20 border border-amber-800/50' 
-            : 'bg-gradient-to-r from-amber-50 to-orange-100'
-        }`}>
-          <h3 className={`text-lg font-medium flex items-center ${
-            isDarkMode 
-              ? 'text-amber-300' 
-              : 'text-amber-900'
-          } mb-4`}>
-            <Settings className="w-5 h-5 mr-2" />
-            Tipo de Operación
-          </h3>
-          
-          <div className="space-y-4">
-            <div>
-              <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-amber-300' 
-                  : 'text-amber-800'
-              } mb-2`}>Operación *</label>
-              <select
-                value={formData.operacion || 'EMISION'}
-                onChange={(e) => {
-                  const nuevaOperacion = e.target.value;
-                  setFormData(prev => {
-                    // Aplicar lógica automática
-                    const tramiteAuto = nuevaOperacion === 'EMISION' ? 'Nuevo' :
-                                      nuevaOperacion === 'RENOVACION' ? 'Renovacion' :
-                                      nuevaOperacion === 'ENDOSO' ? 'Endoso' : 'Cambio';
-                    
-                    const estadoAuto = nuevaOperacion === 'EMISION' ? 'VIG' :
-                                      nuevaOperacion === 'RENOVACION' ? 'VIG' :
-                                      nuevaOperacion === 'ENDOSO' ? 'END' : 'VIG';
-                    
-                    return {
-                      ...prev,
-                      operacion: nuevaOperacion,
-                      tramite: tramiteAuto,
-                      estadoPoliza: estadoAuto
-                    };
-                  });
-                }}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-amber-500 transition-all duration-200 shadow-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-amber-700/30 text-gray-100 focus:ring-amber-500/30' 
-                    : 'bg-white border-amber-200 focus:ring-amber-100'
-                }`}
-                required
-              >
-                <option value="EMISION">🆕 Emisión (Nueva Póliza)</option>
-                <option value="RENOVACION">🔄 Renovación</option>
-                <option value="ENDOSO">📝 Endoso</option>
-                <option value="CAMBIO">⚡ Cambio</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
         <div className={`space-y-6 rounded-2xl p-6 ${
           isDarkMode 
             ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
@@ -1396,32 +1578,7 @@ case 'basicos':
             </div>
 
             {/* CAMPOS AUTOMÁTICOS: Trámite y Tipo en la misma línea */}
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-blue-300' 
-                    : 'text-blue-800'
-                } mb-2`}>
-                  Trámite 
-                  <span className="text-xs text-gray-500 ml-1">(Auto)</span>
-                </label>
-                <select
-                  value={formData.tramite || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tramite: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                      : 'bg-white border-blue-200 focus:ring-blue-100'
-                  } ${formData.tramite ? 'bg-green-50' : ''}`}
-                >
-                  <option value="">Seleccionar trámite</option>
-                  <option value="Nuevo">Nuevo</option>
-                  <option value="Renovacion">Renovación</option>
-                  <option value="Cambio">Cambio</option>
-                  <option value="Endoso">Endoso</option>
-                </select>
-              </div>
+            <div className="grid grid-cols-2 gap-4">         
               <div>
                 <label className={`block text-sm font-bold ${
                   isDarkMode 
@@ -1443,121 +1600,8 @@ case 'basicos':
                 </select>
               </div>
             </div>
-
-            {/* CAMPO AUTOMÁTICO: Estado Póliza */}
-            <div>
-              <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
-              } mb-2`}>
-                Estado Póliza 
-                <span className="text-xs text-gray-500 ml-1">(Auto)</span>
-              </label>
-              <select
-                value={formData.estadoPoliza || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, estadoPoliza: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                    : 'bg-white border-blue-200 focus:ring-blue-100'
-                } ${formData.estadoPoliza ? 'bg-green-50' : ''}`}
-              >
-                <option value="">Seleccionar estado</option>
-                <option value="CAN">CAN (Cancelado)</option>
-                <option value="VIG">VIG (Vigente)</option>
-                <option value="END">END (Endoso)</option>
-                <option value="VEN">VEN (Vencida)</option>
-              </select>
-              
-              {/* Indicador visual del automatismo */}
-              {formData.operacion && (
-                <div className={`mt-2 text-xs ${
-                  isDarkMode ? 'text-blue-300' : 'text-blue-600'
-                } flex items-center`}>
-                  <CheckCircle className="w-3 h-3 mr-1" />
-                  Configurado automáticamente para {formData.operacion}
-                </div>
-              )}
-            </div>
           </div>
         </div>
-        
-        {/* NUEVA SECCIÓN: Alertas y Validación de Lógica */}
-        {formData.operacion && (
-          <div className={`rounded-2xl p-6 ${
-            isDarkMode 
-              ? 'bg-gradient-to-br from-gray-800 to-purple-900/20 border border-purple-800/50' 
-              : 'bg-gradient-to-r from-purple-50 to-purple-100'
-          }`}>
-            <h3 className={`text-lg font-medium flex items-center ${
-              isDarkMode 
-                ? 'text-purple-300' 
-                : 'text-purple-900'
-            } mb-4`}>
-              <AlertTriangle className="w-5 h-5 mr-2" />
-              Validación Automática
-            </h3>
-            
-            {/* Alertas de validación */}
-            <div className="space-y-3">
-              {/* Configuración correcta */}
-              {formData.operacion && formData.tramite && formData.estadoPoliza && (
-                <div className={`rounded-lg p-4 border ${
-                  isDarkMode 
-                    ? 'bg-green-900/20 border-green-800/50 text-green-300' 
-                    : 'bg-green-50 border-green-200 text-green-800'
-                }`}>
-                  <div className="flex items-start">
-                    <CheckCircle className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
-                    <div>
-                      <h4 className="font-medium mb-1">Configuración Automática Aplicada</h4>
-                      <p className="text-sm opacity-90">
-                        <strong>{formData.operacion}</strong> → 
-                        Trámite: <strong>{formData.tramite}</strong> → 
-                        Estado: <strong>{formData.estadoPoliza}</strong>
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Información sobre la lógica */}
-              <div className={`rounded-lg p-4 border ${
-                isDarkMode 
-                  ? 'bg-blue-900/20 border-blue-800/50 text-blue-300' 
-                  : 'bg-blue-50 border-blue-200 text-blue-800'
-              }`}>
-                <div className="flex items-start">
-                  <Info className="w-5 h-5 mr-3 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium mb-2">Lógica de Negocio</h4>
-                    <div className="text-sm space-y-1 opacity-90">
-                      <div>• <strong>EMISIÓN:</strong> Nuevas pólizas → "Nuevo" → "VIG"</div>
-                      <div>• <strong>RENOVACIÓN:</strong> Renovar → "Renovación" → "VIG"</div>
-                      <div>• <strong>ENDOSO:</strong> Modificar → "Endoso" → "END"</div>
-                      <div>• <strong>CAMBIO:</strong> Cambios → "Cambio" → "VIG"</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Tip sobre override manual */}
-              <div className={`rounded-lg p-3 border-dashed border-2 ${
-                isDarkMode 
-                  ? 'border-gray-600 text-gray-400' 
-                  : 'border-gray-300 text-gray-600'
-              }`}>
-                <div className="flex items-center">
-                  <Lightbulb className="w-4 h-4 mr-2 flex-shrink-0" />
-                  <p className="text-sm">
-                    <strong>Tip:</strong> Puedes modificar manualmente cualquier campo si la detección automática no es correcta.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Columna derecha - Datos de Contacto */}
@@ -1687,234 +1731,262 @@ case 'basicos':
 
 case 'poliza':
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Columna izquierda - Datos de la Póliza */}
-      <div className="space-y-6">
-        <div className={`rounded-2xl p-6 ${
+    <div className="space-y-8">
+      {/* SECCIÓN SUPERIOR: Datos de la Póliza - Distribuidos en grid */}
+      <div className={`rounded-2xl p-6 ${
+        isDarkMode 
+          ? 'bg-gradient-to-br from-gray-800 to-purple-900/20 border border-purple-800/50' 
+          : 'bg-gradient-to-r from-purple-50 to-purple-100'
+      }`}>
+        <h3 className={`text-xl font-bold flex items-center ${
           isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-purple-900/20 border border-purple-800/50' 
-            : 'bg-gradient-to-r from-purple-50 to-purple-100'
-        }`}>
-          <h3 className={`text-xl font-bold flex items-center ${
-            isDarkMode 
-              ? 'text-purple-300' 
-              : 'text-purple-900'
-          } mb-6`}>
-            <Hash className="w-6 h-6 mr-3" />
-            Datos de la Póliza
-          </h3>
+            ? 'text-purple-300' 
+            : 'text-purple-900'
+        } mb-6`}>
+          <Hash className="w-6 h-6 mr-3" />
+          Datos de la Póliza
+        </h3>
 
-          <div className="space-y-4">
-            <div>
-              <label className={`block text-sm font-bold ${
+        {/* Grid responsivo para distribuir los campos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          
+          {/* Número de Póliza */}
+          <div className="lg:col-span-1">
+            <label className={`block text-sm font-bold ${
+              isDarkMode 
+                ? 'text-purple-300' 
+                : 'text-purple-800'
+            } mb-2`}>Número de Póliza</label>
+            <input
+              type="text"
+              value={formData.numeroPoliza}
+              onChange={(e) => setFormData(prev => ({ ...prev, numeroPoliza: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-mono text-lg ${
                 isDarkMode 
-                  ? 'text-purple-300' 
-                  : 'text-purple-800'
-              } mb-2`}>Número de Póliza *</label>
+                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                  : 'bg-white border-purple-200 focus:ring-purple-100'
+              }`}
+              placeholder="Número de póliza"
+              required
+            />
+          </div>
+
+          {/* Certificado */}
+          <div className="lg:col-span-1">
+            <label className={`block text-sm font-bold ${
+              isDarkMode 
+                ? 'text-purple-300' 
+                : 'text-purple-800'
+            } mb-2`}>
+              Certificado
+            </label>
+            <input
+              type="text"
+              value={formData.certificado || wizard.extractedData?.datosVelneo?.datosPoliza?.certificado || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, certificado: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-mono ${
+                isDarkMode 
+                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                  : 'bg-white border-purple-200 focus:ring-purple-100'
+              } ${wizard.extractedData?.datosVelneo?.datosPoliza?.certificado ? 'bg-green-50 border-green-300' : ''}`}
+              placeholder="Número de certificado"
+            />
+          </div>
+
+          {/* Estado Póliza */}
+          <div className="lg:col-span-1">
+  <label className={`block text-sm font-bold ${
+    isDarkMode 
+      ? 'text-purple-300' 
+      : 'text-purple-800'
+  } mb-2`}>
+    Estado Póliza
+  </label>
+  
+  <input
+    type="text"
+    value={formData.estadoPoliza || ''}
+    onChange={(e) => setFormData(prev => ({ ...prev, estadoPoliza: e.target.value }))}
+    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-medium ${
+      isDarkMode 
+        ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+        : 'bg-white border-purple-200 focus:ring-purple-100'
+    } ${formData.operacion && getEstadoAutoFromOperacion(formData.operacion) === formData.estadoPoliza ? 'border-green-300 bg-green-50' : ''}`}
+    placeholder="Estado de la póliza (ej: VIG, END, VTO)"
+  />
+</div>
+
+          {/* Ramo (Sección) - Ocupa 2 columnas en pantallas grandes */}
+          <div className="lg:col-span-2">
+            <label className={`block text-sm font-bold ${
+              isDarkMode 
+                ? 'text-purple-300' 
+                : 'text-purple-800'
+            } mb-2`}>
+              Ramo (Sección)
+            </label>
+            
+            <div className="relative">
               <input
                 type="text"
-                value={formData.numeroPoliza}
-                onChange={(e) => setFormData(prev => ({ ...prev, numeroPoliza: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-mono text-lg ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                    : 'bg-white border-purple-200 focus:ring-purple-100'
-                }`}
-                placeholder="Número de póliza"
-                required
-              />
-            </div>
-
-            <div>
-              <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-purple-300' 
-                  : 'text-purple-800'
-              } mb-2`}>Ramo</label>
-              <select
-                value={formData.ramo}
+                value={formData.ramo || ''}
                 onChange={(e) => setFormData(prev => ({ ...prev, ramo: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                className={`w-full px-4 py-3 pr-12 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
                     ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
                     : 'bg-white border-purple-200 focus:ring-purple-100'
-                }`}
-              >
-                <option value="AUTOMOVILES">Automóviles</option>
-                <option value="MOTOCICLETAS">Motocicletas</option>
-                <option value="CAMIONES">Camiones</option>
-                <option value="OTROS">Otros</option>
-              </select>
-            </div>
+                } ${wizard.selectedSeccion?.seccion && formData.ramo === wizard.selectedSeccion?.seccion?.toUpperCase() ? 'border-green-300 bg-green-50' : ''}`}
+                placeholder="Nombre de la sección/ramo"
+              />    
+            </div> 
+          </div>
 
-            <div>
-              <label className={`text-sm font-bold mb-2 flex items-center ${
+          {/* Plan/Cobertura */}
+          <div className="lg:col-span-1">
+            <label className={`text-sm font-bold mb-2 flex items-center ${
+              isDarkMode 
+                ? 'text-purple-300' 
+                : 'text-purple-800'
+            }`}>
+              <Shield className="w-4 h-4 mr-2" />
+              Plan/Cobertura
+            </label>
+            <input
+              type="text"
+              value={formData.plan}
+              onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
                 isDarkMode 
-                  ? 'text-purple-300' 
-                  : 'text-purple-800'
-              }`}>
-                <Shield className="w-4 h-4 mr-2" />
-                Plan/Cobertura *
-              </label>
-              <input
-                type="text"
-                value={formData.plan}
-                onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                    : 'bg-white border-purple-200 focus:ring-purple-100'
-                }`}
-                placeholder="Ej: SEGURO GLOBAL"
-              />
-            </div>
+                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                  : 'bg-white border-purple-200 focus:ring-purple-100'
+              }`}
+              placeholder="Ej: SEGURO GLOBAL"
+            />
+          </div>
 
-            <div>
-              <label className={`block text-sm font-bold ${
+          {/* Corredor */}
+          <div className="lg:col-span-2">
+            <label className={`block text-sm font-bold ${
+              isDarkMode 
+                ? 'text-purple-300' 
+                : 'text-purple-800'
+            } mb-2`}>Corredor</label>
+            <input
+              type="text"
+              value={formData.corredor}
+              onChange={(e) => setFormData(prev => ({ ...prev, corredor: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
                 isDarkMode 
-                  ? 'text-purple-300' 
-                  : 'text-purple-800'
-              } mb-2`}>Corredor</label>
-              <input
-                type="text"
-                value={formData.corredor}
-                onChange={(e) => setFormData(prev => ({ ...prev, corredor: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                    : 'bg-white border-purple-200 focus:ring-purple-100'
-                }`}
-                placeholder="Nombre del corredor"
-              />
-            </div>
+                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                  : 'bg-white border-purple-200 focus:ring-purple-100'
+              }`}
+              placeholder="Nombre del corredor"
+            />
+          </div>
+          <div>
+            <label className={`block text-sm font-bold ${
+              isDarkMode 
+                ? 'text-purple-300' 
+                : 'text-purple-800'
+            } mb-2`}>
+              Trámite
+            </label>
+
+            <input
+              type="text"
+              value={formData.tramite || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, tramite: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-medium ${
+                isDarkMode 
+                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                  : 'bg-white border-purple-200 focus:ring-purple-100'
+              } ${formData.operacion && getTramiteAutoFromOperacion(formData.operacion) === formData.tramite ? 'border-green-300 bg-green-50' : ''}`}
+              placeholder="Tipo de trámite (ej: Nuevo, Renovacion, Endoso)"
+            />
           </div>
         </div>
       </div>
 
-      {/* Columna derecha - Vigencia y Certificación */}
-      <div className="space-y-6">
-        <div className={`rounded-2xl p-6 ${
+      {/* SECCIÓN INFERIOR: Vigencia y Compañía */}
+      <div className={`rounded-2xl p-6 ${
+        isDarkMode 
+          ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
+          : 'bg-gradient-to-r from-blue-50 to-indigo-100'
+      }`}>
+        <h3 className={`text-xl font-bold flex items-center ${
           isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
-            : 'bg-gradient-to-r from-blue-50 to-indigo-100'
-        }`}>
-          <h3 className={`text-xl font-bold flex items-center ${
-            isDarkMode 
-              ? 'text-blue-300' 
-              : 'text-blue-900'
-          } mb-6`}>
-            <Calendar className="w-6 h-6 mr-3" />
-            Vigencia y Certificación
-          </h3>
+            ? 'text-blue-300' 
+            : 'text-blue-900'
+        } mb-6`}>
+          <Calendar className="w-6 h-6 mr-3" />
+          Vigencia y Compañía
+        </h3>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-blue-300' 
-                    : 'text-blue-800'
-                } mb-2`}>Vigencia Desde *</label>
-                <input
-                  type="date"
-                  value={formData.vigenciaDesde}
-                  onChange={(e) => setFormData(prev => ({ ...prev, vigenciaDesde: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                      : 'bg-white border-blue-200 focus:ring-blue-100'
-                  }`}
-                  required
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-blue-300' 
-                    : 'text-blue-800'
-                } mb-2`}>Vigencia Hasta *</label>
-                <input
-                  type="date"
-                  value={formData.vigenciaHasta}
-                  onChange={(e) => setFormData(prev => ({ ...prev, vigenciaHasta: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                      : 'bg-white border-blue-200 focus:ring-blue-100'
-                  }`}
-                  required
-                />
-              </div>
-            </div>
-
-            {/* Información extraída */}
-            {wizard.extractedData?.datosVelneo?.datosPoliza && (
-              <div className={`rounded-xl p-4 ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border border-blue-700/30' 
-                  : 'bg-white border-2 border-blue-200'
-              }`}>
-                <h4 className={`font-bold mb-3 flex items-center ${
-                  isDarkMode 
-                    ? 'text-blue-300' 
-                    : 'text-blue-800'
-                }`}>
-                  <FileCheck className="w-5 h-5 mr-2" />
-                  Información Extraída
-                </h4>
-                <div className={`text-sm space-y-2 ${
-                  isDarkMode 
-                    ? 'text-blue-300' 
-                    : 'text-blue-700'
-                }`}>
-                  {wizard.extractedData.datosVelneo.datosPoliza.certificado && (
-                    <p>📄 Certificado: {wizard.extractedData.datosVelneo.datosPoliza.certificado}</p>
-                  )}
-                  {wizard.extractedData.datosVelneo.datosPoliza.endoso && (
-                    <p>📋 Endoso: {wizard.extractedData.datosVelneo.datosPoliza.endoso}</p>
-                  )}
-                  {wizard.extractedData.datosVelneo.datosPoliza.tipoMovimiento && (
-                    <p>🔄 Tipo: {wizard.extractedData.datosVelneo.datosPoliza.tipoMovimiento}</p>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Compañía seleccionada */}
-            <div className={`rounded-xl p-4 ${
+        {/* Grid para vigencia y compañía */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          
+          {/* Vigencia Desde */}
+          <div>
+            <label className={`block text-sm font-bold ${
               isDarkMode 
-                ? 'bg-gray-700/50 border border-gray-600' 
-                : 'bg-white border-2 border-gray-200'
-            }`}>
-              <label className={`text-sm font-bold mb-3 flex items-center ${
+                ? 'text-blue-300' 
+                : 'text-blue-800'
+            } mb-2`}>Vigencia Desde </label>
+            <input
+              type="date"
+              value={formData.vigenciaDesde}
+              onChange={(e) => setFormData(prev => ({ ...prev, vigenciaDesde: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
                 isDarkMode 
-                  ? 'text-gray-300' 
-                  : 'text-gray-800'
-              }`}>
-                <Building2 className="w-5 h-5 mr-2" />
-                Compañía de Seguros
-              </label>
-              <div className={`flex items-center space-x-3 p-3 rounded-lg ${
+                  ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                  : 'bg-white border-blue-200 focus:ring-blue-100'
+              }`}
+              required
+            />
+          </div>
+
+          {/* Vigencia Hasta */}
+          <div>
+            <label className={`block text-sm font-bold ${
+              isDarkMode 
+                ? 'text-blue-300' 
+                : 'text-blue-800'
+            } mb-2`}>Vigencia Hasta </label>
+            <input
+              type="date"
+              value={formData.vigenciaHasta}
+              onChange={(e) => setFormData(prev => ({ ...prev, vigenciaHasta: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
                 isDarkMode 
-                  ? 'bg-gray-600/50' 
-                  : 'bg-gray-50'
-              }`}>
-                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                  isDarkMode 
-                    ? 'bg-blue-600' 
-                    : 'bg-blue-500'
-                }`}>
-                  <Building2 className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <p className={`font-bold ${
-                    isDarkMode 
-                      ? 'text-gray-100' 
-                      : 'text-gray-900'
-                  }`}>{wizard.selectedCompany?.comnom || 'No seleccionada'}</p>
-                </div>
-              </div>
-            </div>
+                  ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                  : 'bg-white border-blue-200 focus:ring-blue-100'
+              }`}
+              required
+            />
+          </div>
+
+          {/* Compañía de Seguros */}
+          <div>
+            <label className={`block text-sm font-bold ${
+              isDarkMode 
+                ? 'text-blue-300' 
+                : 'text-blue-800'
+            } mb-2`}>
+              Compañía de Seguros 
+            </label>
+            <input
+              type="text"
+              value={wizard.selectedCompany?.comnom || formData.compania || ''}
+              onChange={(e) => setFormData(prev => ({ ...prev, compania: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
+                isDarkMode 
+                  ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                  : 'bg-white border-blue-200 focus:ring-blue-100'
+              } ${wizard.selectedCompany?.comnom ? 'bg-green-50' : ''}`}
+              placeholder="Nombre de la compañía"
+              readOnly={!!wizard.selectedCompany?.comnom}
+              required
+            />       
           </div>
         </div>
       </div>
@@ -2887,7 +2959,6 @@ case 'observaciones':
       </div>
     </div>
   );
-
         default:
           return null;
       }
@@ -3155,6 +3226,7 @@ case 'observaciones':
     switch (wizard.currentStep) {
       case 'cliente': return renderClienteStep();
       case 'company': return renderCompanyStep();
+      case 'operacion': return renderOperacionStep();
       case 'seccion': return renderSeccionStep();
       case 'upload': return renderUploadStep();
       case 'extract': return renderExtractStep();
@@ -3163,6 +3235,80 @@ case 'observaciones':
       default: return renderClienteStep();
     }
   };
+
+const getEstadoAutoFromOperacion = (operacion?: string): string => {
+  switch (operacion) {
+    case 'EMISION':
+      return 'VIG'; // Nueva póliza = Vigente
+    case 'RENOVACION':
+      return 'VIG'; // Renovación = Vigente
+    case 'ENDOSO':
+      return 'END'; // Endoso = Endosada
+    case 'CAMBIO':
+      return 'VIG'; // Cambio = Vigente
+    default:
+      return '';
+  }
+};
+
+// Función para obtener el nombre legible de la operación
+const getOperacionDisplayName = (operacion?: string): string => {
+  switch (operacion) {
+    case 'EMISION':
+      return 'EMISIÓN';
+    case 'RENOVACION':
+      return 'RENOVACIÓN';
+    case 'ENDOSO':
+      return 'ENDOSO';
+    case 'CAMBIO':
+      return 'CAMBIO';
+    default:
+      return operacion || '';
+  }
+};
+
+const getEstadoDisplayName = (estado?: string): string => {
+  switch (estado) {
+    case 'VIG':
+      return 'VIG (Vigente)';
+    case 'END':
+      return 'END (Endosada)';
+    case 'VTO':
+      return 'VTO (Vencida)';
+    case 'ANU':
+      return 'ANU (Anulada)';
+    case 'SUS':
+      return 'SUS (Suspendida)';
+    case 'REN':
+      return 'REN (Renovada)';
+    case 'CAN':
+      return 'CAN (Cancelada)';
+    default:
+      return estado || '';
+  }
+};
+
+const getTramiteAutoFromOperacion = (operacion?: string): string => {
+  switch (operacion) {
+    case 'EMISION':
+      return 'Nuevo';
+    case 'RENOVACION':
+      return 'Renovacion';
+    case 'ENDOSO':
+      return 'Endoso';
+    case 'CAMBIO':
+      return 'Cambio';
+    default:
+      return '';
+  }
+};
+
+  const getStepNumber = (step: any): number => {
+    const stepOrder = ['cliente', 'company', 'seccion', 'operacion', 'upload', 'extract', 'form', 'success'];
+    return stepOrder.indexOf(step) + 1;
+  };
+
+  const getTotalSteps = (): number => 8; // Actualizado de 7 a 8
 
   return (
     <div className={`min-h-screen ${getBgClass()}`}>

@@ -50,7 +50,7 @@ class SeccionService {
       const response = await apiService.get<Seccion>(`/secciones/${id}`);
       
       if (response.success && response.data) {
-        console.log('✅ SeccionService: Seccion found:', response.data.name);
+        console.log('✅ SeccionService: Seccion found:', response.data.seccion);
         return response.data;
       }
       
