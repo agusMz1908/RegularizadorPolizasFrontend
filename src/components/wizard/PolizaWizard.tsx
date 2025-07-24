@@ -8,7 +8,7 @@ import {
   Star, Zap, Sparkles, Award, Target,
   CheckCircle2,
   Lightbulb,
-  Info
+  Info, RefreshCw 
 } from 'lucide-react';
 import { usePolizaWizard } from '../../hooks/usePolizaWizard';
 import { useDarkMode } from '../../context/ThemeContext';
@@ -20,6 +20,8 @@ import {
   type TipoOperacion ,
   OPERACIONES_CONFIG
 } from '../../utils/operationLogic';
+import { useVelneoEntities } from '../../hooks/useVelneoEntities';
+import ScannedValuesPanel from '../wizard/ScannedValuesPanel';
 
 interface PolizaWizardProps {
   onComplete?: (result: any) => void;
@@ -68,13 +70,20 @@ interface PolizaFormData {
   tipo: string;
   estadoPoliza: string;
   certificado?: string;      
-  compania?: string;          
+  compania?: string;    
+  
+  combustibleId?: string | null;
+  categoriaId?: number | null;
+  destinoId?: number | null;
+  calidadId?: number | null;
 }
 
 const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => {
   const wizard = usePolizaWizard();
   const isDarkMode = useDarkMode();
   
+  const velneoEntities = useVelneoEntities();
+
   const [activeTab, setActiveTab] = useState('basicos');
   const [formData, setFormData] = useState<PolizaFormData>({
     numeroPoliza: '',
@@ -117,6 +126,11 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     tipo: '',
     estadoPoliza: '',
     operacion: '',
+
+    combustibleId: null,
+    categoriaId: null,
+    destinoId: null,
+    calidadId: null,
   });
 
   const [saving, setSaving] = useState(false);
@@ -194,7 +208,12 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
           ? convertirFecha(datos.condicionesPago.detalleCuotas.primeraCuota.fechaVencimiento)
           : '',
         primeraCuotaMonto: datos.condicionesPago?.detalleCuotas?.primeraCuota?.monto || 0,
-        observaciones: generarObservacionesAutomaticas(datos, operacionSeleccionada, configOperacion)
+        observaciones: generarObservacionesConLogica(
+        datos, 
+        operacionSeleccionada, 
+        configOperacion.tramite, 
+        configOperacion.estadoPoliza
+      )
       }));
     }
   }, [wizard.extractedData]);
@@ -274,90 +293,46 @@ const generarObservacionesConLogica = (
 ): string => {
   const observaciones = [];
   
-  observaciones.push('📄 Documento procesado automáticamente con Azure Document Intelligence');
-  observaciones.push(`🎯 Operación detectada: ${operacion} → Trámite: ${tramite}, Estado: ${estado}`);
-  observaciones.push(`📊 ${datos.metricas?.camposCompletos || 0} campos extraídos (${datos.porcentajeCompletitud || 0}% completitud)`);
-  
-  // Información sobre detección automática
+  // Información sobre detección automática del tipo de movimiento (si existe)
   if (datos.datosPoliza?.tipoMovimiento) {
-    observaciones.push(`🔍 Tipo de movimiento original: "${datos.datosPoliza.tipoMovimiento}"`);
-  }
-  
-  if (datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && datos.condicionesPago.detalleCuotas.cuotas?.length > 0) {
+    observaciones.push(`Tipo de movimiento original: "${datos.datosPoliza.tipoMovimiento}"`);
     observaciones.push('');
-    observaciones.push('💳 CRONOGRAMA DE CUOTAS DETECTADO:');
-    observaciones.push(`${datos.condicionesPago.formaPago} - ${datos.condicionesPago.cuotas} cuotas de ${datos.condicionesPago.moneda} ${datos.condicionesPago.valorCuota?.toLocaleString()}`);
   }
   
-  if (!datos.tieneDatosMinimos) {
+  // CRONOGRAMA DE CUOTAS - BUSCAR EN LA RUTA CORRECTA
+  const cuotasData = datos.datosVelneo?.condicionesPago || datos.condicionesPago;
+  
+  if (cuotasData?.detalleCuotas?.tieneCuotasDetalladas && cuotasData.detalleCuotas.cuotas?.length > 0) {
+    observaciones.push('CRONOGRAMA DE CUOTAS DETECTADO:');
+    observaciones.push(`${cuotasData.formaPago} - ${cuotasData.cuotas} cuotas de ${cuotasData.moneda} $${cuotasData.valorCuota?.toLocaleString()}`);
     observaciones.push('');
-    observaciones.push('⚠️ REQUIERE VERIFICACIÓN MANUAL - Datos incompletos');
+    
+    // Agregar cuotas individuales
+    cuotasData.detalleCuotas.cuotas.forEach((cuota: any) => {
+      if (cuota.fechaVencimiento) {
+        const fecha = new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY');
+        observaciones.push(`Cuota ${cuota.numero}: ${fecha} - $${cuota.monto?.toLocaleString()}`);
+      } else {
+        observaciones.push(`Cuota ${cuota.numero}: Sin fecha - $${cuota.monto?.toLocaleString()}`);
+      }
+    });
+    observaciones.push('');
   }
   
-  observaciones.push('');
-  observaciones.push(`🕒 Procesado el ${new Date().toLocaleString('es-UY')}`);
+  // Advertencias según el tipo de operación
+  if (operacion === 'RENOVACION') {
+    observaciones.push('RENOVACIÓN: Verificar que la póliza anterior esté por vencer');
+    observaciones.push('');
+  } else if (operacion === 'ENDOSO') {
+    observaciones.push('ENDOSO: Verificar cambios respecto a la póliza original');
+    observaciones.push('');
+  }
+  
+  // Timestamp de procesamiento
+  observaciones.push(`Procesado el ${new Date().toLocaleString('es-UY')}`);
   
   return observaciones.join('\n');
 };
-
-// ============================================
-// PASO 5: HANDLER PARA CAMBIOS MANUALES - Agregar después de generarObservacionesConLogica
-// ============================================
-
-const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
-  console.log('🔄 Cambiando operación manualmente a:', nuevaOperacion);
-  
-  const nuevoTramite = determinarTramite(nuevaOperacion);
-  const nuevoEstado = determinarEstadoPoliza(nuevaOperacion, formData.vigenciaHasta);
-  
-  setFormData(prev => ({
-    ...prev,
-    operacion: nuevaOperacion,
-    tramite: nuevoTramite,
-    estadoPoliza: nuevoEstado
-  }));
-};
-
-  const generarObservacionesAutomaticas = (datos: any, operacion: TipoOperacion, config: any): string => {
-    const observaciones = [];
-    
-    // Información de la operación
-    observaciones.push(`${config.icon} OPERACIÓN: ${operacion}`);
-    observaciones.push(`📋 Trámite: ${config.tramite} | Estado: ${config.estadoPoliza}`);
-    observaciones.push('');
-    
-    // Información del procesamiento
-    observaciones.push('📄 Documento procesado automáticamente con Azure Document Intelligence');
-    observaciones.push(`📊 ${datos.metricas?.camposCompletos || 0} campos extraídos (${datos.porcentajeCompletitud || 0}% completitud)`);
-    
-    // Cronograma de cuotas si existe
-    if (datos.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && datos.condicionesPago.detalleCuotas.cuotas?.length > 0) {
-      observaciones.push('');
-      observaciones.push('💳 CRONOGRAMA DE CUOTAS DETECTADO:');
-      observaciones.push(`${datos.condicionesPago.formaPago} - ${datos.condicionesPago.cuotas} cuotas de ${datos.condicionesPago.moneda} ${datos.condicionesPago.valorCuota?.toLocaleString()}`);
-      observaciones.push('');
-      datos.condicionesPago.detalleCuotas.cuotas.forEach((cuota: any) => {
-        const fecha = new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY');
-        observaciones.push(`Cuota ${cuota.numero}: ${fecha} - $${cuota.monto?.toLocaleString()}`);
-      });
-    }
-    
-    // Advertencias según el tipo de operación
-    if (operacion === 'RENOVACION') {
-      observaciones.push('');
-      observaciones.push('🔄 RENOVACIÓN: Verificar que la póliza anterior esté por vencer');
-    } else if (operacion === 'ENDOSO') {
-      observaciones.push('');
-      observaciones.push('📝 ENDOSO: Verificar cambios respecto a la póliza original');
-    }
-    
-    if (!datos.tieneDatosMinimos) {
-      observaciones.push('');
-      observaciones.push('⚠️ REQUIERE VERIFICACIÓN MANUAL - Datos incompletos');
-    }
-    
-    return observaciones.join('\n');
-  };
 
   // 1️⃣ PASO: Selección de Cliente - REDISEÑADO
   const renderClienteStep = () => (
@@ -1456,74 +1431,62 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
       { id: 'poliza', label: 'Póliza', icon: FileText, color: 'purple' },
       { id: 'vehiculo', label: 'Vehículo', icon: Car, color: 'green' },
       { id: 'pago', label: 'Condiciones Pago', icon: CreditCard, color: 'orange' },
-      { id: 'observaciones', label: 'Observaciones', icon: FileCheck, color: 'gray' }
+      { id: 'observaciones', label: 'Observaciones', icon: FileCheck, color: 'indigo' }
     ];
 
-     const getTabColorClasses = (color: string, isActive: boolean) => {
-    if (isDarkMode) {
-      if (isActive) {
-        const colors = {
-          blue: 'bg-blue-700 text-white shadow-lg border-blue-600',
-          purple: 'bg-purple-700 text-white shadow-lg border-purple-600',
-          green: 'bg-green-700 text-white shadow-lg border-green-600',
-          orange: 'bg-orange-700 text-white shadow-lg border-orange-600',
-          gray: 'bg-gray-700 text-white shadow-lg border-gray-600',
-        };
-        return colors[color as keyof typeof colors] || colors.gray;
-      } else {
-        return 'bg-gray-800 text-gray-300 hover:bg-gray-700 border-gray-700';
-      }
-    } else {
-      // Light mode (existing logic)
+    const getTabColorClasses = (color: string, isActive: boolean) => {
+  if (isDarkMode) {
+    if (isActive) {
       const colors = {
-        blue: isActive 
-          ? 'bg-blue-500 text-white shadow-lg' 
-          : 'bg-blue-50 text-blue-700 hover:bg-blue-100',
-        purple: isActive 
-          ? 'bg-purple-500 text-white shadow-lg' 
-          : 'bg-purple-50 text-purple-700 hover:bg-purple-100',
-        green: isActive 
-          ? 'bg-green-500 text-white shadow-lg' 
-          : 'bg-green-50 text-green-700 hover:bg-green-100',
-        orange: isActive 
-          ? 'bg-orange-500 text-white shadow-lg' 
-          : 'bg-orange-50 text-orange-700 hover:bg-orange-100',
-        gray: isActive 
-          ? 'bg-gray-500 text-white shadow-lg' 
-          : 'bg-gray-50 text-gray-700 hover:bg-gray-100',
+        blue: 'bg-blue-700 text-white shadow-lg border-blue-600',
+        purple: 'bg-purple-700 text-white shadow-lg border-purple-600',
+        green: 'bg-green-700 text-white shadow-lg border-green-600',
+        orange: 'bg-orange-700 text-white shadow-lg border-orange-600',
+        gray: 'bg-gray-700 text-white shadow-lg border-gray-600',
+        indigo: 'bg-indigo-700 text-white shadow-lg border-indigo-600', // 🆕 AGREGAR
       };
       return colors[color as keyof typeof colors] || colors.gray;
+    } else {
+      return 'bg-gray-800 text-gray-300 hover:bg-gray-700 border-gray-700';
     }
-  };
+  } else {
+    const colors = {
+      blue: isActive ? 'bg-blue-500 text-white shadow-lg' : 'bg-blue-50 text-blue-700 hover:bg-blue-100',
+      purple: isActive ? 'bg-purple-500 text-white shadow-lg' : 'bg-purple-50 text-purple-700 hover:bg-purple-100',
+      green: isActive ? 'bg-green-500 text-white shadow-lg' : 'bg-green-50 text-green-700 hover:bg-green-100',
+      orange: isActive ? 'bg-orange-500 text-white shadow-lg' : 'bg-orange-50 text-orange-700 hover:bg-orange-100',
+      gray: isActive ? 'bg-gray-500 text-white shadow-lg' : 'bg-gray-50 text-gray-700 hover:bg-gray-100',
+      indigo: isActive ? 'bg-indigo-500 text-white shadow-lg' : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100', // 🆕 AGREGAR
+    };
+    return colors[color as keyof typeof colors] || colors.gray;
+  }
+};
   
 
     const renderTabContent = () => {
     switch (activeTab) {
-  case 'basicos':
+case 'basicos':
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Columna izquierda - Información del Cliente */}
-      <div className="space-y-6">
-        <div className={`space-y-6 rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
-            : 'bg-gradient-to-r from-blue-50 to-blue-100'
-        }`}>
-          <h3 className={`text-lg font-medium flex items-center ${
-            isDarkMode 
-              ? 'text-blue-300' 
-              : 'text-blue-900'
-          } mb-4`}>
-            <User className="w-5 h-5 mr-2" />
-            Información del Cliente
-          </h3>
-          
-          <div className="space-y-4">
+    <div className="space-y-8">
+      {/* Formulario unificado de datos básicos */}
+      <div className={`rounded-2xl p-6 ${
+        isDarkMode 
+          ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
+          : 'bg-gradient-to-r from-blue-50 to-cyan-100'
+      }`}>
+        <h3 className={`text-xl font-bold flex items-center ${
+          isDarkMode ? 'text-blue-300' : 'text-blue-900'
+        } mb-6`}>
+          <User className="w-6 h-6 mr-3" />
+          Datos Básicos
+        </h3>
+
+        <div className="space-y-6">
+          {/* Primera fila: Corredor y Asegurado */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
               } mb-2`}>Corredor</label>
               <input
                 type="text"
@@ -1537,12 +1500,10 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
                 placeholder="Nombre del corredor"
               />
             </div>
-
+            
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
               } mb-2`}>Asegurado *</label>
               <input
                 type="text"
@@ -1557,12 +1518,13 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
                 required
               />
             </div>
+          </div>
 
+          {/* Segunda fila: Documento y Tipo */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
               } mb-2`}>Documento</label>
               <input
                 type="text"
@@ -1576,152 +1538,122 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
                 placeholder="CI o RUC"
               />
             </div>
-
-            {/* CAMPOS AUTOMÁTICOS: Trámite y Tipo en la misma línea */}
-            <div className="grid grid-cols-2 gap-4">         
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-blue-300' 
-                    : 'text-blue-800'
-                } mb-2`}>Tipo</label>
-                <select
-                  value={formData.tipo || ''}
-                  onChange={(e) => setFormData(prev => ({ ...prev, tipo: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                      : 'bg-white border-blue-200 focus:ring-blue-100'
-                  }`}
-                >
-                  <option value="">Seleccionar tipo</option>
-                  <option value="Lineas Personales">Líneas Personales</option>
-                  <option value="Lineas Comerciales">Líneas Comerciales</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Columna derecha - Datos de Contacto */}
-      <div className="space-y-6">
-        <div className={`rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-emerald-900/20 border border-emerald-800/50' 
-            : 'bg-gradient-to-r from-green-50 to-emerald-100'
-        }`}>
-          <h3 className={`text-xl font-bold flex items-center ${
-            isDarkMode 
-              ? 'text-emerald-300' 
-              : 'text-green-900'
-          } mb-6`}>
-            <MapPin className="w-6 h-6 mr-3" />
-            Datos de Contacto
-          </h3>
-
-          <div className="space-y-4">
+            
             <div>
               <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+              } mb-2`}>Tipo</label>
+              <select
+                value={formData.tipo}
+                onChange={(e) => setFormData(prev => ({ ...prev, tipo: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                    : 'bg-white border-blue-200 focus:ring-blue-100'
+                }`}
+              >
+                <option value="" disabled>Seleccionar tipo</option>
+                <option value="PERSONA">Persona</option>
+                <option value="EMPRESA">Empresa</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Tercera fila: Dirección completa */}
+          <div>
+            <label className={`block text-sm font-bold ${
+              isDarkMode ? 'text-blue-300' : 'text-blue-800'
+            } mb-2`}>Dirección</label>
+            <input
+              type="text"
+              value={formData.direccion}
+              onChange={(e) => setFormData(prev => ({ ...prev, direccion: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
                 isDarkMode 
-                  ? 'text-emerald-300' 
-                  : 'text-green-800'
-              } mb-2`}>Dirección</label>
+                  ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                  : 'bg-white border-blue-200 focus:ring-blue-100'
+              }`}
+              placeholder="Dirección completa"
+            />
+          </div>
+
+          {/* Cuarta fila: Departamento y Localidad */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+              } mb-2`}>Departamento</label>
               <input
                 type="text"
-                value={formData.direccion}
-                onChange={(e) => setFormData(prev => ({ ...prev, direccion: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
+                value={formData.departamento}
+                onChange={(e) => setFormData(prev => ({ ...prev, departamento: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
-                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                    : 'bg-white border-green-200 focus:ring-green-100'
+                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                    : 'bg-white border-blue-200 focus:ring-blue-100'
                 }`}
-                placeholder="Dirección completa"
+                placeholder="Departamento"
               />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-bold ${
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+              } mb-2`}>Localidad</label>
+              <input
+                type="text"
+                value={formData.localidad}
+                onChange={(e) => setFormData(prev => ({ ...prev, localidad: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                } mb-2`}>Departamento</label>
-                <input
-                  type="text"
-                  value={formData.departamento}
-                  onChange={(e) => setFormData(prev => ({ ...prev, departamento: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                  placeholder="Departamento"
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                } mb-2`}>Localidad</label>
-                <input
-                  type="text"
-                  value={formData.localidad}
-                  onChange={(e) => setFormData(prev => ({ ...prev, localidad: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                  placeholder="Localidad"
-                />
-              </div>
+                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                    : 'bg-white border-blue-200 focus:ring-blue-100'
+                }`}
+                placeholder="Localidad"
+              />
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`text-sm font-bold mb-2 flex items-center ${
+          {/* Quinta fila: Teléfono y Email */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+              } mb-2`}>
+                <Phone className="w-4 h-4 inline mr-1" />
+                Teléfono
+              </label>
+              <input
+                type="tel"
+                value={formData.telefono}
+                onChange={(e) => setFormData(prev => ({ ...prev, telefono: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                }`}>
-                  <Phone className="w-4 h-4 mr-2" />
-                  Teléfono
-                </label>
-                <input
-                  type="text"
-                  value={formData.telefono}
-                  onChange={(e) => setFormData(prev => ({ ...prev, telefono: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                  placeholder="Teléfono"
-                />
-              </div>
-              <div>
-                <label className={`text-sm font-bold mb-2 flex items-center ${
+                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                    : 'bg-white border-blue-200 focus:ring-blue-100'
+                }`}
+                placeholder="Número de teléfono"
+              />
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-blue-300' : 'text-blue-800'
+              } mb-2`}>
+                <Mail className="w-4 h-4 inline mr-1" />
+                Email
+              </label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                }`}>
-                  <Mail className="w-4 h-4 mr-2" />
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                  placeholder="Email"
-                />
-              </div>
+                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
+                    : 'bg-white border-blue-200 focus:ring-blue-100'
+                }`}
+                placeholder="Correo electrónico"
+              />
             </div>
           </div>
         </div>
@@ -1732,261 +1664,216 @@ const handleOperacionChange = (nuevaOperacion: TipoOperacion) => {
 case 'poliza':
   return (
     <div className="space-y-8">
-      {/* SECCIÓN SUPERIOR: Datos de la Póliza - Distribuidos en grid */}
+      {/* Formulario unificado de póliza */}
       <div className={`rounded-2xl p-6 ${
         isDarkMode 
           ? 'bg-gradient-to-br from-gray-800 to-purple-900/20 border border-purple-800/50' 
-          : 'bg-gradient-to-r from-purple-50 to-purple-100'
+          : 'bg-gradient-to-r from-purple-50 to-indigo-100'
       }`}>
         <h3 className={`text-xl font-bold flex items-center ${
-          isDarkMode 
-            ? 'text-purple-300' 
-            : 'text-purple-900'
+          isDarkMode ? 'text-purple-300' : 'text-purple-900'
         } mb-6`}>
-          <Hash className="w-6 h-6 mr-3" />
+          <FileText className="w-6 h-6 mr-3" />
           Datos de la Póliza
         </h3>
 
-        {/* Grid responsivo para distribuir los campos */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          
-          {/* Número de Póliza */}
-          <div className="lg:col-span-1">
-            <label className={`block text-sm font-bold ${
-              isDarkMode 
-                ? 'text-purple-300' 
-                : 'text-purple-800'
-            } mb-2`}>Número de Póliza</label>
-            <input
-              type="text"
-              value={formData.numeroPoliza}
-              onChange={(e) => setFormData(prev => ({ ...prev, numeroPoliza: e.target.value }))}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-mono text-lg ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                  : 'bg-white border-purple-200 focus:ring-purple-100'
-              }`}
-              placeholder="Número de póliza"
-              required
-            />
-          </div>
-
-          {/* Certificado */}
-          <div className="lg:col-span-1">
-            <label className={`block text-sm font-bold ${
-              isDarkMode 
-                ? 'text-purple-300' 
-                : 'text-purple-800'
-            } mb-2`}>
-              Certificado
-            </label>
-            <input
-              type="text"
-              value={formData.certificado || wizard.extractedData?.datosVelneo?.datosPoliza?.certificado || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, certificado: e.target.value }))}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-mono ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                  : 'bg-white border-purple-200 focus:ring-purple-100'
-              } ${wizard.extractedData?.datosVelneo?.datosPoliza?.certificado ? 'bg-green-50 border-green-300' : ''}`}
-              placeholder="Número de certificado"
-            />
-          </div>
-
-          {/* Estado Póliza */}
-          <div className="lg:col-span-1">
-  <label className={`block text-sm font-bold ${
-    isDarkMode 
-      ? 'text-purple-300' 
-      : 'text-purple-800'
-  } mb-2`}>
-    Estado Póliza
-  </label>
-  
-  <input
-    type="text"
-    value={formData.estadoPoliza || ''}
-    onChange={(e) => setFormData(prev => ({ ...prev, estadoPoliza: e.target.value }))}
-    className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-medium ${
-      isDarkMode 
-        ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-        : 'bg-white border-purple-200 focus:ring-purple-100'
-    } ${formData.operacion && getEstadoAutoFromOperacion(formData.operacion) === formData.estadoPoliza ? 'border-green-300 bg-green-50' : ''}`}
-    placeholder="Estado de la póliza (ej: VIG, END, VTO)"
-  />
-</div>
-
-          {/* Ramo (Sección) - Ocupa 2 columnas en pantallas grandes */}
-          <div className="lg:col-span-2">
-            <label className={`block text-sm font-bold ${
-              isDarkMode 
-                ? 'text-purple-300' 
-                : 'text-purple-800'
-            } mb-2`}>
-              Ramo (Sección)
-            </label>
-            
-            <div className="relative">
+        <div className="space-y-6">
+          {/* Primera fila: Número de Póliza, Certificado, Estado */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>Número de Póliza *</label>
               <input
                 type="text"
-                value={formData.ramo || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, ramo: e.target.value }))}
-                className={`w-full px-4 py-3 pr-12 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                value={formData.numeroPoliza}
+                onChange={(e) => setFormData(prev => ({ ...prev, numeroPoliza: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
                     ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
                     : 'bg-white border-purple-200 focus:ring-purple-100'
-                } ${wizard.selectedSeccion?.seccion && formData.ramo === wizard.selectedSeccion?.seccion?.toUpperCase() ? 'border-green-300 bg-green-50' : ''}`}
-                placeholder="Nombre de la sección/ramo"
-              />    
-            </div> 
+                }`}
+                placeholder="Número de póliza"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>Certificado</label>
+              <input
+                type="text"
+                value={formData.certificado || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, certificado: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                }`}
+                placeholder="Nº certificado"
+              />
+            </div>
+
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>Estado Póliza</label>
+              <input
+                type="text"
+                value={formData.estadoPoliza}
+                onChange={(e) => setFormData(prev => ({ ...prev, estadoPoliza: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                }`}
+                placeholder="Estado de la póliza"
+              />
+            </div>
           </div>
 
-          {/* Plan/Cobertura */}
-          <div className="lg:col-span-1">
-            <label className={`text-sm font-bold mb-2 flex items-center ${
-              isDarkMode 
-                ? 'text-purple-300' 
-                : 'text-purple-800'
-            }`}>
-              <Shield className="w-4 h-4 mr-2" />
-              Plan/Cobertura
-            </label>
-            <input
-              type="text"
-              value={formData.plan}
-              onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                  : 'bg-white border-purple-200 focus:ring-purple-100'
-              }`}
-              placeholder="Ej: SEGURO GLOBAL"
-            />
+          {/* Segunda fila: Ramo, Plan/Cobertura */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>Ramo (Sección)</label>
+              <input
+                type="text"
+                value={formData.ramo}
+                onChange={(e) => setFormData(prev => ({ ...prev, ramo: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                }`}
+                placeholder="Ramo de seguro"
+              />
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>Plan/Cobertura</label>
+              <input
+                type="text"
+                value={formData.plan}
+                onChange={(e) => setFormData(prev => ({ ...prev, plan: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                }`}
+                placeholder="Plan o tipo de cobertura"
+              />
+            </div>
           </div>
 
-          {/* Corredor */}
-          <div className="lg:col-span-2">
-            <label className={`block text-sm font-bold ${
-              isDarkMode 
-                ? 'text-purple-300' 
-                : 'text-purple-800'
-            } mb-2`}>Corredor</label>
-            <input
-              type="text"
-              value={formData.corredor}
-              onChange={(e) => setFormData(prev => ({ ...prev, corredor: e.target.value }))}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                  : 'bg-white border-purple-200 focus:ring-purple-100'
-              }`}
-              placeholder="Nombre del corredor"
-            />
-          </div>
-          <div>
-            <label className={`block text-sm font-bold ${
-              isDarkMode 
-                ? 'text-purple-300' 
-                : 'text-purple-800'
-            } mb-2`}>
-              Trámite
-            </label>
-
-            <input
-              type="text"
-              value={formData.tramite || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, tramite: e.target.value }))}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm font-medium ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                  : 'bg-white border-purple-200 focus:ring-purple-100'
-              } ${formData.operacion && getTramiteAutoFromOperacion(formData.operacion) === formData.tramite ? 'border-green-300 bg-green-50' : ''}`}
-              placeholder="Tipo de trámite (ej: Nuevo, Renovacion, Endoso)"
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* SECCIÓN INFERIOR: Vigencia y Compañía */}
-      <div className={`rounded-2xl p-6 ${
-        isDarkMode 
-          ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
-          : 'bg-gradient-to-r from-blue-50 to-indigo-100'
-      }`}>
-        <h3 className={`text-xl font-bold flex items-center ${
-          isDarkMode 
-            ? 'text-blue-300' 
-            : 'text-blue-900'
-        } mb-6`}>
-          <Calendar className="w-6 h-6 mr-3" />
-          Vigencia y Compañía
-        </h3>
-
-        {/* Grid para vigencia y compañía */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
-          {/* Vigencia Desde */}
-          <div>
-            <label className={`block text-sm font-bold ${
-              isDarkMode 
-                ? 'text-blue-300' 
-                : 'text-blue-800'
-            } mb-2`}>Vigencia Desde </label>
-            <input
-              type="date"
-              value={formData.vigenciaDesde}
-              onChange={(e) => setFormData(prev => ({ ...prev, vigenciaDesde: e.target.value }))}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                  : 'bg-white border-blue-200 focus:ring-blue-100'
-              }`}
-              required
-            />
+          {/* Tercera fila: Corredor y Trámite */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>Corredor</label>
+              <input
+                type="text"
+                value={formData.corredor}
+                onChange={(e) => setFormData(prev => ({ ...prev, corredor: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                }`}
+                placeholder="Corredor de seguros"
+              />
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>Trámite</label>
+              <select
+                value={formData.tramite}
+                onChange={(e) => setFormData(prev => ({ ...prev, tramite: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                }`}
+              >
+                <option value="" disabled>Seleccionar trámite</option>
+                <option value="Nuevo">Nuevo</option>
+                <option value="Renovación">Renovación</option>
+                <option value="Endoso">Endoso</option>
+                <option value="Anulación">Anulación</option>
+              </select>
+            </div>
           </div>
 
-          {/* Vigencia Hasta */}
-          <div>
-            <label className={`block text-sm font-bold ${
-              isDarkMode 
-                ? 'text-blue-300' 
-                : 'text-blue-800'
-            } mb-2`}>Vigencia Hasta </label>
-            <input
-              type="date"
-              value={formData.vigenciaHasta}
-              onChange={(e) => setFormData(prev => ({ ...prev, vigenciaHasta: e.target.value }))}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                  : 'bg-white border-blue-200 focus:ring-blue-100'
-              }`}
-              required
-            />
-          </div>
+          {/* Cuarta fila: Vigencias y Compañía */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Vigencia Desde *
+              </label>
+              <input
+                type="date"
+                value={formData.vigenciaDesde}
+                onChange={(e) => setFormData(prev => ({ ...prev, vigenciaDesde: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                }`}
+                required
+              />
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>
+                <Calendar className="w-4 h-4 inline mr-1" />
+                Vigencia Hasta *
+              </label>
+              <input
+                type="date"
+                value={formData.vigenciaHasta}
+                onChange={(e) => setFormData(prev => ({ ...prev, vigenciaHasta: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                }`}
+                required
+              />
+            </div>
 
-          {/* Compañía de Seguros */}
-          <div>
-            <label className={`block text-sm font-bold ${
-              isDarkMode 
-                ? 'text-blue-300' 
-                : 'text-blue-800'
-            } mb-2`}>
-              Compañía de Seguros 
-            </label>
-            <input
-              type="text"
-              value={wizard.selectedCompany?.comnom || formData.compania || ''}
-              onChange={(e) => setFormData(prev => ({ ...prev, compania: e.target.value }))}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                isDarkMode 
-                  ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                  : 'bg-white border-blue-200 focus:ring-blue-100'
-              } ${wizard.selectedCompany?.comnom ? 'bg-green-50' : ''}`}
-              placeholder="Nombre de la compañía"
-              readOnly={!!wizard.selectedCompany?.comnom}
-              required
-            />       
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-purple-300' : 'text-purple-800'
+              } mb-2`}>
+                <Building className="w-4 h-4 inline mr-1" />
+                Compañía de Seguros
+              </label>
+              <input
+                type="text"
+                value={formData.compania || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, compania: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                    : 'bg-white border-purple-200 focus:ring-purple-100'
+                } ${wizard.selectedCompany?.comnom ? 'bg-green-50' : ''}`}
+                placeholder="Nombre de la compañía"
+                readOnly={!!wizard.selectedCompany?.comnom}
+                required
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1995,310 +1882,402 @@ case 'poliza':
 
 case 'vehiculo':
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Columna izquierda */}
-      <div className="space-y-6">
-        <div className={`rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-emerald-900/20 border border-emerald-800/50' 
-            : 'bg-gradient-to-r from-green-50 to-emerald-100'
-        }`}>
+    <div className="space-y-8">
+      {/* Formulario unificado de vehículo */}
+      <div className={`rounded-2xl p-6 ${
+        isDarkMode 
+          ? 'bg-gradient-to-br from-gray-800 to-emerald-900/20 border border-emerald-800/50' 
+          : 'bg-gradient-to-r from-green-50 to-emerald-100'
+      }`}>
+        <div className="flex items-center justify-between mb-6">
           <h3 className={`text-xl font-bold flex items-center ${
-            isDarkMode 
-              ? 'text-emerald-300' 
-              : 'text-green-900'
-          } mb-6`}>
+            isDarkMode ? 'text-emerald-300' : 'text-green-900'
+          }`}>
             <Car className="w-6 h-6 mr-3" />
             Información del Vehículo
           </h3>
+          
+          {velneoEntities.hasErrors && (
+            <button
+              onClick={velneoEntities.refresh}
+              className={`flex items-center px-3 py-2 rounded-lg text-sm ${
+                isDarkMode 
+                  ? 'bg-red-900/30 text-red-300 hover:bg-red-900/50' 
+                  : 'bg-red-100 text-red-700 hover:bg-red-200'
+              } transition-colors`}
+            >
+              <RefreshCw className="w-4 h-4 mr-1" />
+              Reintentar
+            </button>
+          )}
+        </div>
 
-          <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Descripción completa del vehículo */}
+          <div>
+            <label className={`block text-sm font-bold ${
+              isDarkMode ? 'text-emerald-300' : 'text-green-800'
+            } mb-2`}>Vehículo (Descripción Completa)</label>
+            <input
+              type="text"
+              value={formData.vehiculo}
+              onChange={(e) => setFormData(prev => ({ ...prev, vehiculo: e.target.value }))}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
+                isDarkMode 
+                  ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                  : 'bg-white border-green-200 focus:ring-green-100'
+              }`}
+              placeholder="Descripción completa del vehículo"
+            />
+          </div>
+
+          {/* Primera fila: Marca, Modelo, Año, Matrícula */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-emerald-300' 
-                  : 'text-green-800'
-              } mb-2`}>Vehículo (Descripción Completa)</label>
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
+              } mb-2`}>Marca *</label>
               <input
                 type="text"
-                value={formData.vehiculo}
-                onChange={(e) => setFormData(prev => ({ ...prev, vehiculo: e.target.value }))}
+                value={formData.marca}
+                onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
                 className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
                     ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
                     : 'bg-white border-green-200 focus:ring-green-100'
                 }`}
-                placeholder="Descripción completa del vehículo"
+                placeholder="Marca del vehículo"
+                required
+              />
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
+              } mb-2`}>Modelo *</label>
+              <input
+                type="text"
+                value={formData.modelo}
+                onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                    : 'bg-white border-green-200 focus:ring-green-100'
+                }`}
+                placeholder="Modelo del vehículo"
+                required
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                } mb-2`}>Marca *</label>
-                <input
-                  type="text"
-                  value={formData.marca}
-                  onChange={(e) => setFormData(prev => ({ ...prev, marca: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                  placeholder="Marca"
-                  required
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                } mb-2`}>Modelo *</label>
-                <input
-                  type="text"
-                  value={formData.modelo}
-                  onChange={(e) => setFormData(prev => ({ ...prev, modelo: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                  placeholder="Modelo"
-                  required
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                } mb-2`}>Año</label>
-                <input
-                  type="text"
-                  value={formData.anio}
-                  onChange={(e) => setFormData(prev => ({ ...prev, anio: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                  placeholder="2024"
-                />
-              </div>
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                } mb-2`}>Matrícula</label>
-                <input
-                  type="text"
-                  value={formData.matricula}
-                  onChange={(e) => setFormData(prev => ({ ...prev, matricula: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm font-mono ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                  placeholder="ABC1234"
-                />
-              </div>
-            </div>
-
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-emerald-300' 
-                  : 'text-green-800'
-              } mb-2`}>Combustible</label>
-              <select
-                value={formData.combustible}
-                onChange={(e) => setFormData(prev => ({ ...prev, combustible: e.target.value }))}
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
+              } mb-2`}>Año</label>
+              <input
+                type="text"
+                value={formData.anio}
+                onChange={(e) => setFormData(prev => ({ ...prev, anio: e.target.value }))}
                 className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
                     ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
                     : 'bg-white border-green-200 focus:ring-green-100'
                 }`}
-              >
-                <option value="">Seleccionar combustible</option>
-                <option value="GASOLINA">Gasolina</option>
-                <option value="DIESEL">Diesel</option>
-                <option value="DIESEL (GAS-OIL)">Diesel (Gas-Oil)</option>
-                <option value="GAS">Gas</option>
-                <option value="ELECTRICO">Eléctrico</option>
-                <option value="HIBRIDO">Híbrido</option>
-              </select>
+                placeholder="2024"
+              />
             </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-bold ${
-                  isDarkMode 
-                    ? 'text-emerald-300' 
-                    : 'text-green-800'
-                } mb-2`}>Destino</label>
-                <select
-                  value={formData.destino}
-                  onChange={(e) => setFormData(prev => ({ ...prev, destino: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
-                      : 'bg-white border-green-200 focus:ring-green-100'
-                  }`}
-                >
-                  <option value="">Seleccionar destino</option>
-                  <option value="PARTICULAR">Particular</option>
-                  <option value="COMERCIAL">Comercial</option>
-                  <option value="TRANSPORTE">Transporte</option>
-                  <option value="CARGA">Carga</option>
-                  <option value="PUBLICO">Público</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Columna derecha */}
-      <div className="space-y-6">
-        <div className={`rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
-            : 'bg-gradient-to-r from-blue-50 to-indigo-100'
-        }`}>
-          <h3 className={`text-xl font-bold flex items-center ${
-            isDarkMode 
-              ? 'text-blue-300' 
-              : 'text-blue-900'
-          } mb-6`}>
-            <Settings className="w-6 h-6 mr-3" />
-            Especificaciones Técnicas
-          </h3>
-
-          <div className="space-y-4">
+            
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
+              } mb-2`}>Matrícula</label>
+              <input
+                type="text"
+                value={formData.matricula}
+                onChange={(e) => setFormData(prev => ({ ...prev, matricula: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm font-mono ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                    : 'bg-white border-green-200 focus:ring-green-100'
+                }`}
+                placeholder="ABC1234"
+              />
+            </div>
+          </div>
+
+          {/* Segunda fila: Motor, Chasis */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
               } mb-2`}>Motor</label>
               <input
                 type="text"
                 value={formData.motor}
                 onChange={(e) => setFormData(prev => ({ ...prev, motor: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm font-mono ${
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm font-mono ${
                   isDarkMode 
-                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                    : 'bg-white border-blue-200 focus:ring-blue-100'
+                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                    : 'bg-white border-green-200 focus:ring-green-100'
                 }`}
                 placeholder="Número de motor"
               />
             </div>
-
+            
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
               } mb-2`}>Chasis</label>
               <input
                 type="text"
                 value={formData.chasis}
                 onChange={(e) => setFormData(prev => ({ ...prev, chasis: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm font-mono ${
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm font-mono ${
                   isDarkMode 
-                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                    : 'bg-white border-blue-200 focus:ring-blue-100'
+                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                    : 'bg-white border-green-200 focus:ring-green-100'
                 }`}
                 placeholder="Número de chasis"
               />
             </div>
-            <div>
-              <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
-              } mb-2`}>Categoría</label>
-              <input
-                type="text"
-                value={formData.categoria}
-                onChange={(e) => setFormData(prev => ({ ...prev, categoria: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                    : 'bg-white border-blue-200 focus:ring-blue-100'
-                }`}
-                placeholder="Categoría del vehículo"
-              />
-            </div>
+          </div>
 
+          {/* Tercera fila: Combos de Velneo */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Combustible */}
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
-              } mb-2`}>Calidad</label>
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
+              } mb-2`}>
+                Combustible
+                {velneoEntities.loading.combustibles && <Loader2 className="w-4 h-4 ml-2 inline animate-spin" />}
+              </label>
+              
               <select
-                value={formData.calidad}
-                onChange={(e) => setFormData(prev => ({ ...prev, calidad: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
+                value={formData.combustibleId || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, combustibleId: e.target.value || null }))}
+                disabled={velneoEntities.loading.combustibles}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
-                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                    : 'bg-white border-blue-200 focus:ring-blue-100'
+                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                    : 'bg-white border-green-200 focus:ring-green-100'
+                } ${velneoEntities.loading.combustibles ? 'opacity-50 cursor-not-allowed' : ''} ${
+                  velneoEntities.errors.combustibles ? 'border-red-500' : ''
                 }`}
               >
-                <option value="">Seleccionar calidad</option>
-                <option value="NUEVO">Nuevo</option>
-                <option value="USADO">Usado</option>
-                <option value="EXCELENTE">Excelente</option>
-                <option value="BUENO">Bueno</option>
-                <option value="REGULAR">Regular</option>
+                <option value="" disabled>
+                  {velneoEntities.loading.combustibles ? 'Cargando...' : 'Seleccionar combustible'}
+                </option>
+                {!velneoEntities.loading.combustibles && velneoEntities.combustibles.map(option => (
+                  <option key={option.id} value={option.id}>
+                    {option.name}
+                  </option>
+                ))}
               </select>
+              
+              {velneoEntities.errors.combustibles && (
+                <p className="text-red-500 text-sm mt-1 flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  {velneoEntities.errors.combustibles}
+                </p>
+              )}
+            </div>
+
+            {/* Destino */}
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
+              } mb-2`}>
+                Destino
+                {velneoEntities.loading.destinos && <Loader2 className="w-4 h-4 ml-2 inline animate-spin" />}
+              </label>
+              
+              <select
+                value={formData.destinoId || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, destinoId: e.target.value ? Number(e.target.value) : null }))}
+                disabled={velneoEntities.loading.destinos}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                    : 'bg-white border-green-200 focus:ring-green-100'
+                } ${velneoEntities.loading.destinos ? 'opacity-50 cursor-not-allowed' : ''} ${
+                  velneoEntities.errors.destinos ? 'border-red-500' : ''
+                }`}
+              >
+                <option value="" disabled>
+                  {velneoEntities.loading.destinos ? 'Cargando...' : 'Seleccionar destino'}
+                </option>
+                {!velneoEntities.loading.destinos && velneoEntities.destinos.map(option => (
+                  <option key={option.id} value={option.id}>
+                    {`${option.desnom} (${option.descod})`}
+                  </option>
+                ))}
+              </select>
+              
+              {velneoEntities.errors.destinos && (
+                <p className="text-red-500 text-sm mt-1 flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  {velneoEntities.errors.destinos}
+                </p>
+              )}
+            </div>
+
+            {/* Categoría */}
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
+              } mb-2`}>
+                Categoría
+                {velneoEntities.loading.categorias && <Loader2 className="w-4 h-4 ml-2 inline animate-spin" />}
+              </label>
+              
+              <select
+                value={formData.categoriaId || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, destinoId: e.target.value ? Number(e.target.value) : null }))}
+                disabled={velneoEntities.loading.categorias}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                    : 'bg-white border-green-200 focus:ring-green-100'
+                } ${velneoEntities.loading.categorias ? 'opacity-50 cursor-not-allowed' : ''} ${
+                  velneoEntities.errors.categorias ? 'border-red-500' : ''
+                }`}
+              >
+                <option value="" disabled>
+                  {velneoEntities.loading.categorias ? 'Cargando...' : 'Seleccionar categoría'}
+                </option>
+                {!velneoEntities.loading.categorias && velneoEntities.categorias.map(option => (
+                  <option key={option.id} value={option.id}>
+                    {`${option.catdsc} (${option.catcod})`}
+                  </option>
+                ))}
+              </select>
+              
+              {velneoEntities.errors.categorias && (
+                <p className="text-red-500 text-sm mt-1 flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  {velneoEntities.errors.categorias}
+                </p>
+              )}
+            </div>
+
+            {/* Calidad */}
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-emerald-300' : 'text-green-800'
+              } mb-2`}>
+                Calidad *
+                {velneoEntities.loading.calidades && <Loader2 className="w-4 h-4 ml-2 inline animate-spin" />}
+              </label>
+              
+              <select
+                value={formData.calidadId || ''}
+                onChange={(e) => setFormData(prev => ({ ...prev, calidadId: e.target.value ? Number(e.target.value) : null }))}
+                disabled={velneoEntities.loading.calidades}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-green-500 transition-all duration-200 shadow-sm ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-emerald-700/30 text-gray-100 focus:ring-green-500/30' 
+                    : 'bg-white border-green-200 focus:ring-green-100'
+                } ${velneoEntities.loading.calidades ? 'opacity-50 cursor-not-allowed' : ''} ${
+                  velneoEntities.errors.calidades ? 'border-red-500' : ''
+                }`}
+                required
+              >
+                <option value="" disabled>
+                  {velneoEntities.loading.calidades ? 'Cargando...' : 'Seleccionar calidad'}
+                </option>
+                {!velneoEntities.loading.calidades && velneoEntities.calidades.map(option => (
+                  <option key={option.id} value={option.id}>
+                    {option.caldsc || option.calcod}
+                  </option>
+                ))}
+              </select>
+              
+              {velneoEntities.errors.calidades && (
+                <p className="text-red-500 text-sm mt-1 flex items-center">
+                  <AlertTriangle className="w-4 h-4 mr-1" />
+                  {velneoEntities.errors.calidades}
+                </p>
+              )}
             </div>
           </div>
         </div>
       </div>
+
+      {/* Panel de valores escaneados - ANCHO COMPLETO */}
+      <ScannedValuesPanel 
+        scannedData={wizard.extractedData?.datosVelneo}
+        isDarkMode={isDarkMode}
+      />
+
+      {/* Indicador de carga - solo cuando está cargando */}
+      {!velneoEntities.isAllLoaded && (
+        <div className={`rounded-xl p-4 ${
+          isDarkMode 
+            ? 'bg-blue-900/20 border border-blue-800/30' 
+            : 'bg-blue-50 border border-blue-200'
+        }`}>
+          <div className="flex items-center">
+            <Loader2 className="w-5 h-5 mr-2 animate-spin text-blue-500" />
+            <span className={`text-sm ${isDarkMode ? 'text-blue-300' : 'text-blue-700'}`}>
+              Cargando opciones desde Velneo...
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 
+
 case 'pago':
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-      {/* Columna izquierda */}
-      <div className="space-y-6">
-        <div className={`rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-orange-900/20 border border-orange-800/50' 
-            : 'bg-gradient-to-r from-orange-50 to-yellow-100'
-        }`}>
-          <h3 className={`text-xl font-bold flex items-center ${
-            isDarkMode 
-              ? 'text-orange-300' 
-              : 'text-orange-900'
-          } mb-6`}>
-            <DollarSign className="w-6 h-6 mr-3" />
-            Importes y Valores
-          </h3>
+    <div className="space-y-8">
+      {/* Formulario unificado de condiciones de pago */}
+      <div className={`rounded-2xl p-6 ${
+        isDarkMode 
+          ? 'bg-gradient-to-br from-gray-800 to-orange-900/20 border border-orange-800/50' 
+          : 'bg-gradient-to-r from-orange-50 to-yellow-100'
+      }`}>
+        <h3 className={`text-xl font-bold flex items-center ${
+          isDarkMode ? 'text-orange-300' : 'text-orange-900'
+        } mb-6`}>
+          <DollarSign className="w-6 h-6 mr-3" />
+          Condiciones de Pago
+        </h3>
 
-          <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Primera fila: Importes principales */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-orange-300' 
-                  : 'text-orange-800'
+                isDarkMode ? 'text-orange-300' : 'text-orange-800'
+              } mb-2`}>Prima *</label>
+              <div className="relative">
+                <span className={`absolute left-4 top-3 font-bold text-lg ${
+                  isDarkMode ? 'text-orange-400' : 'text-orange-600'
+                }`}>$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={formData.prima}
+                  onChange={(e) => setFormData(prev => ({ ...prev, prima: parseFloat(e.target.value) || 0 }))}
+                  className={`w-full pl-8 pr-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-orange-500 transition-all duration-200 shadow-sm text-lg font-bold ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-orange-700/30 text-gray-100 focus:ring-orange-500/30' 
+                      : 'bg-white border-orange-200 focus:ring-orange-100'
+                  }`}
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-orange-300' : 'text-orange-800'
               } mb-2`}>Prima Comercial</label>
               <div className="relative">
                 <span className={`absolute left-4 top-3 font-bold text-lg ${
-                  isDarkMode 
-                    ? 'text-orange-400' 
-                    : 'text-orange-600'
+                  isDarkMode ? 'text-orange-400' : 'text-orange-600'
                 }`}>$</span>
                 <input
                   type="number"
@@ -2317,15 +2296,11 @@ case 'pago':
 
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-orange-300' 
-                  : 'text-orange-800'
+                isDarkMode ? 'text-orange-300' : 'text-orange-800'
               } mb-2`}>Premio Total</label>
               <div className="relative">
                 <span className={`absolute left-4 top-3 font-bold text-lg ${
-                  isDarkMode 
-                    ? 'text-orange-400' 
-                    : 'text-orange-600'
+                  isDarkMode ? 'text-orange-400' : 'text-orange-600'
                 }`}>$</span>
                 <input
                   type="number"
@@ -2341,60 +2316,79 @@ case 'pago':
                 />
               </div>
             </div>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={`block text-sm font-bold ${
+          {/* Segunda fila: Forma de pago, Moneda, Cantidad de cuotas */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-orange-300' : 'text-orange-800'
+              } mb-2`}>
+                <CreditCard className="w-4 h-4 inline mr-1" />
+                Forma de Pago
+              </label>
+              <input
+                type="text"
+                value={formData.formaPago}
+                onChange={(e) => setFormData(prev => ({ ...prev, formaPago: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-orange-500 transition-all duration-200 shadow-sm ${
                   isDarkMode 
-                    ? 'text-orange-300' 
-                    : 'text-orange-800'
-                } mb-2`}>Moneda</label>
-                <select
-                  value={formData.moneda}
-                  onChange={(e) => setFormData(prev => ({ ...prev, moneda: e.target.value }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-orange-500 transition-all duration-200 shadow-sm font-bold ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-orange-700/30 text-gray-100 focus:ring-orange-500/30' 
-                      : 'bg-white border-orange-200 focus:ring-orange-100'
-                  }`}
-                >
-                  <option value="UYU">🇺🇾 Peso Uruguayo (UYU)</option>
-                  <option value="USD">🇺🇸 Dólar Americano (USD)</option>
-                  <option value="UI">📊 Unidades Indexadas (UI)</option>
-                </select>
-              </div>
-              <div>
-                <label className={`block text-sm font-bold ${
+                    ? 'bg-gray-700/50 border-orange-700/30 text-gray-100 focus:ring-orange-500/30' 
+                    : 'bg-white border-orange-200 focus:ring-orange-100'
+                }`}
+                placeholder="Ej: TARJETA DE CRÉDITO"
+              />
+            </div>
+            
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-orange-300' : 'text-orange-800'
+              } mb-2`}>Moneda</label>
+              <select
+                value={formData.moneda}
+                onChange={(e) => setFormData(prev => ({ ...prev, moneda: e.target.value }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-orange-500 transition-all duration-200 shadow-sm font-bold ${
                   isDarkMode 
-                    ? 'text-orange-300' 
-                    : 'text-orange-800'
-                } mb-2`}>Cantidad de Cuotas</label>
-                <input
-                  type="number"
-                  min="1"
-                  max="24"
-                  value={formData.cantidadCuotas}
-                  onChange={(e) => setFormData(prev => ({ ...prev, cantidadCuotas: parseInt(e.target.value) || 1 }))}
-                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-orange-500 transition-all duration-200 shadow-sm text-center font-bold text-lg ${
-                    isDarkMode 
-                      ? 'bg-gray-700/50 border-orange-700/30 text-gray-100 focus:ring-orange-500/30' 
-                      : 'bg-white border-orange-200 focus:ring-orange-100'
-                  }`}
-                />
-              </div>
+                    ? 'bg-gray-700/50 border-orange-700/30 text-gray-100 focus:ring-orange-500/30' 
+                    : 'bg-white border-orange-200 focus:ring-orange-100'
+                }`}
+              >
+                <option value="" disabled>Seleccionar moneda</option>
+                <option value="UYU">🇺🇾 Peso Uruguayo (UYU)</option>
+                <option value="USD">🇺🇸 Dólar Americano (USD)</option>
+                <option value="UI">📊 Unidades Indexadas (UI)</option>
+              </select>
             </div>
 
             <div>
               <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-orange-300' 
-                  : 'text-orange-800'
+                isDarkMode ? 'text-orange-300' : 'text-orange-800'
+              } mb-2`}>Cantidad de Cuotas</label>
+              <input
+                type="number"
+                min="1"
+                max="24"
+                value={formData.cantidadCuotas}
+                onChange={(e) => setFormData(prev => ({ ...prev, cantidadCuotas: parseInt(e.target.value) || 1 }))}
+                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-orange-500 transition-all duration-200 shadow-sm text-center font-bold text-lg ${
+                  isDarkMode 
+                    ? 'bg-gray-700/50 border-orange-700/30 text-gray-100 focus:ring-orange-500/30' 
+                    : 'bg-white border-orange-200 focus:ring-orange-100'
+                }`}
+                placeholder="1"
+              />
+            </div>
+          </div>
+
+          {/* Tercera fila: Valor por cuota */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className={`block text-sm font-bold ${
+                isDarkMode ? 'text-orange-300' : 'text-orange-800'
               } mb-2`}>Valor por Cuota</label>
               <div className="relative">
                 <span className={`absolute left-4 top-3 font-bold text-lg ${
-                  isDarkMode 
-                    ? 'text-orange-400' 
-                    : 'text-orange-600'
+                  isDarkMode ? 'text-orange-400' : 'text-orange-600'
                 }`}>$</span>
                 <input
                   type="number"
@@ -2410,103 +2404,61 @@ case 'pago':
                 />
               </div>
             </div>
+            
+            {/* Espacios vacíos para mantener la grilla */}
+            <div></div>
+            <div></div>
           </div>
-        </div>
-      </div>
 
-      {/* Columna derecha */}
-      <div className="space-y-6">
-        <div className={`rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
-            : 'bg-gradient-to-r from-blue-50 to-indigo-100'
-        }`}>
-          <h3 className={`text-xl font-bold flex items-center ${
+          {/* Card especial para Primera Cuota */}
+          <div className={`rounded-xl p-4 ${
             isDarkMode 
-              ? 'text-blue-300' 
-              : 'text-blue-900'
-          } mb-6`}>
-            <CreditCard className="w-6 h-6 mr-3" />
-            Condiciones de Pago
-          </h3>
-
-          <div className="space-y-4">
-            <div>
-              <label className={`block text-sm font-bold ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
-              } mb-2`}>Forma de Pago</label>
-              <input
-                type="text"
-                value={formData.formaPago}
-                onChange={(e) => setFormData(prev => ({ ...prev, formaPago: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 shadow-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                    : 'bg-white border-blue-200 focus:ring-blue-100'
-                }`}
-                placeholder="Ej: TARJETA DE CRÉDITO"
-              />
-            </div>
-
-            {/* Primera Cuota - Card especial */}
-            <div className={`rounded-xl p-4 ${
-              isDarkMode 
-                ? 'bg-gray-700/50 border border-blue-700/30' 
-                : 'bg-white border-2 border-blue-200'
+              ? 'bg-gray-700/50 border border-orange-700/30' 
+              : 'bg-white border-2 border-orange-200'
+          }`}>
+            <h4 className={`font-bold mb-4 flex items-center ${
+              isDarkMode ? 'text-orange-300' : 'text-orange-800'
             }`}>
-              <h4 className={`font-bold mb-4 flex items-center ${
-                isDarkMode 
-                  ? 'text-blue-300' 
-                  : 'text-blue-800'
-              }`}>
-                <Calendar className="w-5 h-5 mr-2" />
-                Primera Cuota
-              </h4>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={`block text-sm font-bold ${
+              <Calendar className="w-5 h-5 mr-2" />
+              Primera Cuota
+            </h4>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={`block text-sm font-bold ${
+                  isDarkMode ? 'text-orange-300' : 'text-orange-700'
+                } mb-2`}>Fecha de Vencimiento</label>
+                <input
+                  type="date"
+                  value={formData.primeraCuotaFecha}
+                  onChange={(e) => setFormData(prev => ({ ...prev, primeraCuotaFecha: e.target.value }))}
+                  className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 focus:border-orange-500 ${
                     isDarkMode 
-                      ? 'text-blue-300' 
-                      : 'text-blue-700'
-                  } mb-2`}>Fecha de Vencimiento</label>
+                      ? 'bg-gray-700/50 border-orange-700/30 text-gray-100 focus:ring-orange-500/30' 
+                      : 'bg-white border-orange-300 focus:ring-orange-100'
+                  }`}
+                />
+              </div>
+              <div>
+                <label className={`block text-sm font-bold ${
+                  isDarkMode ? 'text-orange-300' : 'text-orange-700'
+                } mb-2`}>Monto</label>
+                <div className="relative">
+                  <span className={`absolute left-3 top-2 font-bold ${
+                    isDarkMode ? 'text-orange-400' : 'text-orange-500'
+                  }`}>$</span>
                   <input
-                    type="date"
-                    value={formData.primeraCuotaFecha}
-                    onChange={(e) => setFormData(prev => ({ ...prev, primeraCuotaFecha: e.target.value }))}
-                    className={`w-full px-3 py-2 border-2 rounded-lg focus:ring-2 focus:border-blue-500 ${
+                    type="number"
+                    step="0.01"
+                    value={formData.primeraCuotaMonto}
+                    onChange={(e) => setFormData(prev => ({ ...prev, primeraCuotaMonto: parseFloat(e.target.value) || 0 }))}
+                    className={`w-full pl-8 pr-3 py-2 border-2 rounded-lg focus:ring-2 focus:border-orange-500 font-bold ${
                       isDarkMode 
-                        ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                        : 'bg-white border-blue-300 focus:ring-blue-100'
+                        ? 'bg-gray-700/50 border-orange-700/30 text-gray-100 focus:ring-orange-500/30' 
+                        : 'bg-white border-orange-300 focus:ring-orange-100'
                     }`}
+                    placeholder="0.00"
                   />
-                </div>
-                <div>
-                  <label className={`block text-sm font-bold ${
-                    isDarkMode 
-                      ? 'text-blue-300' 
-                      : 'text-blue-700'
-                  } mb-2`}>Monto</label>
-                  <div className="relative">
-                    <span className={`absolute left-3 top-2 font-bold ${
-                      isDarkMode 
-                        ? 'text-blue-400' 
-                        : 'text-blue-500'
-                    }`}>$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={formData.primeraCuotaMonto}
-                      onChange={(e) => setFormData(prev => ({ ...prev, primeraCuotaMonto: parseFloat(e.target.value) || 0 }))}
-                      className={`w-full pl-8 pr-3 py-2 border-2 rounded-lg focus:ring-2 focus:border-blue-500 font-bold ${
-                        isDarkMode 
-                          ? 'bg-gray-700/50 border-blue-700/30 text-gray-100 focus:ring-blue-500/30' 
-                          : 'bg-white border-blue-300 focus:ring-blue-100'
-                      }`}
-                    />
-                  </div>
                 </div>
               </div>
             </div>
@@ -2519,392 +2471,41 @@ case 'pago':
 case 'observaciones':
   return (
     <div className="space-y-8">
-      {/* Contenedor principal de Observaciones */}
-      <div className={`rounded-2xl p-8 ${
+      {/* Formulario unificado de observaciones */}
+      <div className={`rounded-2xl p-6 ${
         isDarkMode 
-          ? 'bg-gradient-to-br from-gray-800 to-slate-900/50 border border-gray-700' 
-          : 'bg-gradient-to-r from-gray-50 to-slate-100'
+          ? 'bg-gradient-to-br from-gray-800 to-indigo-900/20 border border-indigo-800/50' 
+          : 'bg-gradient-to-r from-indigo-50 to-purple-100'
       }`}>
-        <h3 className={`text-2xl font-bold flex items-center ${
-          isDarkMode 
-            ? 'text-gray-100' 
-            : 'text-gray-900'
+        <h3 className={`text-xl font-bold flex items-center ${
+          isDarkMode ? 'text-indigo-300' : 'text-indigo-900'
         } mb-6`}>
-          <FileCheck className="w-6 h-6 mr-3" />
+          <FileText className="w-6 h-6 mr-3" />
           Observaciones y Notas
         </h3>
 
-        <div className="space-y-4">
+        <div className="space-y-6">
+          {/* Campo principal de observaciones */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className={`text-lg font-bold ${
-                isDarkMode 
-                  ? 'text-gray-300' 
-                  : 'text-gray-800'
-              }`}>
-                Observaciones Automáticas
-              </label>
-              <span className={`text-sm ${
-                isDarkMode 
-                  ? 'text-gray-500' 
-                  : 'text-gray-600'
-              }`}>
+            <label className={`block text-sm font-bold ${
+              isDarkMode ? 'text-indigo-300' : 'text-indigo-800'
+            } mb-2`}>
+              Observaciones Generales
+              <span className="text-xs font-normal ml-2 opacity-75">
                 (Generadas automáticamente - Puedes editarlas)
               </span>
-            </div>
+            </label>
             <textarea
               value={formData.observaciones}
               onChange={(e) => setFormData(prev => ({ ...prev, observaciones: e.target.value }))}
-              rows={15}
-              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-blue-500 transition-all duration-200 font-mono text-sm shadow-sm ${
+              rows={12}
+              className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-indigo-500 transition-all duration-200 shadow-sm resize-y ${
                 isDarkMode 
-                  ? 'bg-gray-700/50 border-gray-600 text-gray-100 focus:ring-blue-500/30' 
-                  : 'bg-white border-gray-300 focus:ring-blue-100'
+                  ? 'bg-gray-700/50 border-indigo-700/30 text-gray-100 focus:ring-indigo-500/30' 
+                  : 'bg-white border-indigo-200 focus:ring-indigo-100'
               }`}
-              placeholder="Las observaciones se generarán automáticamente..."
+              placeholder="Aquí aparecerán las observaciones generadas automáticamente del procesamiento del PDF. Puedes agregar notas adicionales o modificar el contenido según sea necesario..."
             />
-            
-            <div className="mt-3 flex justify-end">
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Vista previa del cronograma */}
-      {wizard.extractedData?.datosVelneo?.condicionesPago?.detalleCuotas?.tieneCuotasDetalladas && (
-        <div className={`rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-blue-900/20 border border-blue-800/50' 
-            : 'bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-200'
-        }`}>
-          <h4 className={`font-bold mb-4 flex items-center text-lg ${
-            isDarkMode 
-              ? 'text-blue-300' 
-              : 'text-blue-800'
-          }`}>
-            <Calendar className="w-5 h-5 mr-2" />
-            Vista Previa - Cronograma de Cuotas
-          </h4>
-          
-          <div className={`max-h-64 overflow-y-auto rounded-xl border-2 p-4 ${
-            isDarkMode 
-              ? 'bg-gray-800 border-blue-800/50' 
-              : 'bg-white border-blue-200'
-          }`}>
-            <div className={`grid grid-cols-3 gap-4 text-sm font-bold border-b pb-3 mb-3 ${
-              isDarkMode 
-                ? 'border-blue-700 text-blue-300' 
-                : 'border-blue-200 text-blue-800'
-            }`}>
-              <div>Cuota</div>
-              <div>Fecha Vencimiento</div>
-              <div>Monto</div>
-            </div>
-            
-            {wizard.extractedData.datosVelneo.condicionesPago.detalleCuotas.cuotas.map((cuota: any) => (
-              <div 
-                key={cuota.numero} 
-                className={`grid grid-cols-3 gap-4 text-sm py-2 border-b rounded ${
-                  isDarkMode 
-                    ? 'border-gray-700 text-blue-300 hover:bg-gray-700/50' 
-                    : 'border-blue-100 text-blue-700 hover:bg-blue-50'
-                }`}
-              >
-                <div className="font-medium">Cuota {cuota.numero}</div>
-                <div>{new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY')}</div>
-                <div className="font-bold">${cuota.monto?.toLocaleString()}</div>
-              </div>
-            ))}
-            
-            <div className={`grid grid-cols-3 gap-4 text-sm font-bold pt-3 mt-3 border-t rounded p-2 ${
-              isDarkMode 
-                ? 'border-blue-700 bg-gray-700/50 text-blue-300' 
-                : 'border-blue-200 bg-blue-50 text-blue-800'
-            }`}>
-              <div>Total:</div>
-              <div>{wizard.extractedData.datosVelneo.condicionesPago.cuotas} cuotas</div>
-              <div>${wizard.extractedData.datosVelneo.condicionesPago.total?.toLocaleString()}</div>
-            </div>
-          </div>
-          
-          <p className={`text-sm mt-3 italic flex items-center ${
-            isDarkMode 
-              ? 'text-blue-400' 
-              : 'text-blue-600'
-          }`}>
-            <CheckCircle className="w-4 h-4 mr-2" />
-            Este cronograma se incluye automáticamente en las observaciones de la póliza
-          </p>
-        </div>
-      )}
-
-      {/* Información de procesamiento */}
-      {wizard.extractedData && (
-        <div className={`rounded-2xl p-6 ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-gray-800 to-gray-900 border border-gray-700' 
-            : 'bg-white border-2 border-gray-200'
-        }`}>
-          <h4 className={`font-bold mb-4 flex items-center text-lg ${
-            isDarkMode 
-              ? 'text-gray-300' 
-              : 'text-gray-800'
-          }`}>
-            <Settings className="w-5 h-5 mr-2" />
-            Información de Procesamiento
-          </h4>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className={`rounded-xl border p-4 ${
-              isDarkMode 
-                ? 'bg-gray-700/50 border-gray-600' 
-                : 'bg-gray-50 border-gray-200'
-            }`}>
-              <span className={`block text-xs font-medium mb-1 ${
-                isDarkMode 
-                  ? 'text-gray-400' 
-                  : 'text-gray-600'
-              }`}>
-                Archivo procesado:
-              </span>
-              <p className={`font-bold truncate text-sm ${
-                isDarkMode 
-                  ? 'text-gray-200' 
-                  : 'text-gray-900'
-              }`} title={wizard.uploadedFile?.name}>
-                📄 {wizard.uploadedFile?.name}
-              </p>
-            </div>
-            
-            <div className={`rounded-xl border p-4 ${
-              isDarkMode 
-                ? 'bg-gray-700/50 border-gray-600' 
-                : 'bg-gray-50 border-gray-200'
-            }`}>
-              <span className={`block text-xs font-medium mb-1 ${
-                isDarkMode 
-                  ? 'text-gray-400' 
-                  : 'text-gray-600'
-              }`}>
-                Tiempo de procesamiento:
-              </span>
-              <p className={`font-bold text-lg ${
-                isDarkMode 
-                  ? 'text-green-400' 
-                  : 'text-green-600'
-              }`}>
-                ⚡ {((wizard.extractedData.tiempoProcesamiento || 0) / 1000).toFixed(1)}s
-              </p>
-            </div>
-            
-            <div className={`rounded-xl border p-4 ${
-              isDarkMode 
-                ? 'bg-gray-700/50 border-gray-600' 
-                : 'bg-gray-50 border-gray-200'
-            }`}>
-              <span className={`block text-xs font-medium mb-1 ${
-                isDarkMode 
-                  ? 'text-gray-400' 
-                  : 'text-gray-600'
-              }`}>
-                Estado:
-              </span>
-              <p className={`font-bold flex items-center ${
-                isDarkMode 
-                  ? 'text-green-400' 
-                  : 'text-green-700'
-              }`}>
-                <CheckCircle className="w-4 h-4 mr-1" />
-                {wizard.extractedData.estadoProcesamiento}
-              </p>
-            </div>
-            
-            <div className={`rounded-xl border p-4 ${
-              isDarkMode 
-                ? 'bg-gray-700/50 border-gray-600' 
-                : 'bg-gray-50 border-gray-200'
-            }`}>
-              <span className={`block text-xs font-medium mb-1 ${
-                isDarkMode 
-                  ? 'text-gray-400' 
-                  : 'text-gray-600'
-              }`}>
-                Timestamp:
-              </span>
-              <p className={`font-bold text-xs ${
-                isDarkMode 
-                  ? 'text-gray-300' 
-                  : 'text-gray-900'
-              }`}>
-                🕒 {new Date(wizard.extractedData.timestamp || Date.now()).toLocaleString('es-UY')}
-              </p>
-            </div>
-          </div>
-
-          {/* Detalles adicionales */}
-          {wizard.extractedData?.datosVelneo && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className={`text-center p-3 rounded-xl ${
-                  isDarkMode 
-                    ? 'bg-blue-900/30' 
-                    : 'bg-blue-50'
-                }`}>
-                  <span className={`text-xs block ${
-                    isDarkMode 
-                      ? 'text-blue-300' 
-                      : 'text-blue-700'
-                  }`}>
-                    Campos extraídos:
-                  </span>
-                  <p className={`font-bold text-lg ${
-                    isDarkMode 
-                      ? 'text-blue-400' 
-                      : 'text-blue-600'
-                  }`}>
-                    {wizard.extractedData.datosVelneo.metricas?.camposExtraidos || 0}
-                  </p>
-                </div>
-                <div className={`text-center p-3 rounded-xl ${
-                  isDarkMode 
-                    ? 'bg-green-900/30' 
-                    : 'bg-green-50'
-                }`}>
-                  <span className={`text-xs block ${
-                    isDarkMode 
-                      ? 'text-green-300' 
-                      : 'text-green-700'
-                  }`}>
-                    Completitud:
-                  </span>
-                  <p className={`font-bold text-lg ${
-                    isDarkMode 
-                      ? 'text-green-400' 
-                      : 'text-green-600'
-                  }`}>
-                    {wizard.extractedData.datosVelneo.porcentajeCompletitud || 0}%
-                  </p>
-                </div>
-                <div className={`text-center p-3 rounded-xl ${
-                  isDarkMode 
-                    ? 'bg-yellow-900/30' 
-                    : 'bg-yellow-50'
-                }`}>
-                  <span className={`text-xs block ${
-                    isDarkMode 
-                      ? 'text-yellow-300' 
-                      : 'text-yellow-700'
-                  }`}>
-                    Datos mínimos:
-                  </span>
-                  <p className={`font-bold text-lg ${
-                    wizard.extractedData.datosVelneo.tieneDatosMinimos 
-                      ? (isDarkMode ? 'text-green-400' : 'text-green-600')
-                      : (isDarkMode ? 'text-red-400' : 'text-red-600')
-                  }`}>
-                    {wizard.extractedData.datosVelneo.tieneDatosMinimos ? '✅ Sí' : '❌ No'}
-                  </p>
-                </div>
-                <div className={`text-center p-3 rounded-xl ${
-                  isDarkMode 
-                    ? 'bg-purple-900/30' 
-                    : 'bg-purple-50'
-                }`}>
-                  <span className={`text-xs block ${
-                    isDarkMode 
-                      ? 'text-purple-300' 
-                      : 'text-purple-700'
-                  }`}>
-                    Listo para Velneo:
-                  </span>
-                  <p className={`font-bold text-lg ${
-                    wizard.extractedData.listoParaVelneo 
-                      ? (isDarkMode ? 'text-green-400' : 'text-green-600')
-                      : (isDarkMode ? 'text-yellow-400' : 'text-yellow-600')
-                  }`}>
-                    {wizard.extractedData.listoParaVelneo ? '✅ Sí' : '⚠️ Revisar'}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Notas importantes */}
-      <div className={`rounded-2xl p-6 ${
-        isDarkMode 
-          ? 'bg-gradient-to-br from-gray-800 to-amber-900/20 border border-amber-800/50' 
-          : 'bg-gradient-to-r from-amber-50 to-yellow-100 border-2 border-amber-200'
-      }`}>
-        <h4 className={`font-bold mb-3 flex items-center text-lg ${
-          isDarkMode 
-            ? 'text-amber-300' 
-            : 'text-amber-800'
-        }`}>
-          <AlertTriangle className="w-5 h-5 mr-2" />
-          Notas Importantes
-        </h4>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <div className="flex items-start space-x-2">
-              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                isDarkMode 
-                  ? 'bg-amber-400' 
-                  : 'bg-amber-500'
-              }`}></div>
-              <span className={`text-sm ${
-                isDarkMode 
-                  ? 'text-amber-300' 
-                  : 'text-amber-700'
-              }`}>
-                Las observaciones se generan automáticamente basadas en la información extraída
-              </span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                isDarkMode 
-                  ? 'bg-amber-400' 
-                  : 'bg-amber-500'
-              }`}></div>
-              <span className={`text-sm ${
-                isDarkMode 
-                  ? 'text-amber-300' 
-                  : 'text-amber-700'
-              }`}>
-                El cronograma de cuotas se incluye automáticamente cuando es detectado
-              </span>
-            </div>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-start space-x-2">
-              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                isDarkMode 
-                  ? 'bg-amber-400' 
-                  : 'bg-amber-500'
-              }`}></div>
-              <span className={`text-sm ${
-                isDarkMode 
-                  ? 'text-amber-300' 
-                  : 'text-amber-700'
-              }`}>
-                Puedes editar las observaciones según sea necesario antes de crear la póliza
-              </span>
-            </div>
-            <div className="flex items-start space-x-2">
-              <div className={`w-2 h-2 rounded-full mt-2 flex-shrink-0 ${
-                isDarkMode 
-                  ? 'bg-amber-400' 
-                  : 'bg-amber-500'
-              }`}></div>
-              <span className={`text-sm ${
-                isDarkMode 
-                  ? 'text-amber-300' 
-                  : 'text-amber-700'
-              }`}>
-                La información de procesamiento se incluye para auditoría y debugging
-              </span>
-            </div>
           </div>
         </div>
       </div>
@@ -2917,94 +2518,6 @@ case 'observaciones':
 
     return (
       <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
-        {/* Header con información del procesamiento mejorado */}
-{wizard.extractedData && (
-  <div className={`mb-8 p-6 rounded-2xl shadow-sm border-2 ${
-    isDarkMode 
-      ? 'bg-gradient-to-r from-gray-800 via-blue-900/50 to-purple-900/50 border-blue-700' 
-      : 'bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border-blue-200'
-  }`}>
-    <div className="flex items-center justify-between">
-      <div className="flex items-center space-x-4">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-          isDarkMode 
-            ? 'bg-gradient-to-br from-blue-600 to-purple-600' 
-            : 'bg-blue-500'
-        }`}>
-          <CheckCircle2 className="w-6 h-6 text-white" />
-        </div>
-        <div>
-          <p className={`text-sm font-medium ${
-            isDarkMode 
-              ? 'text-blue-400' 
-              : 'text-blue-800'
-          }`}>
-            Procesamiento completado
-          </p>
-          <h3 className={`font-bold text-lg ${
-            isDarkMode 
-              ? 'text-white' 
-              : 'text-blue-900'
-          }`}>
-            Documento procesado exitosamente con IA
-          </h3>
-        </div>
-      </div>
-      
-      <div className="flex items-center space-x-6 text-sm">
-        {/* Confianza */}
-        {wizard.extractedData.nivelConfianza && (
-          <div className={`text-center p-2 rounded-lg border ${
-            isDarkMode 
-              ? 'bg-gray-800 border-blue-600' 
-              : 'bg-white border-blue-200'
-          }`}>
-            <p className={`font-bold text-lg ${
-              isDarkMode 
-                ? 'text-blue-400' 
-                : 'text-blue-600'
-            }`}>
-              {Math.round(wizard.extractedData.nivelConfianza * 100)}%
-            </p>
-            <p className={`text-xs ${
-              isDarkMode 
-                ? 'text-blue-300' 
-                : 'text-blue-800'
-            }`}>
-              Confianza
-            </p>
-          </div>
-        )}
-        
-        {/* Tiempo */}
-        {wizard.extractedData.tiempoProcesamiento && (
-          <div className={`text-center p-2 rounded-lg border ${
-            isDarkMode 
-              ? 'bg-gray-800 border-green-600' 
-              : 'bg-white border-green-200'
-          }`}>
-            <p className={`font-bold text-lg ${
-              isDarkMode 
-                ? 'text-green-400' 
-                : 'text-green-600'
-            }`}>
-              {(wizard.extractedData.tiempoProcesamiento / 1000).toFixed(1)}s
-            </p>
-            <p className={`text-xs ${
-              isDarkMode 
-                ? 'text-green-300' 
-                : 'text-green-800'
-            }`}>
-              Tiempo
-            </p>
-          </div>
-        )}
-      </div>
-    </div>
-  </div>
-)}
-
-        {/* Pestañas modernas */}
         <div className="mb-8">
           <div className="flex flex-wrap justify-center gap-3 p-2 bg-gray-100 rounded-2xl">
             {tabs.map((tab) => {
