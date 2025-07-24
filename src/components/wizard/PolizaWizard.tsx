@@ -273,6 +273,15 @@ useEffect(() => {
 }, [wizard.extractedData, formData.certificado]);
 
 useEffect(() => {
+  if (wizard.selectedCompany?.comnom && !formData.compania) {
+    setFormData(prev => ({
+      ...prev,
+      compania: wizard.selectedCompany?.comnom || wizard.selectedCompany?.comnom || ''
+    }));
+  }
+}, [wizard.selectedCompany, formData.compania]);
+
+useEffect(() => {
   if (formData.operacion) {
     const tramiteAuto = getTramiteAutoFromOperacion(formData.operacion);
     const estadoAuto = getEstadoAutoFromOperacion(formData.operacion);
@@ -732,156 +741,118 @@ const generarObservacionesConLogica = (
     </div>
   );
 
-    const renderOperacionStep = () => (
-    <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-      <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold mb-2">Tipo de Operación</h2>
-        <p className={`text-lg ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-          Selecciona el tipo de operación que vas a realizar
-        </p>
-      </div>
+const renderOperacionStep = () => (
+  <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+    {/* Header mejorado */}
+    <div className="text-center mb-12">
+      <h2 className="text-4xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+        Tipo de Operación
+      </h2>
+      <p className={`text-xl ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} max-w-2xl mx-auto`}>
+        Selecciona el tipo de operación a realizar
+      </p>
+    </div>
 
-      {/* Grid de operaciones */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {Object.entries(OPERACIONES_CONFIG).map(([key, config]) => (
-          <div
-            key={key}
-            onClick={() => wizard.selectOperacion(key as TipoOperacion)}
-            className={`
-              relative rounded-xl border-2 cursor-pointer transition-all duration-300 p-6 group
-              ${wizard.selectedOperacion === key
-                ? 'border-blue-500 bg-blue-50 shadow-lg transform scale-105 ring-4 ring-blue-200'
-                : `border-gray-200 hover:border-blue-300 hover:shadow-lg hover:scale-102 ${
-                    isDarkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-white hover:bg-gray-50'
-                  }`
-              }
-            `}
-          >
-            {/* Indicador de selección */}
-            {wizard.selectedOperacion === key && (
-              <div className="absolute -top-2 -right-2">
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center shadow-lg">
-                  <CheckCircle2 className="w-5 h-5 text-white" />
-                </div>
-              </div>
-            )}
+    {/* Grid de operaciones mejorado */}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
+      {Object.entries(OPERACIONES_CONFIG).map(([key, config]) => (
+        <div
+          key={key}
+          onClick={() => wizard.selectOperacion(key as TipoOperacion)}
+          className={`
+            relative rounded-2xl border-2 cursor-pointer transition-all duration-500 p-6 group
+            transform hover:-translate-y-2 hover:shadow-2xl
+            ${wizard.selectedOperacion === key
+              ? 'border-blue-500 shadow-2xl shadow-blue-500/25 scale-105 ring-2 ring-blue-200' +
+                (isDarkMode ? ' bg-gradient-to-br from-blue-900/50 to-purple-900/30' : ' bg-gradient-to-br from-blue-50 to-purple-50')
+              : `border-gray-200 hover:border-blue-300 hover:shadow-xl ${
+                  isDarkMode 
+                    ? 'bg-gradient-to-br from-gray-800 to-gray-700 hover:from-gray-700 hover:to-gray-600' 
+                    : 'bg-gradient-to-br from-white to-gray-50 hover:from-gray-50 hover:to-blue-50'
+                }`
+            }
+          `}
+        >
+          {/* Glow effect para la seleccionada */}
+          {wizard.selectedOperacion === key && (
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-blue-500/20 to-purple-500/20 blur-xl -z-10"></div>
+          )}
 
-            {/* Icono y título */}
-            <div className="text-center">
-              <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-200">
-                {config.icon}
-              </div>
-              
-              <h3 className={`text-xl font-bold mb-2 ${
-                wizard.selectedOperacion === key 
-                  ? 'text-blue-600' 
-                  : isDarkMode ? 'text-white' : 'text-gray-900'
-              }`}>
-                {config.operacion}
-              </h3>
-              
-              <p className={`text-sm ${
-                isDarkMode ? 'text-gray-300' : 'text-gray-600'
-              } mb-3`}>
-                {config.descripcion}
-              </p>
-
-              {/* Metadatos técnicos */}
-              <div className={`text-xs space-y-1 p-3 rounded-lg ${
-                isDarkMode ? 'bg-gray-700/50' : 'bg-gray-100'
-              }`}>
-                <div className="flex justify-between">
-                  <span className="font-medium">Trámite:</span>
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${
-                    config.tramite === 'Nuevo' ? 'bg-green-100 text-green-800' :
-                    config.tramite === 'Renovacion' ? 'bg-blue-100 text-blue-800' :
-                    config.tramite === 'Endoso' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-purple-100 text-purple-800'
-                  }`}>
-                    {config.tramite}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium">Estado:</span>
-                  <span className={`px-2 py-1 rounded text-xs font-bold ${
-                    config.estadoPoliza === 'VIG' ? 'bg-green-100 text-green-800' :
-                    config.estadoPoliza === 'END' ? 'bg-orange-100 text-orange-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
-                    {config.estadoPoliza}
-                  </span>
-                </div>
+          {/* Indicador de selección mejorado */}
+          {wizard.selectedOperacion === key && (
+            <div className="absolute -top-3 -right-3 z-10">
+              <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg animate-pulse">
+                <CheckCircle2 className="w-6 h-6 text-white" />
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          )}
 
-      {/* Información contextual */}
-      <div className={`rounded-xl p-6 mb-8 ${
-        isDarkMode ? 'bg-gray-800 border border-gray-700' : 'bg-blue-50 border border-blue-200'
-      }`}>
-        <div className="flex items-start">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mr-4 ${
-            isDarkMode ? 'bg-blue-900' : 'bg-blue-100'
-          }`}>
-            <Info className={`w-4 h-4 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`} />
-          </div>
-          <div>
-            <h4 className={`font-semibold mb-2 ${isDarkMode ? 'text-blue-300' : 'text-blue-900'}`}>
-              ¿Cómo elegir la operación correcta?
-            </h4>
-            <div className={`text-sm space-y-2 ${isDarkMode ? 'text-gray-300' : 'text-blue-800'}`}>
-              <div><strong>Emisión:</strong> Para pólizas completamente nuevas que no existían antes</div>
-              <div><strong>Renovación:</strong> Para continuar una póliza que está por vencer</div>
-              <div><strong>Endoso:</strong> Para modificar datos importantes de una póliza vigente</div>
-              <div><strong>Cambio:</strong> Para ajustes menores que no requieren endoso formal</div>
+          {/* Contenido de la tarjeta */}
+          <div className="text-center relative z-10">
+            {/* Icono con animación */}
+            <div className={`text-6xl mb-4 transition-all duration-300 ${
+              wizard.selectedOperacion === key 
+                ? 'scale-110 animate-bounce' 
+                : 'group-hover:scale-110 group-hover:rotate-6'
+            }`}>
+              {config.icon}
             </div>
+            
+            <h3 className={`text-xl font-bold mb-3 transition-colors duration-200 ${
+              wizard.selectedOperacion === key 
+                ? 'text-blue-600' 
+                : isDarkMode ? 'text-white group-hover:text-blue-300' : 'text-gray-900 group-hover:text-blue-600'
+            }`}>
+              {config.operacion}
+            </h3>
+            
+            <p className={`text-sm mb-4 ${
+              isDarkMode ? 'text-gray-300' : 'text-gray-600'
+            } text-2xl`}>
+              {config.descripcion}
+            </p>         
+          </div>
+
+          {/* Efecto de brillo en hover */}
+          <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+            <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
           </div>
         </div>
-      </div>
+      ))}
+    </div>
 
-      {/* Información de selecciones previas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        {wizard.selectedCliente && (
-          <div className={`p-4 rounded-lg border ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-            <h5 className={`text-sm font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}>
-              Cliente seleccionado:
-            </h5>
-            <p className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              {wizard.selectedCliente.clinom}
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* Botones de navegación */}
-      <div className="flex justify-between">
+    {/* CTA mejorado */}
+    <div className="text-center">
+      <div className={`inline-flex items-center space-x-4 p-1 rounded-2xl ${
+        isDarkMode ? 'bg-gray-800/50 border border-gray-700' : 'bg-gray-100/50 border border-gray-200'
+      }`}>
+        {/* Botón secundario - más discreto */}
         <button
           onClick={wizard.goBack}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
+          className={`px-6 py-3 rounded-xl font-medium transition-all duration-200 ${
             isDarkMode 
-              ? 'bg-gray-700 text-white hover:bg-gray-600' 
-              : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+              ? 'text-gray-400 hover:text-white hover:bg-gray-700' 
+              : 'text-gray-500 hover:text-gray-900 hover:bg-gray-200'
           }`}
         >
-          ← Volver a Secciones
-        </button>
-
-        <button
-          onClick={() => wizard.goToStep('upload')}
-          disabled={!wizard.selectedOperacion}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-            wizard.selectedOperacion
-              ? 'bg-blue-600 text-white hover:bg-blue-700'
-              : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-          }`}
-        >
-          Continuar a Subir Documento →
-        </button>
+          <ArrowLeft className="w-4 h-4 mr-2 inline" />
+          Atrás
+        </button>   
       </div>
+
+      {/* Indicador de progreso sutil */}
+      {wizard.selectedOperacion && (
+        <div className={`mt-6 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          <div className="flex items-center justify-center space-x-2">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <span>Operación seleccionada: <strong>{OPERACIONES_CONFIG[wizard.selectedOperacion].operacion}</strong></span>
+            <CheckCircle className="w-4 h-4 text-green-500 ml-2" />
+          </div>
+        </div>
+      )}
     </div>
-  );
+  </div>
+);
 
   const renderSeccionStep = () => (
   <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
@@ -1683,7 +1654,7 @@ case 'poliza':
             <div>
               <label className={`block text-sm font-bold ${
                 isDarkMode ? 'text-purple-300' : 'text-purple-800'
-              } mb-2`}>Número de Póliza *</label>
+              } mb-2`}>Número de Póliza</label>
               <input
                 type="text"
                 value={formData.numeroPoliza}
@@ -1818,7 +1789,7 @@ case 'poliza':
                 isDarkMode ? 'text-purple-300' : 'text-purple-800'
               } mb-2`}>
                 <Calendar className="w-4 h-4 inline mr-1" />
-                Vigencia Desde *
+                Vigencia Desde
               </label>
               <input
                 type="date"
@@ -1838,7 +1809,7 @@ case 'poliza':
                 isDarkMode ? 'text-purple-300' : 'text-purple-800'
               } mb-2`}>
                 <Calendar className="w-4 h-4 inline mr-1" />
-                Vigencia Hasta *
+                Vigencia Hasta
               </label>
               <input
                 type="date"
@@ -1936,7 +1907,7 @@ case 'vehiculo':
             <div>
               <label className={`block text-sm font-bold ${
                 isDarkMode ? 'text-emerald-300' : 'text-green-800'
-              } mb-2`}>Marca *</label>
+              } mb-2`}>Marca</label>
               <input
                 type="text"
                 value={formData.marca}
@@ -1954,7 +1925,7 @@ case 'vehiculo':
             <div>
               <label className={`block text-sm font-bold ${
                 isDarkMode ? 'text-emerald-300' : 'text-green-800'
-              } mb-2`}>Modelo *</label>
+              } mb-2`}>Modelo</label>
               <input
                 type="text"
                 value={formData.modelo}
@@ -2165,7 +2136,7 @@ case 'vehiculo':
               <label className={`block text-sm font-bold ${
                 isDarkMode ? 'text-emerald-300' : 'text-green-800'
               } mb-2`}>
-                Calidad *
+                Calidad
                 {velneoEntities.loading.calidades && <Loader2 className="w-4 h-4 ml-2 inline animate-spin" />}
               </label>
               
