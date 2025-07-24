@@ -2527,13 +2527,20 @@ case 'observaciones':
           </button>
           <button
             onClick={async () => {
+              console.log('🔥 BOTÓN CREAR PÓLIZA CLICKEADO - PolizaWizard.tsx');
               setSaving(true);
               try {
                 console.log('💾 Creando póliza con datos:', formData);
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                wizard.goToStep('success');
+                console.log('🚀 Llamando wizard.createPoliza...');
+                
+                // ✅ LLAMADA REAL en lugar del mock
+                await wizard.createPoliza(formData);
+                
+                console.log('✅ wizard.createPoliza completado, ir a success');
+                // wizard.goToStep('success'); // ← No necesario, createPoliza ya lo hace
               } catch (error) {
-                console.error('Error creando póliza:', error);
+                console.error('❌ Error creando póliza:', error);
+                // El error se maneja en createPoliza
               } finally {
                 setSaving(false);
               }
