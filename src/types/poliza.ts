@@ -55,31 +55,57 @@ export interface PolizaConEndosos extends Poliza {
 }
 
 export interface PolizaFormData {
-  numeroPoliza?: string;
-  vigenciaDesde?: string;
-  vigenciaHasta?: string;
-  prima?: number;
-  moneda?: string;
+  // ✅ INFORMACIÓN BÁSICA DE LA PÓLIZA
+  numeroPoliza: string;
+  vigenciaDesde: string;
+  vigenciaHasta: string;
+  prima: number | string;
+  moneda: string;
+  asegurado: string;
+  observaciones: string;
   
-  nombreAsegurado?: string;
-  documentoAsegurado?: string;
-  telefonoAsegurado?: string;
-  emailAsegurado?: string;
-  direccionAsegurado?: string;
+  // ✅ CAMPOS QUE ESTABAN FALTANDO (causaban los errores)
+  plan?: string;               // ← AGREGADO
+  ramo?: string;              // ← AGREGADO
   
+  // ✅ CAMPOS ADICIONALES EXISTENTES
+  color?: string;
+  tipoVehiculo?: string;
+  uso?: string;
+  impuestoMSP?: number;
+  formaPago?: string;
+  cantidadCuotas?: number;
+  descuentos?: number;
+  recargos?: number;
+  codigoPostal?: string;
+  seccion?: string;
+  seccionId?: number;
+  certificado?: string;
+  estadoPoliza?: string;
+  compania?: string;
+  corredor?: string;
+  
+  // ✅ CAMPOS DEL VEHÍCULO (para completitud)
+  vehiculo?: string;
   marca?: string;
   modelo?: string;
-  año?: string;
-  chapa?: string;
-  chasis?: string;
   motor?: string;
-  color?: string;
+  chasis?: string;
+  matricula?: string;
+  combustible?: string;
+  anio?: string | number;
   
-  sumaAsegurada?: number;
-  deducible?: number;
-  comision?: number;
+  // ✅ CAMPOS FINANCIEROS ADICIONALES
+  primaComercial?: number;
+  premioTotal?: number;
   
-  observaciones?: string;
+  // ✅ DATOS DEL CLIENTE ADICIONALES
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
 }
 
 export interface Compania {

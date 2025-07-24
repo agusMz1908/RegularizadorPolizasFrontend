@@ -88,6 +88,7 @@ export interface ExtractedField {
 }
 
 export interface PolizaFormData {
+  // ✅ INFORMACIÓN BÁSICA DE LA PÓLIZA
   numeroPoliza: string;
   vigenciaDesde: string;
   vigenciaHasta: string;
@@ -95,6 +96,12 @@ export interface PolizaFormData {
   moneda: string;
   asegurado: string;
   observaciones: string;
+  
+  // ✅ CAMPOS QUE ESTABAN FALTANDO (causaban los errores)
+  plan?: string;               // ← AGREGADO
+  ramo?: string;              // ← AGREGADO
+  
+  // ✅ CAMPOS ADICIONALES EXISTENTES
   color?: string;
   tipoVehiculo?: string;
   uso?: string;
@@ -106,13 +113,32 @@ export interface PolizaFormData {
   codigoPostal?: string;
   seccion?: string;
   seccionId?: number;
+  certificado?: string;
+  estadoPoliza?: string;
+  compania?: string;
+  corredor?: string;
   
-  certificado?: string;        // Campo certificado del escaneo
-  estadoPoliza?: string;       // Estado póliza movido de datos básicos
-  compania?: string;           // Compañía como string editable
-  ramo?: string;               // Ramo ya existía pero lo confirmamos
-  plan?: string;               // Plan/cobertura ya existía
-  corredor?: string;           // Corredor ya existía
+  // ✅ CAMPOS DEL VEHÍCULO (para completitud)
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
+  combustible?: string;
+  anio?: string | number;
+  
+  // ✅ CAMPOS FINANCIEROS ADICIONALES
+  primaComercial?: number;
+  premioTotal?: number;
+  
+  // ✅ DATOS DEL CLIENTE ADICIONALES
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
 }
 
 export interface PolizaFormDataExtended {

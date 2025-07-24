@@ -1524,8 +1524,8 @@ case 'basicos':
                 }`}
               >
                 <option value="" disabled>Seleccionar tipo</option>
-                <option value="PERSONA">Persona</option>
-                <option value="EMPRESA">Empresa</option>
+                <option value="PERSONA">Líneas personales</option>
+                <option value="EMPRESA">Líneas comerciales</option>
               </select>
             </div>
           </div>

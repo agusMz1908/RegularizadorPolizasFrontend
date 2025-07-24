@@ -3,6 +3,7 @@ import { azureDocumentService, DocumentProcessResult } from '../services/azureDo
 import { seccionService } from '../services/seccionService';
 import { Seccion, SeccionLookup } from '../types/seccion';
 import { TipoOperacion } from '../utils/operationLogic';
+import { PolizaFormData } from '../types/poliza';
 
 export type WizardStep = 'cliente' | 'company' | 'seccion' | 'operacion' | 'upload' | 'extract' | 'form' | 'success';
 
@@ -286,18 +287,17 @@ const selectOperacion = useCallback((operacion: TipoOperacion) => {
     }
   }, [state.uploadedFile, state.selectedCliente, state.selectedCompany, getAuthToken]);
 
-  const createPoliza = useCallback(async (formData: any): Promise<void> => {
-    if (!state.selectedCliente || !state.selectedCompany || !state.extractedData) {
-      setError('Faltan datos para crear la póliza');
-      return;
-    }
-
+ const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void> => {
+    console.log('🔥 createPoliza INICIADO');
+    
     const token = getAuthToken();
-    if (!token) {
-      setError('No hay sesión activa. Por favor, inicia sesión.');
+    if (!token || !state.selectedCliente || !state.selectedCompany) {
+      setError('Faltan datos requeridos: cliente, compañía o sesión. Por favor, inicia sesión.');
+      console.log('❌ Faltan datos requeridos:', { token: !!token, cliente: !!state.selectedCliente, company: !!state.selectedCompany });
       return;
     }
 
+    console.log('✅ Datos requeridos OK, continuando...');
     setLoading(true);
     setError(null);
 
@@ -309,36 +309,134 @@ const selectOperacion = useCallback((operacion: TipoOperacion) => {
         extractedData: state.extractedData
       });
 
-      // TODO: Implementar llamada real a tu API de pólizas
-      // const response = await fetch(`${import.meta.env.VITE_API_URL}/polizas`, {
-      //   method: 'POST',
-      //   headers: {
-      //     ...getAuthHeaders(),
-      //     'Content-Type': 'application/json',
-      //   },
-      //   body: JSON.stringify({
-      //     clienteId: state.selectedCliente.id,
-      //     companiaId: state.selectedCompany.id,
-      //     ...formData,
-      //     documentData: state.extractedData
-      //   })
-      // });
+      // ✅ ACCEDER A LOS DATOS CORRECTOS
+      const velneoDatos = state.extractedData?.datosVelneo;
+      console.log('📊 Datos de Velneo extraídos:', velneoDatos);
+      
+      // ✅ PREPARAR REQUEST PARA VELNEO
+      const polizaRequest = {
+        comcod: parseInt(state.selectedCompany.id.toString()),
+        clinro: parseInt(state.selectedCliente.id.toString()),
+        conpol: formData.numeroPoliza,
+        confchdes: formData.vigenciaDesde,
+        confchhas: formData.vigenciaHasta,
+        conpremio: typeof formData.prima === 'string' ? parseFloat(formData.prima) : formData.prima,
+        asegurado: state.selectedCliente.clinom,
+        observaciones: formData.observaciones || 'Procesado automáticamente con Azure AI',
+        moneda: formData.moneda || 'UYU',
+        
+        // ✅ CAMPOS EXTENDIDOS del datosVelneo (acceso corregido)
+        vehiculo: velneoDatos?.datosVehiculo?.marcaModelo || velneoDatos?.datosVehiculo?.marca,
+        marca: velneoDatos?.datosVehiculo?.marca,
+        modelo: velneoDatos?.datosVehiculo?.modelo,
+        motor: velneoDatos?.datosVehiculo?.motor,
+        chasis: velneoDatos?.datosVehiculo?.chasis,
+        matricula: velneoDatos?.datosVehiculo?.matricula,
+        combustible: velneoDatos?.datosVehiculo?.combustible,
+        anio: velneoDatos?.datosVehiculo?.anio ? parseInt(velneoDatos.datosVehiculo.anio.toString()) : null,
+        
+        // ✅ CAMPOS COMERCIALES (acceso corregido)
+        primaComercial: velneoDatos?.condicionesPago?.prima,
+        premioTotal: velneoDatos?.condicionesPago?.premio || velneoDatos?.condicionesPago?.total,
+        corredor: velneoDatos?.datosBasicos?.corredor,
+        plan: formData.plan,
+        ramo: velneoDatos?.datosPoliza?.ramo || formData.ramo || 'AUTOMOVILES',
+        
+        // ✅ DATOS DEL CLIENTE (acceso corregido)
+        documento: velneoDatos?.datosBasicos?.documento || state.selectedCliente.cliced || state.selectedCliente.cliruc,
+        email: velneoDatos?.datosBasicos?.email || state.selectedCliente.cliemail,
+        telefono: velneoDatos?.datosBasicos?.telefono || state.selectedCliente.telefono,
+        direccion: velneoDatos?.datosBasicos?.domicilio || state.selectedCliente.clidir,
+        localidad: velneoDatos?.datosBasicos?.localidad,
+        departamento: velneoDatos?.datosBasicos?.departamento,
+        
+        procesadoConIA: true
+      };
 
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      console.log('📤 LISTO PARA ENVIAR A VELNEO. Request preparado:', polizaRequest);
+      console.log('🌐 URL del API:', import.meta.env.VITE_API_URL);
+      console.log('🔑 Headers de auth:', getAuthHeaders());
 
+      // ✅ LLAMADA REAL A LA API
+      console.log('🚀 INICIANDO FETCH A VELNEO...');
+      
+      const apiUrl = `${import.meta.env.VITE_API_URL}/polizas`;
+      console.log('🎯 URL completa:', apiUrl);
+      
+      const response = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          ...getAuthHeaders(),
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(polizaRequest),
+        signal: AbortSignal.timeout(300000) // 5 minutos timeout
+      });
+
+      console.log('📡 Respuesta recibida de Velneo:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        let errorMessage = `Error HTTP ${response.status}`;
+        
+        try {
+          const errorData = await response.json();
+          console.log('❌ Error data from API:', errorData);
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          
+          // Manejo específico de errores
+          if (response.status === 401) {
+            errorMessage = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
+          } else if (response.status === 400) {
+            errorMessage = `Datos inválidos: ${errorMessage}`;
+            // Si hay errores de validación específicos, mostrarlos
+            if (errorData.errors && Array.isArray(errorData.errors)) {
+              errorMessage += `\n• ${errorData.errors.join('\n• ')}`;
+            }
+          } else if (response.status === 504) {
+            errorMessage = 'Timeout en Velneo. La operación puede haberse completado, verifica en el sistema.';
+          } else if (response.status === 502) {
+            errorMessage = 'Error de conectividad con Velneo. Intenta nuevamente.';
+          }
+        } catch {
+          // Si no se puede parsear el error, usar el mensaje por defecto
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const responseData = await response.json();
+      console.log('✅ Respuesta exitosa de creación de póliza:', responseData);
+
+      // ✅ ACTUALIZAR ESTADO A SUCCESS
       setState(prev => ({
         ...prev,
         currentStep: 'success',
         isComplete: true
       }));
 
-      console.log('✅ Póliza creada exitosamente');
+      console.log('🎉 Póliza creada exitosamente en Velneo:', responseData.poliza?.numero);
 
     } catch (err: any) {
-      console.error('❌ Error creando póliza:', err);
-      setError(err.message || 'Error creando la póliza');
+      console.error('💥 ERROR COMPLETO creando póliza:', err);
+      console.error('💥 Error stack:', err.stack);
+      
+      let errorMessage = err.message || 'Error desconocido creando la póliza';
+      
+      // Manejar errores específicos de red
+      if (err.name === 'AbortError' || err.message.includes('timeout')) {
+        errorMessage = 'Timeout creando la póliza. La operación puede haberse completado, verifica en Velneo.';
+      } else if (err.message.includes('NetworkError') || err.message.includes('fetch')) {
+        errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
+      console.log('🏁 createPoliza FINALIZADO');
     }
   }, [state.selectedCliente, state.selectedCompany, state.extractedData, getAuthToken, getAuthHeaders]);
 
