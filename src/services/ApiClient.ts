@@ -176,10 +176,19 @@ class ApiClient {
     return this.executeRequest<T>(endpoint, { method: 'DELETE' });
   }
 
-  // Método especial para upload de archivos
-  async uploadFile<T = any>(endpoint: string, file: File, additionalData?: Record<string, any>): Promise<ApiResponse<T>> {
+async uploadFile<T = any>(endpoint: string, file: File, additionalData?: Record<string, any>): Promise<ApiResponse<T>> {
+  try {
+    console.log('📤 ApiClient.uploadFile: Preparando upload...', {
+      endpoint,
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      additionalData
+    });
+
     const formData = new FormData();
-    formData.append('file', file);
+    
+    formData.append('file', file, file.name);
     
     if (additionalData) {
       Object.entries(additionalData).forEach(([key, value]) => {
@@ -187,21 +196,93 @@ class ApiClient {
       });
     }
 
-    // Para FormData, no incluimos Content-Type
+    console.log('📋 FormData contents:');
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
+      } else {
+        console.log(`  ${key}: ${value}`);
+      }
+    }
+
     const token = this.getStoredToken();
     const headers: Record<string, string> = {};
+    
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    return this.executeRequest<T>(endpoint, {
-      method: 'POST',
-      body: formData,
-      headers, // Sin Content-Type para FormData
-    });
-  }
+    console.log('🔑 Headers para upload:', headers);
 
-  // Método para validar conectividad
+    const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
+    console.log('🌐 URL del upload:', url);
+
+    console.log('🚀 Iniciando upload...');
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers, 
+      body: formData,
+      signal: AbortSignal.timeout(this.timeout),
+    });
+
+    console.log('📡 Respuesta del servidor:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
+    if (!response.ok) {
+      let errorMessage = `Error HTTP ${response.status}: ${response.statusText}`;
+      
+      try {
+        const errorText = await response.text();
+        console.error('❌ Error response body:', errorText);
+
+        const errorData = JSON.parse(errorText);
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch (parseError) {
+        console.error('❌ No se pudo parsear error response:', parseError);
+        errorMessage = `${errorMessage}`;
+      }
+
+      if (response.status === 415) {
+        errorMessage = 'El servidor no puede procesar el tipo de archivo enviado. Verifica que sea un PDF válido.';
+      } else if (response.status === 413) {
+        errorMessage = 'El archivo es demasiado grande para el servidor.';
+      } else if (response.status === 401) {
+        errorMessage = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
+      } else if (response.status === 400) {
+        errorMessage = 'Archivo inválido o datos incorrectos.';
+      }
+
+      const error = new Error(errorMessage);
+      (error as any).statusCode = response.status;
+      throw error;
+    }
+
+    const responseData = await response.json();
+    
+    console.log('✅ Upload exitoso. Datos recibidos:', responseData);
+    
+    return {
+      success: true,
+      data: responseData,
+      statusCode: response.status
+    };
+
+  } catch (error: any) {
+    console.error('❌ Error en uploadFile:', error);
+    
+    return {
+      success: false,
+      error: error.message || 'Error desconocido en upload',
+      statusCode: error.statusCode || 0
+    };
+  }
+}
+
   async healthCheck(): Promise<boolean> {
     try {
       const response = await this.get('/health');
@@ -212,6 +293,4 @@ class ApiClient {
   }
 }
 
-
-// Singleton instance
 export const apiClient = new ApiClient();

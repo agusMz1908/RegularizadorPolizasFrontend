@@ -2,6 +2,7 @@ import { OPERACIONES_CONFIG, TipoOperacion } from "../utils/operationLogic";
 import { DatosVelneo } from "./azure-document";
 import { Seccion } from "./seccion";
 import { PolizaFormData, PolizaCreateRequest } from "./poliza";
+import { Company } from "../services/companyService";
 
 export interface Cliente {
   id: number;
@@ -14,36 +15,33 @@ export interface Cliente {
   activo: boolean;
 }
 
-export interface Company {
-  id: number;
-  comnom: string;
-  comalias: string;
-  cod_srvcompanias?: string;
-  broker: boolean;
-  activo: boolean;
-}
 
 export interface DocumentProcessResult {
-  porcentajeCompletitud: any;
   documentId: string;
   nombreArchivo?: string;
   estadoProcesamiento: string;
+  timestamp?: string;
+  
+  // Datos principales extraídos
+  numeroPoliza?: string;
+  asegurado?: string;
+  vigenciaDesde?: string;
+  vigenciaHasta?: string;
+  prima?: number;
+  
+  // Metadatos - TODOS OPCIONALES PARA COMPATIBILIDAD
   nivelConfianza?: number;
   requiereVerificacion?: boolean;
   requiereRevision?: boolean;
   readyForVelneo?: boolean;
   listoParaVelneo?: boolean;
-  timestamp?: string;
+  tiempoProcesamiento?: number;
+  porcentajeCompletitud?: number;  // ✅ CAMBIAR A OPCIONAL
   
-  tiempoProcesamiento?: number;  
-  
-  numeroPoliza?: string;
+  // Datos adicionales del Azure
   anio?: string;
-  vigenciaDesde?: string;
-  vigenciaHasta?: string;
   plan?: string;
   ramo?: string;
-  asegurado?: string;
   documento?: string;
   email?: string;
   telefono?: string;
@@ -57,17 +55,18 @@ export interface DocumentProcessResult {
   chasis?: string;
   matricula?: string;
   combustible?: string;
-  prima?: number;
   primaComercial?: number;
   premioTotal?: number;
   moneda?: string;
   corredor?: string;
   compania?: string;
+  
+  // Estructura completa de datos del backend
+  datosVelneo?: any;
   polizaData?: any;
   extractedFields?: ExtractedField[] | Record<string, any>;
   originalResponse?: any;
   errorMessage?: string;
-  datosVelneo?: DatosVelneo;
 }
 
 export interface ExtractedField {

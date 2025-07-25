@@ -11,8 +11,8 @@ import {
   Info, RefreshCw 
 } from 'lucide-react';
 
-import { PolizaFormData } from '../../types/poliza';
-import { PolizaCreateRequest, usePolizaWizard } from '../../hooks/usePolizaWizard';
+import { PolizaCreateRequest, PolizaFormData } from '../../types/poliza';
+import { usePolizaWizard } from '../../hooks/usePolizaWizard';
 import { useDarkMode } from '../../context/ThemeContext';
 import FloatingWizardHeader from './FloatingWizardHeader';
 import { 
@@ -362,6 +362,7 @@ useEffect(() => {
   }
 }, [formData.operacion]);
 
+
 const generarObservacionesConLogica = (
   datos: any, 
   operacion: TipoOperacion, 
@@ -610,204 +611,211 @@ const generarObservacionesConLogica = (
     </div>
   );
 
-  const renderCompanyStep = () => (
-    <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
-      {/* Header mejorado */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center space-x-4">
-          <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-            isDarkMode 
-              ? 'bg-gradient-to-br from-emerald-700 to-blue-800' 
-              : 'bg-gradient-to-br from-emerald-500 to-blue-600'
-          }`}>
-            <Building2 className="w-6 h-6 text-white" />
-          </div>
-          <div>
-            <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-              Seleccionar Compañía
-            </h2>
-            <p className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-600'} text-xl`}>
-              Elige la compañía de seguros para la póliza
-            </p>
-          </div>
+const renderCompanyStep = () => (
+  <div className={`max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-gray-100' : ''}`}>
+    {/* Header */}
+    <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center space-x-4">
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+          isDarkMode 
+            ? 'bg-gradient-to-br from-emerald-700 to-blue-800' 
+            : 'bg-gradient-to-br from-emerald-500 to-blue-600'
+        }`}>
+          <Building2 className="w-6 h-6 text-white" />
         </div>
-        </div>
-
-      <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
-        <div className="p-8">
-          {/* Loading mejorado */}
-          {wizard.loadingCompanies && (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="relative">
-                <div className="w-12 h-12 border-4 border-blue-200 rounded-full animate-spin"></div>
-                <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
-              </div>
-              <p className="text-gray-600 mt-4 text-lg">Cargando compañías...</p>
-            </div>
-          )}
-
-          {/* Lista de compañías mejorada */}
-          {wizard.companies.length > 0 && (
-            <div className="space-y-4">
-              {/* Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-gray-100">
-                <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                  Compañías disponibles
-                </h3>
-                <div className="flex items-center space-x-3">
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    isDarkMode 
-                      ? 'bg-emerald-900 text-emerald-200' 
-                      : 'bg-emerald-100 text-emerald-800'
-                  }`}>
-                    {wizard.companies.length} compañía{wizard.companies.length !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </div>
-
-              {/* Lista mejorada - una columna, más compacta */}
-              <div className="space-y-3 max-h-80 sm:max-h-96 lg:max-h-[32rem] xl:max-h-[40rem] overflow-y-auto pr-2">
-                {wizard.companies.map((company, index) => (
-                  <div
-                    key={company.id}
-                    onClick={() => wizard.selectCompany(company)}
-                    className={`group relative p-4 border rounded-xl hover:shadow-md cursor-pointer transition-all duration-200 ${
-                      isDarkMode 
-                        ? 'border-gray-600 bg-gray-700 hover:border-emerald-500 hover:bg-gray-650' 
-                        : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between">
-                      {/* Información principal - lado izquierdo */}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-4">
-                          {/* Icono de compañía */}
-                          <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
-                            isDarkMode 
-                              ? 'bg-gradient-to-br from-emerald-600 to-blue-700 group-hover:from-emerald-500 group-hover:to-blue-600' 
-                              : 'bg-gradient-to-br from-emerald-100 to-blue-100 group-hover:from-emerald-200 group-hover:to-blue-200'
-                          }`}>
-                            <Building2 className={`w-5 h-5 transition-colors ${
-                              isDarkMode 
-                                ? 'text-white' 
-                                : 'text-emerald-600 group-hover:text-emerald-700'
-                            }`} />
-                          </div>
-
-                          {/* Datos de la compañía */}
-                          <div className="flex-1 min-w-0">
-                            {/* Fila superior: Nombre + Código */}
-                            <div className="flex items-center space-x-3 mb-1">
-                              <h4 className={`font-bold text-lg truncate ${
-                                isDarkMode 
-                                  ? 'text-white group-hover:text-emerald-300' 
-                                  : 'text-gray-900 group-hover:text-emerald-900'
-                              } transition-colors`}>
-                                {company.comnom}
-                              </h4>
-                              
-                              {/* Código como badge si es diferente al nombre */}
-                              {company.comalias && company.comalias !== company.comnom && (
-                                <div className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium ${
-                                  isDarkMode 
-                                    ? 'bg-gray-600 text-gray-200' 
-                                    : 'bg-gray-100 text-gray-700'
-                                }`}>
-                                  <span>Código:</span>
-                                  <span>{company.comalias}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            {/* Fila inferior: Estado y información adicional */}
-                            <div className={`flex items-center space-x-4 text-sm ${
-                              isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                            }`}>
-                              <div className="flex items-center space-x-2">
-                                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                                <span className="text-green-600 font-medium">Activa y verificada</span>
-                              </div>
-                              
-                              {/* Información adicional si está disponible */}
-                              {company.activo && (
-                                <div className="flex items-center space-x-1">
-                                  <div className={`w-2 h-2 rounded-full ${
-                                    isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
-                                  }`}></div>
-                                  <span className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>
-                                    Operativa
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Acción - lado derecho */}
-                      <div className="flex items-center space-x-3 ml-4">
-                        <div className={`text-xs ${isDarkMode ? 'text-white' : 'text-gray-500'} text-xl font-bold`}>
-                          Seleccionar
-                        </div>
-                        <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${
-                          isDarkMode ? 'text-emerald-400' : 'text-emerald-500'
-                        }`} />
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            )}
-
-          {/* Estado sin compañías */}
-          {!wizard.loadingCompanies && wizard.companies.length === 0 && (
-            <div className="text-center py-16">
-              <div className="w-24 h-24 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Building2 className="w-12 h-12 text-gray-400" />
-              </div>
-              <h3 className="text-xl font-semibold text-gray-900 mb-3">Sin compañías disponibles</h3>
-              <p className="text-gray-600 mb-6">
-                No se encontraron compañías activas en el sistema
-              </p>
-              <button
-                onClick={wizard.loadCompanies}
-                className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
-              >
-                <Loader2 className="w-5 h-5 mr-2" />
-                Recargar compañías
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Navegación */}
-        <div className="flex justify-between items-center p-8 bg-gray-50 border-t border-gray-100">
-          <button
-            onClick={() => wizard.goBack()}
-            className={`inline-flex items-center px-6 py-3 rounded-xl transition-colors font-medium ${
-              isDarkMode 
-                ? 'bg-gray-700 border border-gray-600 text-gray-300 hover:bg-gray-600' 
-                : 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50'
-            }`}
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Volver a clientes
-          </button>
-          
-          {wizard.selectedCompany && (
-            <button
-              onClick={() => wizard.goToStep('upload')}
-              className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium shadow-lg"
-            >
-              Continuar
-              <ArrowRight className="w-5 h-5 ml-2" />
-            </button>
-          )}
+        <div>
+          <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+            Seleccionar Compañía
+          </h2>
+          <p className={`text-sm ${isDarkMode ? 'text-white' : 'text-gray-600'} text-xl`}>
+            Elige la compañía de seguros para la póliza
+          </p>
         </div>
       </div>
     </div>
-  );
+
+    <div className="bg-white rounded-3xl shadow-xl border border-gray-100 overflow-hidden">
+      <div className="p-8">
+        {/* Loading */}
+        {wizard.loadingCompanies && (
+          <div className="flex flex-col items-center justify-center py-16">
+            <div className="relative">
+              <div className="w-12 h-12 border-4 border-blue-200 rounded-full animate-spin"></div>
+              <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin absolute top-0 left-0"></div>
+            </div>
+            <p className="text-gray-600 mt-4 text-lg">Cargando compañías...</p>
+          </div>
+        )}
+
+        {/* Lista de compañías */}
+        {!wizard.loadingCompanies && wizard.companies && wizard.companies.length > 0 && (
+          <div className="space-y-4">
+            {/* Header de la lista */}
+            <div className="flex items-center justify-between pb-4 border-b border-gray-100">
+              <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                Compañías disponibles
+              </h3>
+              <div className="flex items-center space-x-3">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  isDarkMode 
+                    ? 'bg-emerald-900 text-emerald-200' 
+                    : 'bg-emerald-100 text-emerald-800'
+                }`}>
+                  {wizard.companies.length} compañía{wizard.companies.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+            </div>
+
+            {/* Lista */}
+            <div className="space-y-3 max-h-80 sm:max-h-96 lg:max-h-[32rem] xl:max-h-[40rem] overflow-y-auto pr-2">
+              {wizard.companies.map((company, index) => (
+                <div
+                  key={company.id || index}
+                  onClick={() => wizard.selectCompany(company)}
+                  className={`group relative p-4 border rounded-xl hover:shadow-md cursor-pointer transition-all duration-200 ${
+                    isDarkMode 
+                      ? 'border-gray-600 bg-gray-700 hover:border-emerald-500 hover:bg-gray-650' 
+                      : 'border-gray-200 bg-white hover:border-emerald-300 hover:bg-emerald-50'
+                  } ${wizard.selectedCompany?.id === company.id ? 'ring-2 ring-blue-500 border-blue-500' : ''}`}
+                >
+                  <div className="flex items-center justify-between">
+                    {/* Información principal */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-4">
+                        {/* Icono de compañía */}
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isDarkMode 
+                            ? 'bg-gradient-to-br from-emerald-600 to-blue-700 group-hover:from-emerald-500 group-hover:to-blue-600' 
+                            : 'bg-gradient-to-br from-emerald-100 to-blue-100 group-hover:from-emerald-200 group-hover:to-blue-200'
+                        }`}>
+                          <Building2 className={`w-5 h-5 transition-colors ${
+                            isDarkMode 
+                              ? 'text-white' 
+                              : 'text-emerald-600 group-hover:text-emerald-700'
+                          }`} />
+                        </div>
+
+                        {/* Datos de la compañía */}
+                        <div className="flex-1 min-w-0">
+                          {/* Nombre y código */}
+                          <div className="flex items-center space-x-3 mb-1">
+                            <h4 className={`font-bold text-lg truncate ${
+                              isDarkMode 
+                                ? 'text-white group-hover:text-emerald-300' 
+                                : 'text-gray-900 group-hover:text-emerald-900'
+                            } transition-colors`}>
+                              {company.comnom || company.nombre || `Compañía ${company.id}` || 'Sin nombre'}
+                            </h4>
+                            
+                            {/* Alias como badge si existe */}
+                            {company.comalias && company.comalias !== company.comnom && (
+                              <div className={`flex items-center space-x-1 px-2 py-1 rounded-md text-xs font-medium ${
+                                isDarkMode 
+                                  ? 'bg-gray-600 text-gray-200' 
+                                  : 'bg-gray-100 text-gray-700'
+                              }`}>
+                                <span>Alias:</span>
+                                <span>{company.comalias}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Estado y detalles */}
+                          <div className={`flex items-center space-x-4 text-sm ${
+                            isDarkMode ? 'text-gray-300' : 'text-gray-600'
+                          }`}>
+                            <div className="flex items-center space-x-2">
+                              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                              <span className="text-green-600 font-medium">
+                                {company.activo !== false ? 'Activa y verificada' : 'Inactiva'}
+                              </span>
+                            </div>
+                            
+                            {/* Código si existe */}
+                            {(company.cod_srvcompanias || company.codigo) && (
+                              <div className="flex items-center space-x-1">
+                                <div className={`w-2 h-2 rounded-full ${
+                                  isDarkMode ? 'bg-blue-400' : 'bg-blue-500'
+                                }`}></div>
+                                <span className={isDarkMode ? 'text-blue-400' : 'text-blue-600'}>
+                                  {company.cod_srvcompanias || company.codigo}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Acción */}
+                    <div className="flex items-center space-x-3 ml-4">
+                      {wizard.selectedCompany?.id === company.id && (
+                        <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center">
+                          <Check className="w-4 h-4 text-white" />
+                        </div>
+                      )}
+                      <div className={`text-xs ${isDarkMode ? 'text-white' : 'text-gray-500'} text-xl font-bold`}>
+                        Seleccionar
+                      </div>
+                      <ArrowRight className={`w-5 h-5 transition-transform group-hover:translate-x-1 ${
+                        isDarkMode ? 'text-emerald-400' : 'text-emerald-500'
+                      }`} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Estado sin compañías */}
+        {!wizard.loadingCompanies && (!wizard.companies || wizard.companies.length === 0) && (
+          <div className="text-center py-16">
+            <div className="w-24 h-24 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+              <Building2 className="w-12 h-12 text-gray-400" />
+            </div>
+            <h3 className="text-xl font-semibold text-gray-900 mb-3">Sin compañías disponibles</h3>
+            <p className="text-gray-600 mb-6">
+              No se encontraron compañías activas en el sistema
+            </p>
+            <button
+              onClick={wizard.loadCompanies}
+              className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium"
+            >
+              <Loader2 className="w-5 h-5 mr-2" />
+              Recargar compañías
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Navegación */}
+      <div className="flex justify-between items-center p-8 bg-gray-50 border-t border-gray-100">
+        <button
+          onClick={() => wizard.goBack()}
+          className={`inline-flex items-center px-6 py-3 rounded-xl transition-colors font-medium ${
+            isDarkMode 
+              ? 'bg-gray-700 border border-gray-600 text-gray-300 hover:bg-gray-600' 
+              : 'bg-white border-2 border-gray-300 text-gray-700 hover:bg-gray-50'
+          }`}
+        >
+          <ArrowLeft className="w-5 h-5 mr-2" />
+          Volver a clientes
+        </button>
+        
+        {wizard.selectedCompany && (
+          <button
+            onClick={() => wizard.goToStep('upload')}
+            className="inline-flex items-center px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium shadow-lg"
+          >
+            Continuar
+            <ArrowRight className="w-5 h-5 ml-2" />
+          </button>
+        )}
+      </div>
+    </div>
+  </div>
+);
 
 const renderOperacionStep = () => (
   <div className={`max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
@@ -3066,6 +3074,7 @@ const prepararDatosParaVelneo = (): PolizaCreateRequest => {
     congeses: camposMapeados.campos.estadoGestion,
     convig: camposMapeados.campos.estadoPoliza,
     consta: camposMapeados.campos.formaPago,
+
     congesti: '1', // Tipo de gestión fijo
     
     // ✅ DATOS DEL CLIENTE/ASEGURADO

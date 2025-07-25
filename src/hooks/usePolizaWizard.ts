@@ -8,7 +8,8 @@ import { Seccion, SeccionLookup } from '../types/seccion';
 import { TipoOperacion } from '../utils/operationLogic';
 
 import { PolizaFormData, PolizaCreateRequest } from '../types/poliza';
-import { Cliente, Company, WizardStep, WizardState, DocumentProcessResult  } from '../types/wizard';
+import { Cliente, WizardStep, WizardState, DocumentProcessResult  } from '../types/wizard';
+import { Company } from '../types/company'
 
 interface ExtendedWizardState extends WizardState {
   processingDocument?: boolean;
@@ -51,9 +52,12 @@ export const usePolizaWizard = () => {
   const [seccionesLookup, setSeccionesLookup] = useState<SeccionLookup[]>([]);
   const [loadingSecciones, setLoadingSecciones] = useState(false);
 
-  useEffect(() => {
-    loadCompanies();
-  }, []);
+useEffect(() => {
+  if (state.selectedCompany && state.currentStep === 'seccion') {
+    console.log('🔍 Compañía seleccionada, cargando secciones...');
+    loadSecciones();
+  }
+}, [state.selectedCompany, state.currentStep]);
 
   const getAuthToken = useCallback((): string | null => {
     const tokenKey = import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token';
@@ -140,14 +144,20 @@ const goBack = useCallback(() => {
   }, []);
 
 const selectCompany = useCallback((company: Company) => {
-  setState((prev: WizardState) => ({ 
-    ...prev, 
-    selectedCompany: company, 
-    currentStep: 'seccion' //
-  }));
-  setError(null);
+  console.log('🏢 Compañía seleccionada:', {
+    id: company.id,
+    nombre: company.comnom || company.nombre,
+    alias: company.comalias || company.alias
+  });
   
-  console.log('🏢 Compañía seleccionada:', company);
+  setState(prev => ({
+    ...prev,
+    selectedCompany: company,
+    currentStep: 'seccion'
+  }));
+  
+  setSecciones([]);
+  
 }, []);
 
 const selectOperacion = useCallback((operacion: TipoOperacion) => {
@@ -253,8 +263,13 @@ const processDocument = useCallback(async (file?: File | null) => {
 
     setState((prev: ExtendedWizardState) => ({ 
       ...prev, 
-      uploadedFile: file 
+      uploadedFile: file,
+      extractedData: result,                    // ✅ Guardar datos extraídos
+      processingDocument: false,               // ✅ Terminar procesamiento
+      documentError: null,                     // ✅ Limpiar errores
+      currentStep: 'form'                      // ✅ AVANZAR AL FORMULARIO
     }));
+    
     setError(null);
     
     console.log('✅ Documento procesado exitosamente. Avanzando a formulario.');
@@ -513,59 +528,50 @@ const searchClientes = async (searchTerm: string) => {
 
 const loadCompanies = async () => {
   try {
-    setState(prev => ({ ...prev, loadingCompanies: true }));
+    setLoadingCompanies(true);
     
     console.log('🏢 Cargando compañías con servicio unificado...');
+    const companiesData = await companyService.getActiveCompanies();
     
-    // ✅ USAR EL NUEVO SERVICIO
-    const companies = await companyService.getActiveCompanies();
+    console.log('🏢 Compañías recibidas del servicio:', companiesData);
+    setCompanies(companiesData);
+    setLoadingCompanies(false);
     
-    setState(prev => ({ 
-      ...prev, 
-      companies, 
-      loadingCompanies: false 
-    }));
+    console.log(`✅ Compañías cargadas en el state: ${companiesData.length}`);
     
-    console.log(`✅ Compañías cargadas: ${companies.length}`);
-    
-  } catch (error: any) {
-    console.error('❌ Error cargando compañías:', error);
-    setState(prev => ({ 
-      ...prev, 
-      loadingCompanies: false,
-      companies: []
-    }));
+  } catch (error: any) {   
+    setCompanies([]);
+    setLoadingCompanies(false);
   }
 };
 
 const loadSecciones = async () => {
   try {
-    setState(prev => ({ ...prev, loadingSecciones: true }));
+    // ✅ USAR LOS STATES SEPARADOS, NO setState
+    setLoadingSecciones(true);
     
     console.log('🔍 Cargando secciones con servicio unificado...');
     
-    // ✅ USAR EL NUEVO SERVICIO
-    const secciones = await seccionService.getActiveSecciones();
+    const seccionesData = await seccionService.getActiveSecciones();
     
-    setState(prev => ({ 
-      ...prev, 
-      secciones, 
-      loadingSecciones: false 
-    }));
+    console.log('🔍 Secciones recibidas del servicio:', seccionesData);
     
-    console.log(`✅ Secciones cargadas: ${secciones.length}`);
+    // ✅ ACTUALIZAR LOS STATES SEPARADOS
+    setSecciones(seccionesData);
+    setLoadingSecciones(false);
+    
+    console.log(`✅ Secciones cargadas en el state: ${seccionesData.length}`);
     
   } catch (error: any) {
     console.error('❌ Error cargando secciones:', error);
-    setState(prev => ({ 
-      ...prev, 
-      loadingSecciones: false,
-      secciones: []
-    }));
+    
+    // ✅ ACTUALIZAR LOS STATES SEPARADOS EN CASO DE ERROR
+    setSecciones([]);
+    setLoadingSecciones(false);
   }
 };
 
-    const selectSeccion = useCallback((seccion: Seccion) => {
+  const selectSeccion = useCallback((seccion: Seccion) => {
     console.log('🎯 Sección seleccionada:', seccion.seccion);
     setState(prev => ({
       ...prev,

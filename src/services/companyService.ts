@@ -3,14 +3,31 @@ import { ENDPOINTS } from '../utils/constants';
 
 export interface Company {
   id: number;
-  nombre: string;
-  codigo: string;
+  comnom: string;
+  comalias: string;
+  cod_srvcompanias: string;
   activo: boolean;
+  
+  nombre: string;
+  alias: string;
+  codigo: string;
+  
+  comrazsoc?: string;
+  comruc?: string;
+  comdom?: string;
+  comtel?: string;
+  totalPolizas?: number;
+  puedeEliminar?: boolean;
 }
 
 export interface CompanyLookup {
   id: number;
+  comnom: string;
+  comalias: string;
+  cod_srvcompanias: string;
+  
   nombre: string;
+  alias: string;
   codigo: string;
 }
 
@@ -32,7 +49,7 @@ class CompanyService {
   async getCompaniesForLookup(): Promise<CompanyLookup[]> {
     console.log('🏢 CompanyService: Obteniendo compañías para lookup...');
     
-    const response = await apiClient.get<CompanyLookup[]>('/Companies');
+    const response = await apiClient.get<CompanyLookup[]>(`${this.endpoint}/lookup`);
     
     if (!response.success) {
       throw new Error(response.error || 'Error obteniendo compañías para lookup');
@@ -49,6 +66,8 @@ class CompanyService {
     if (!response.success) {
       throw new Error(response.error || 'Error obteniendo compañías activas');
     }
+    
+    console.log('🏢 Compañías recibidas del backend:', response.data);
     
     return response.data || [];
   }

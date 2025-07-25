@@ -1,13 +1,6 @@
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
-
-export interface Seccion {
-  id: number;
-  seccion: string;
-  descripcion: string;
-  activo: boolean;
-  companyId?: number;
-}
+import { Seccion } from '../types/seccion';
 
 export interface SeccionLookup {
   id: number;
@@ -16,7 +9,7 @@ export interface SeccionLookup {
 }
 
 class SeccionService {
-  private readonly endpoint = ENDPOINTS.SECCIONES; // '/secciones'
+  private readonly endpoint = ENDPOINTS.SECCIONES; 
 
   async getActiveSecciones(): Promise<Seccion[]> {
     console.log('🔍 SeccionService: Obteniendo secciones activas...');
@@ -26,6 +19,8 @@ class SeccionService {
     if (!response.success) {
       throw new Error(response.error || 'Error obteniendo secciones activas');
     }
+    
+    console.log('🔍 Secciones recibidas del backend:', response.data);
     
     return response.data || [];
   }
