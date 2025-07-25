@@ -1,19 +1,40 @@
-// src/utils/mappers/formDataMapper.ts
+// src/utils/formDataMapper.ts
 
-import { PolizaFormData, PolizaCreateRequest } from '../../types/core/poliza';
-import { DocumentProcessResult } from '../../types/ui/wizard';
+// ✅ Importaciones corregidas - archivo está en src/utils/
+import { PolizaFormData, PolizaCreateRequest } from '../types/core/poliza';
+import { DocumentProcessResult } from '../types/ui/wizard';
+import { ValidationError, ValidationResult } from '../types/wizard/validation';
 
-// ✅ Tipos para las conversiones (definidos localmente para evitar problemas de importación)
-interface ValidationError {
-  field: string;
-  message: string;
-  severity: 'error' | 'warning' | 'info';
+// ✅ Tipos auxiliares para el mapper
+interface PolizaFormDataTemp {
+  clienteId: number;
+  companiaId: number;
+  seccionId: number;
+  clienteNombre: string;
+  clienteDocumento: string;
+  clienteTelefono: string;
+  clienteEmail: string;
+  clienteDireccion: string;
+  numeroPoliza: string;
+  fechaInicio: Date;
+  fechaVencimiento: Date;
+  sumaAsegurada: number;
+  premio: number;
+  vehiculoMarca: string;
+  vehiculoModelo: string;
+  vehiculoAno: number;
+  vehiculoPatente: string;
+  vehiculoChasis: string;
+  observaciones: string;
+  activa: boolean;
 }
 
-interface ValidationResult {
-  isValid: boolean;
-  errors: ValidationError[];
-  warnings: ValidationError[];
+// ✅ Tipos auxiliares para el mapper (por si necesitamos extender)
+interface ExtractedField {
+  name: string;
+  value: string;
+  confidence: number;
+  boundingBox?: any;
 }
 
 // ✅ Tipos para las conversiones
@@ -45,438 +66,206 @@ export interface MappingContext {
   userId?: string;
 }
 
-// ✅ Reglas de validación para PolizaCreateRequest
-const POLIZA_CREATE_VALIDATION_RULES: FormDataValidationRule[] = [
-  // Campos obligatorios básicos
-  {
-    field: 'comcod',
-    required: true,
-    validator: (value) => Number(value) > 0,
-    transformer: (value) => Number(value),
-    errorMessage: 'Código de compañía es requerido y debe ser mayor a 0'
-  },
-  {
-    field: 'seccod',
-    required: true,
-    validator: (value) => Number(value) >= 0,
-    transformer: (value) => Number(value),
-    errorMessage: 'Código de sección es requerido'
-  },
-  {
-    field: 'clinro',
-    required: true,
-    validator: (value) => Number(value) > 0,
-    transformer: (value) => Number(value),
-    errorMessage: 'Código de cliente es requerido y debe ser mayor a 0'
-  },
-  {
-    field: 'conpol',
-    required: true,
-    validator: (value) => Boolean(value && String(value).trim().length >= 3),
-    transformer: (value) => String(value).trim().toUpperCase(),
-    errorMessage: 'Número de póliza es requerido (mínimo 3 caracteres)'
-  },
-  {
-    field: 'confchdes',
-    required: true,
-    validator: (value) => isValidDateString(value),
-    transformer: (value) => formatDateForVelneo(value),
-    errorMessage: 'Fecha de inicio de vigencia es requerida y debe ser válida'
-  },
-  {
-    field: 'confchhas',
-    required: true,
-    validator: (value) => isValidDateString(value),
-    transformer: (value) => formatDateForVelneo(value),
-    errorMessage: 'Fecha de fin de vigencia es requerida y debe ser válida'
-  },
-  {
-    field: 'conpremio',
-    required: true,
-    validator: (value) => Number(value) > 0,
-    transformer: (value) => Number(value),
-    errorMessage: 'Premio debe ser mayor a 0'
-  },
-  {
-    field: 'asegurado',
-    required: true,
-    validator: (value) => Boolean(value && String(value).trim().length >= 2),
-    transformer: (value) => String(value).trim().replace(/\s+/g, ' '),
-    errorMessage: 'Nombre del asegurado es requerido (mínimo 2 caracteres)'
-  },
+/**
+ * Convierte datos de formulario de Azure AI a formato PolizaFormData
+ */
+export function mapAzureToFormData(
+  azureResult: DocumentProcessResult,
+  context: MappingContext
+): FormDataMappingResult<PolizaFormData> {
+  const startTime = performance.now();
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const unmappedFields: string[] = [];
 
-  // Campos opcionales con validaciones
-  {
-    field: 'conmataut',
-    required: false,
-    validator: (value) => !value || isValidMatricula(value),
-    transformer: (value) => value ? String(value).trim().toUpperCase() : '',
-    errorMessage: 'Formato de matrícula inválido'
-  },
-  {
-    field: 'email',
-    required: false,
-    validator: (value) => !value || isValidEmail(value),
-    transformer: (value) => value ? String(value).trim().toLowerCase() : '',
-    errorMessage: 'Formato de email inválido'
-  },
-  {
-    field: 'telefono',
-    required: false,
-    validator: (value) => !value || isValidTelefono(value),
-    transformer: (value) => value ? String(value).replace(/[^0-9+]/g, '') : '',
-    errorMessage: 'Formato de teléfono inválido'
-  },
+  try {
+    // Mapeo básico de datos extraídos
+    const mappedData: Partial<PolizaFormData> = {};
 
-  // Campos numéricos opcionales
-  {
-    field: 'conanioaut',
-    required: false,
-    validator: (value) => !value || (Number(value) >= 1900 && Number(value) <= new Date().getFullYear() + 2),
-    transformer: (value) => value ? Number(value) : undefined,
-    errorMessage: 'Año del vehículo debe estar entre 1900 y el año actual + 2'
-  },
-  {
-    field: 'primaComercial',
-    required: false,
-    validator: (value) => !value || Number(value) >= 0,
-    transformer: (value) => value ? Number(value) : 0,
-    errorMessage: 'Prima comercial debe ser mayor o igual a 0'
-  },
-  {
-    field: 'premioTotal',
-    required: false,
-    validator: (value) => !value || Number(value) >= 0,
-    transformer: (value) => value ? Number(value) : 0,
-    errorMessage: 'Premio total debe ser mayor o igual a 0'
-  }
-];
+    // Mapear campos básicos del cliente
+    if (azureResult.extractedFields) {
+      azureResult.extractedFields.forEach((field: ExtractedField) => {
+        switch (field.name.toLowerCase()) {
+          case 'nombre':
+          case 'client_name':
+          case 'asegurado':
+            mappedData.asegurado = field.value;
+            mappedData.nombreAsegurado = field.value;
+            break;
+          case 'documento':
+          case 'document_number':
+          case 'ci':
+          case 'cedula':
+            mappedData.documento = field.value;
+            break;
+          case 'telefono':
+          case 'phone':
+          case 'celular':
+            mappedData.telefono = field.value;
+            break;
+          case 'email':
+          case 'correo':
+            mappedData.email = field.value;
+            break;
+          case 'direccion':
+          case 'address':
+          case 'domicilio':
+            mappedData.direccion = field.value;
+            break;
+          
+          // Datos de la póliza
+          case 'numero_poliza':
+          case 'policy_number':
+          case 'poliza':
+            mappedData.numeroPoliza = field.value;
+            break;
+          case 'fecha_inicio':
+          case 'start_date':
+          case 'vigencia_desde':
+          case 'desde':
+            mappedData.vigenciaDesde = field.value;
+            break;
+          case 'fecha_vencimiento':
+          case 'end_date':
+          case 'vigencia_hasta':
+          case 'hasta':
+            mappedData.vigenciaHasta = field.value;
+            break;
+          case 'suma_asegurada':
+          case 'insured_amount':
+          case 'capital':
+            mappedData.primaComercial = parseFloat(field.value.replace(/[^\d.-]/g, '')) || 0;
+            break;
+          case 'premio':
+          case 'premium':
+          case 'prima':
+            mappedData.prima = parseFloat(field.value.replace(/[^\d.-]/g, '')) || 0;
+            mappedData.premioTotal = parseFloat(field.value.replace(/[^\d.-]/g, '')) || 0;
+            break;
+          
+          // Datos del vehículo (si aplica)
+          case 'marca':
+          case 'brand':
+            mappedData.marca = field.value;
+            break;
+          case 'modelo':
+          case 'model':
+            mappedData.modelo = field.value;
+            break;
+          case 'año':
+          case 'year':
+          case 'ano':
+            mappedData.anio = field.value;
+            break;
+          case 'patente':
+          case 'plate':
+          case 'matricula':
+          case 'chapa':
+            mappedData.matricula = field.value.toUpperCase();
+            mappedData.chapa = field.value.toUpperCase();
+            break;
+          case 'chasis':
+          case 'chassis':
+          case 'numero_chasis':
+            mappedData.chasis = field.value;
+            break;
+          case 'motor':
+            mappedData.motor = field.value;
+            break;
+          
+          default:
+            unmappedFields.push(field.name);
+            warnings.push(`Campo no mapeado: ${field.name} = ${field.value}`);
+        }
+      });
+    }
 
-// ✅ Clase principal del mapper
-export class FormDataMapper {
-  
-  /**
-   * Convertir PolizaFormData a PolizaCreateRequest
-   */
-  static mapFormDataToCreateRequest(
-    formData: PolizaFormData,
-    context: MappingContext
-  ): FormDataMappingResult<PolizaCreateRequest> {
-    const startTime = Date.now();
-    const warnings: string[] = [];
-    const errors: string[] = [];
-    const unmappedFields: string[] = [];
-
-    // Crear objeto base con valores del contexto
-    const createRequest: PolizaCreateRequest = {
-      // IDs del contexto
-      comcod: context.companiaId || 0,
-      seccod: context.seccionId || 0,
-      clinro: context.clienteId || 0,
-
-      // Campos básicos requeridos desde el formulario
-      conpol: formData.numeroPoliza || '',
-      confchdes: formatDateForVelneo(formData.vigenciaDesde),
-      confchhas: formatDateForVelneo(formData.vigenciaHasta),
-      conpremio: formData.prima || 0,
-      asegurado: formData.asegurado || '',
-
-      // Campos de vehículo (usar nombres correctos de PolizaCreateRequest)
-      conmaraut: formData.marca || '',
-      conanioaut: formData.anio ? Number(formData.anio) : undefined,
-      conmataut: formData.matricula || '',
-      conmotor: formData.motor || '',
-      conchasis: formData.chasis || '',
-      vehiculo: formData.vehiculo || '',
-      combustible: formData.combustible || '',
-
-      // Información financiera
-      moneda: formData.moneda || 'PES',
-      primaComercial: formData.primaComercial || 0,
-      premioTotal: formData.premioTotal || 0,
-      cantidadCuotas: formData.cantidadCuotas || 1,
-      valorCuota: formData.valorCuota || 0,
-      formaPago: formData.formaPago || '',
-
-      // Información personal
-      documento: formData.documento || '',
-      email: formData.email || '',
-      telefono: formData.telefono || '',
-      direccion: formData.direccion || '',
-      localidad: formData.localidad || '',
-      departamento: formData.departamento || '',
-
-      // Información adicional
-      corredor: formData.corredor || '',
-      plan: formData.plan || '',
-      ramo: formData.ramo || 'AUTOMOVILES',
-      cobertura: formData.cobertura || '',
-      observaciones: formData.observaciones || '',
-
-      // Metadatos de procesamiento
-      procesadoConIA: context.source === 'azure',
-      
-      // ✅ Campos que SÍ existen en PolizaCreateRequest (según poliza.ts)
-      certificado: formData.certificado || '',
-      estadoPoliza: formData.estadoPoliza || '',
-      tramite: formData.tramite || '',
-      tipo: formData.tipo || '',
-      tipoVehiculo: formData.tipoVehiculo || '',
-      uso: formData.uso || '',
-      cobertura: formData.cobertura || '',
-      categoriaId: formData.categoriaId || undefined,
-      destinoId: formData.destinoId || undefined,
-      calidadId: formData.calidadId || undefined
-    };
-
-    // Aplicar validaciones y transformaciones
-    const validationResult = this.applyValidationRules(createRequest, POLIZA_CREATE_VALIDATION_RULES);
-    warnings.push(...validationResult.warnings);
-    errors.push(...validationResult.errors);
-
-    // Post-procesamiento específico
-    const postProcessResult = this.applyPostProcessing(createRequest, formData, context);
-    warnings.push(...postProcessResult.warnings);
-    errors.push(...postProcessResult.errors);
-
-    // Identificar campos no mapeados
-    const formDataKeys = Object.keys(formData);
-    const createRequestKeys = Object.keys(createRequest);
-    formDataKeys.forEach(key => {
-      if (!createRequestKeys.includes(key) && formData[key as keyof PolizaFormData] !== undefined) {
-        unmappedFields.push(key);
-      }
-    });
-
-    const conversionTime = Date.now() - startTime;
-    const fieldsProcessed = Object.keys(createRequest).filter(key => 
-      createRequest[key as keyof PolizaCreateRequest] !== undefined && 
-      createRequest[key as keyof PolizaCreateRequest] !== ''
-    ).length;
-
-    console.log(`📋 FormData -> CreateRequest: ${fieldsProcessed} campos procesados en ${conversionTime}ms`);
-
-    return {
-      data: createRequest,
-      warnings,
-      errors,
-      unmappedFields,
-      conversionTime,
-      fieldsProcessed
-    };
-  }
-
-  /**
-   * Convertir PolizaCreateRequest a PolizaFormData (para edición)
-   */
-  static mapCreateRequestToFormData(
-    createRequest: PolizaCreateRequest
-  ): FormDataMappingResult<PolizaFormData> {
-    const startTime = Date.now();
-    const warnings: string[] = [];
-    const errors: string[] = [];
-    const unmappedFields: string[] = [];
-
+    // Aplicar contexto y valores por defecto
     const formData: PolizaFormData = {
-      // Campos básicos
-      numeroPoliza: createRequest.conpol || '',
-      vigenciaDesde: formatDateForForm(createRequest.confchdes),
-      vigenciaHasta: formatDateForForm(createRequest.confchhas),
-      prima: createRequest.conpremio || 0,
-      moneda: createRequest.moneda || 'PES',
-      asegurado: createRequest.asegurado || '',
-      compania: createRequest.comcod || 0,
-      seccionId: createRequest.seccod || 0,
-      clienteId: createRequest.clinro || 0,
-      cobertura: createRequest.cobertura || '',
-
-      // Campos opcionales básicos
-      observaciones: createRequest.observaciones || '',
-      
-      // Información del vehículo (usar nombres correctos)
-      vehiculo: createRequest.vehiculo || '',
-      marca: createRequest.conmaraut || '',
-      modelo: createRequest.modelo || '', // Campo legacy en PolizaCreateRequest
-      anio: createRequest.conanioaut ? String(createRequest.conanioaut) : '',
-      matricula: createRequest.conmataut || '',
-      motor: createRequest.conmotor || '',
-      chasis: createRequest.conchasis || '',
-      combustible: createRequest.combustible || '',
-
-      // Información financiera
-      primaComercial: createRequest.primaComercial || 0,
-      premioTotal: createRequest.premioTotal || 0,
-      cantidadCuotas: createRequest.cantidadCuotas || 0,
-      valorCuota: createRequest.valorCuota || 0,
-      formaPago: createRequest.formaPago || '',
-      primeraCuotaFecha: '', // Campo específico del FormData
-      primeraCuotaMonto: 0,  // Campo específico del FormData
-
-      // Información personal
-      documento: createRequest.documento || '',
-      email: createRequest.email || '',
-      telefono: createRequest.telefono || '',
-      direccion: createRequest.direccion || '',
-      localidad: createRequest.localidad || '',
-      departamento: createRequest.departamento || '',
-
-      // Información adicional
-      corredor: createRequest.corredor || '',
-      plan: createRequest.plan || '',
-      ramo: createRequest.ramo || '',
-      certificado: createRequest.certificado || '',
-      estadoPoliza: createRequest.estadoPoliza || '',
-      tramite: createRequest.tramite || '',
-      tipo: createRequest.tipo || '',
-      destino: '', // Campo específico del FormData
-      categoria: '', // Campo específico del FormData  
-      calidad: '', // Campo específico del FormData
-      tipoVehiculo: createRequest.tipoVehiculo || '',
-      uso: createRequest.uso || '',
-
-      // IDs para combos (si están disponibles)
-      combustibleId: null,
-      categoriaId: null,
-      destinoId: null,
-      calidadId: null,
-
-      // Campos adicionales
-      operacion: null,
-      seccion: '',
-
-      // Campo legacy
-      nombreAsegurado: createRequest.asegurado || '',
-      chapa: createRequest.conmataut || ''
-    };
-
-    const conversionTime = Date.now() - startTime;
-    const fieldsProcessed = Object.keys(formData).filter(key => 
-      formData[key as keyof PolizaFormData] !== undefined && 
-      formData[key as keyof PolizaFormData] !== ''
-    ).length;
-
-    console.log(`📝 CreateRequest -> FormData: ${fieldsProcessed} campos procesados en ${conversionTime}ms`);
-
-    return {
-      data: formData,
-      warnings,
-      errors,
-      unmappedFields,
-      conversionTime,
-      fieldsProcessed
-    };
-  }
-
-  /**
-   * Convertir DocumentProcessResult a PolizaFormData inicial
-   */
-  static mapDocumentResultToFormData(
-    documentResult: DocumentProcessResult,
-    context: Partial<MappingContext> = {}
-  ): FormDataMappingResult<PolizaFormData> {
-    const startTime = Date.now();
-    const warnings: string[] = [];
-    const errors: string[] = [];
-    const unmappedFields: string[] = [];
-
-    const formData: PolizaFormData = {
-      // Campos básicos desde Azure
-      numeroPoliza: documentResult.numeroPoliza || '',
-      vigenciaDesde: formatDateForForm(documentResult.vigenciaDesde),
-      vigenciaHasta: formatDateForForm(documentResult.vigenciaHasta),
-      prima: documentResult.prima || 0,
-      moneda: documentResult.moneda || 'PES',
-      asegurado: documentResult.asegurado || '',
-      
       // IDs del contexto
+      clienteId: context.clienteId || 0,
       compania: context.companiaId || 0,
       seccionId: context.seccionId || 0,
-      clienteId: context.clienteId || 0,
+      
+      // Campos requeridos con valores por defecto
+      numeroPoliza: mappedData.numeroPoliza || '',
+      vigenciaDesde: mappedData.vigenciaDesde || new Date().toISOString().split('T')[0],
+      vigenciaHasta: mappedData.vigenciaHasta || new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
+      prima: mappedData.prima || 0,
+      moneda: 'UYU',
+      asegurado: mappedData.asegurado || '',
       cobertura: '',
 
-      // Campos opcionales básicos
-      observaciones: this.generateInitialObservations(documentResult),
+      // Datos del cliente
+      nombreAsegurado: mappedData.nombreAsegurado || mappedData.asegurado || '',
+      documento: mappedData.documento || '',
+      telefono: mappedData.telefono || '',
+      email: mappedData.email || '',
+      direccion: mappedData.direccion || '',
+      localidad: '',
+      departamento: '',
+      codigoPostal: '',
       
-      // Información del vehículo
-      vehiculo: documentResult.vehiculo || '',
-      marca: documentResult.marca || '',
-      modelo: documentResult.modelo || '',
-      anio: documentResult.anio || '',
-      matricula: documentResult.matricula || '',
-      motor: documentResult.motor || '',
-      chasis: documentResult.chasis || '',
-      combustible: documentResult.combustible || '',
-
-      // Información financiera
-      primaComercial: documentResult.primaComercial || 0,
-      premioTotal: documentResult.premioTotal || 0,
-      cantidadCuotas: 0,
+      // Datos del vehículo
+      vehiculo: '',
+      marca: mappedData.marca || '',
+      modelo: mappedData.modelo || '',
+      anio: mappedData.anio || new Date().getFullYear().toString(),
+      matricula: mappedData.matricula || '',
+      chapa: mappedData.chapa || mappedData.matricula || '',
+      motor: mappedData.motor || '',
+      chasis: mappedData.chasis || '',
+      combustible: '',
+      color: '',
+      
+      // Datos comerciales
+      primaComercial: mappedData.primaComercial || mappedData.prima || 0,
+      premioTotal: mappedData.premioTotal || mappedData.prima || 0,
+      cantidadCuotas: 1,
       valorCuota: 0,
-      formaPago: '',
+      formaPago: 'Contado',
       primeraCuotaFecha: '',
       primeraCuotaMonto: 0,
-
-      // Información personal
-      documento: documentResult.documento || '',
-      email: documentResult.email || '',
-      telefono: documentResult.telefono || '',
-      direccion: documentResult.direccion || '',
-      localidad: documentResult.localidad || '',
-      departamento: documentResult.departamento || '',
-
-      // Información adicional (limitada a lo que existe en DocumentProcessResult)
-      corredor: documentResult.corredor || '',
-      plan: documentResult.plan || '',
-      ramo: documentResult.ramo || '',
+      impuestoMSP: 0,
+      descuentos: 0,
+      recargos: 0,
+      
+      // Clasificaciones
+      corredor: '',
+      plan: '',
+      ramo: '',
       certificado: '',
-      estadoPoliza: '',
-      tramite: '',
       tipo: '',
       destino: '',
-      categoria: '',
       calidad: '',
+      categoria: '',
       tipoVehiculo: '',
       uso: '',
-
+      
+      // Estados
+      estadoPoliza: 'VIG',
+      tramite: 'Nuevo',
+      estadoGestionVelneo: '1',
+      
       // IDs para combos
       combustibleId: null,
       categoriaId: null,
       destinoId: null,
       calidadId: null,
-
+      
       // Campos adicionales
-      operacion: null,
+      operacion: context.operacionTipo || null,
       seccion: '',
-
-      // Campos legacy y adicionales requeridos por PolizaFormData
-      nombreAsegurado: documentResult.asegurado || '',
-      chapa: documentResult.matricula || '',
-      color: '', // Campo adicional de PolizaFormData
-      impuestoMSP: 0, // Campo adicional de PolizaFormData
-      descuentos: 0, // Campo adicional de PolizaFormData
-      recargos: 0, // Campo adicional de PolizaFormData
-      codigoPostal: '', // Campo adicional de PolizaFormData
-      estadoGestionVelneo: '' // Campo adicional de PolizaFormData
+      observaciones: '',
+      
+      // Campos específicos Velneo
+      tramiteVelneo: 'Nuevo',
+      estadoPolizaVelneo: 'VIG',
+      formaPagoVelneo: '1',
+      monedaVelneo: 'UYU'
     };
 
-    // Validar datos convertidos
-    if (!formData.numeroPoliza) {
-      warnings.push('Número de póliza no detectado automáticamente');
-    }
-    if (!formData.asegurado) {
-      warnings.push('Nombre del asegurado no detectado automáticamente');
-    }
-    if (!formData.vigenciaDesde || !formData.vigenciaHasta) {
-      warnings.push('Fechas de vigencia no detectadas completamente');
-    }
-
-    const conversionTime = Date.now() - startTime;
-    const fieldsProcessed = Object.keys(formData).filter(key => 
-      formData[key as keyof PolizaFormData] !== undefined && 
-      formData[key as keyof PolizaFormData] !== ''
-    ).length;
-
-    console.log(`🤖 DocumentResult -> FormData: ${fieldsProcessed} campos procesados en ${conversionTime}ms`);
+    const conversionTime = performance.now() - startTime;
 
     return {
       data: formData,
@@ -484,217 +273,452 @@ export class FormDataMapper {
       errors,
       unmappedFields,
       conversionTime,
-      fieldsProcessed
+      fieldsProcessed: azureResult.extractedFields?.length || 0
+    };
+
+  } catch (error) {
+    errors.push(`Error en conversión: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    
+    return {
+      data: createEmptyFormData(context),
+      warnings,
+      errors,
+      unmappedFields,
+      conversionTime: performance.now() - startTime,
+      fieldsProcessed: 0
     };
   }
+}
 
-  /**
-   * Aplicar reglas de validación y transformación
-   */
-  private static applyValidationRules(
-    data: any,
-    rules: FormDataValidationRule[]
-  ): { warnings: string[]; errors: string[] } {
-    const warnings: string[] = [];
-    const errors: string[] = [];
+/**
+ * Convierte PolizaFormData a formato para Velneo/backend
+ */
+export function mapFormDataToVelneo(
+  formData: PolizaFormData,
+  context: MappingContext
+): FormDataMappingResult<PolizaCreateRequest> {
+  const startTime = performance.now();
+  const errors: string[] = [];
+  const warnings: string[] = [];
 
-    rules.forEach(rule => {
-      const value = data[rule.field];
+  try {
+    const velneoData: PolizaCreateRequest = {
+      // Campos básicos requeridos
+      comcod: formData.compania,
+      seccod: formData.seccionId,
+      clinro: formData.clienteId,
+      conpol: formData.numeroPoliza,
+      confchdes: formData.vigenciaDesde,
+      confchhas: formData.vigenciaHasta,
+      conpremio: formData.prima,
+      asegurado: formData.asegurado,
 
-      // Verificar campo requerido
-      if (rule.required && (value === undefined || value === null || value === '')) {
-        if (rule.defaultValue !== undefined) {
-          data[rule.field] = rule.defaultValue;
-          warnings.push(`Campo requerido ${rule.field} no presente - asignado valor por defecto`);
-        } else {
-          errors.push(rule.errorMessage || `Campo requerido ${rule.field} no presente`);
-        }
-        return;
-      }
+      // Datos del cliente
+      clinom: formData.nombreAsegurado || formData.asegurado,
+      condom: formData.direccion,
+      
+      // Datos del vehículo
+      conmaraut: formData.marca,
+      conanioaut: parseInt(formData.anio),
+      conmataut: formData.matricula,
+      conmotor: formData.motor,
+      conchasis: formData.chasis,
+      
+      // Datos comerciales
+      contot: formData.premioTotal,
+      concuo: formData.cantidadCuotas,
+      moncod: getMonedaId(formData.moneda),
+      conimp: formData.primaComercial,
+      
+      // Clasificaciones - convertir null a undefined para compatibilidad
+      calidadId: formData.calidadId ?? undefined,
+      destinoId: formData.destinoId ?? undefined,
+      categoriaId: formData.categoriaId ?? undefined,
+      convig: formData.estadoPoliza || 'VIG',
+      consta: formData.formaPago === 'Contado' ? '1' : 
+              formData.formaPago === 'Tarjeta' ? '2' :
+              formData.formaPago === 'Débito Automático' ? '3' : '4',
+      contra: formData.tramite || 'Nuevo',
+      
+      // Campos adicionales
+      ramo: formData.ramo,
+      tposegdsc: formData.cobertura,
+      observaciones: formData.observaciones,
+      
+      // Campos legacy para compatibilidad
+      vehiculo: formData.vehiculo,
+      marca: formData.marca,
+      modelo: formData.modelo,
+      motor: formData.motor,
+      chasis: formData.chasis,
+      matricula: formData.matricula,
+      combustible: formData.combustible,
+      anio: parseInt(formData.anio) || new Date().getFullYear(),
+      primaComercial: formData.primaComercial,
+      premioTotal: formData.premioTotal,
+      corredor: formData.corredor,
+      plan: formData.plan,
+      documento: formData.documento,
+      email: formData.email,
+      telefono: formData.telefono,
+      direccion: formData.direccion,
+      localidad: formData.localidad,
+      departamento: formData.departamento,
+      moneda: formData.moneda,
+      
+      // Campos del wizard
+      seccionId: formData.seccionId,
+      estado: formData.estadoPoliza,
+      tramite: formData.tramite,
+      estadoPoliza: formData.estadoPoliza,
+      tipoVehiculo: formData.tipoVehiculo,
+      uso: formData.uso,
+      formaPago: formData.formaPago,
+      cantidadCuotas: formData.cantidadCuotas,
+      valorCuota: formData.valorCuota,
+      tipo: formData.tipo,
+      cobertura: formData.cobertura,
+      certificado: formData.certificado,
+      
+      // Auditoría
+      procesadoConIA: context.source === 'azure',
+      fechaCreacion: new Date().toISOString(),
+      fechaModificacion: new Date().toISOString()
+    };
 
-      // Si el campo no es requerido y está vacío, continuar
-      if (!rule.required && (value === undefined || value === null || value === '')) {
-        return;
-      }
+    return {
+      data: velneoData,
+      warnings,
+      errors,
+      unmappedFields: [],
+      conversionTime: performance.now() - startTime,
+      fieldsProcessed: Object.keys(formData).length
+    };
 
-      // Aplicar transformación
-      if (rule.transformer) {
-        try {
-          data[rule.field] = rule.transformer(value);
-        } catch (error) {
-          warnings.push(`Error transformando campo ${rule.field}: ${error}`);
-        }
-      }
+  } catch (error) {
+    errors.push(`Error en conversión a Velneo: ${error instanceof Error ? error.message : 'Error desconocido'}`);
+    
+    return {
+      data: {} as PolizaCreateRequest,
+      warnings,
+      errors,
+      unmappedFields: [],
+      conversionTime: performance.now() - startTime,
+      fieldsProcessed: 0
+    };
+  }
+}
 
-      // Aplicar validación
-      if (rule.validator && !rule.validator(data[rule.field])) {
-        errors.push(rule.errorMessage || `Valor inválido para campo ${rule.field}`);
-      }
+/**
+ * Valida datos del formulario según reglas de negocio
+ */
+export function validateFormData(
+  formData: PolizaFormData,
+  rules: FormDataValidationRule[]
+): ValidationResult {
+  const errors: ValidationError[] = [];
+  const warnings: ValidationError[] = [];
+
+  // Validación de campos requeridos
+  rules.forEach(rule => {
+    const value = (formData as any)[rule.field];
+    
+    if (rule.required && (!value || value === '')) {
+      errors.push({
+        field: rule.field,
+        message: rule.errorMessage || `${rule.field} es requerido`,
+        severity: 'error'
+      });
+    }
+    
+    // Validación personalizada
+    if (value && rule.validator && !rule.validator(value)) {
+      errors.push({
+        field: rule.field,
+        message: rule.errorMessage || `${rule.field} no es válido`,
+        severity: 'error'
+      });
+    }
+  });
+
+  // Validaciones de negocio específicas
+  if (formData.vigenciaHasta <= formData.vigenciaDesde) {
+    errors.push({
+      field: 'vigenciaHasta',
+      message: 'La fecha de vencimiento debe ser posterior a la fecha de inicio',
+      severity: 'error'
     });
-
-    return { warnings, errors };
   }
 
-  /**
-   * Post-procesamiento específico
-   */
-  private static applyPostProcessing(
-    createRequest: PolizaCreateRequest,
-    originalFormData: PolizaFormData,
-    context: MappingContext
-  ): { warnings: string[]; errors: string[] } {
-    const warnings: string[] = [];
-    const errors: string[] = [];
+  if (formData.prima < 0) {
+    errors.push({
+      field: 'prima',
+      message: 'La prima no puede ser negativa',
+      severity: 'error'
+    });
+  }
 
-    // Validar coherencia de fechas
-    if (createRequest.confchdes && createRequest.confchhas) {
-      const fechaInicio = new Date(createRequest.confchdes);
-      const fechaFin = new Date(createRequest.confchhas);
-      
-      if (fechaInicio >= fechaFin) {
-        errors.push('Fecha de inicio debe ser anterior a fecha de fin');
+  if (formData.premioTotal < 0) {
+    errors.push({
+      field: 'premioTotal',
+      message: 'El premio total no puede ser negativo',
+      severity: 'error'
+    });
+  }
+
+  // Validaciones específicas de Uruguay
+  if (formData.documento && !/^\d{7,8}$/.test(formData.documento)) {
+    errors.push({
+      field: 'documento',
+      message: 'La cédula debe tener 7 u 8 dígitos',
+      severity: 'error'
+    });
+  }
+
+  if (formData.matricula && !/^[A-Z]{2,3}\d{4}$|^\d{4}[A-Z]{2}$/.test(formData.matricula)) {
+    warnings.push({
+      field: 'matricula',
+      message: 'Formato de matrícula inusual para Uruguay',
+      severity: 'warning'
+    });
+  }
+
+  if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+    errors.push({
+      field: 'email',
+      message: 'Formato de email inválido',
+      severity: 'error'
+    });
+  }
+
+  // Warnings
+  if (formData.primaComercial > 1000000) {
+    warnings.push({
+      field: 'primaComercial',
+      message: 'Prima muy alta, revisar con supervisor',
+      severity: 'warning'
+    });
+  }
+
+  if (formData.prima > formData.primaComercial * 1.5) {
+    warnings.push({
+      field: 'prima',
+      message: 'Prima excesiva comparada con prima comercial',
+      severity: 'warning'
+    });
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings,
+    fieldErrors: errors.reduce((acc, error) => {
+      acc[error.field] = error.message;
+      return acc;
+    }, {} as Record<string, string>)
+  };
+}
+
+/**
+ * Aplica transformaciones a los datos del formulario
+ */
+export function transformFormData(
+  formData: PolizaFormData,
+  rules: FormDataValidationRule[]
+): PolizaFormData {
+  const transformed = { ...formData };
+
+  rules.forEach(rule => {
+    if (rule.transformer) {
+      const currentValue = (transformed as any)[rule.field];
+      (transformed as any)[rule.field] = rule.transformer(currentValue);
+    }
+  });
+
+  // Transformaciones automáticas
+  transformed.asegurado = transformed.asegurado.trim().toUpperCase();
+  transformed.nombreAsegurado = transformed.nombreAsegurado.trim().toUpperCase();
+  transformed.documento = transformed.documento.replace(/\D/g, '');
+  transformed.matricula = transformed.matricula.toUpperCase().replace(/\s/g, '');
+  transformed.chapa = transformed.chapa.toUpperCase().replace(/\s/g, '');
+  transformed.email = transformed.email.toLowerCase().trim();
+
+  return transformed;
+}
+
+/**
+ * Crea un formulario vacío con valores por defecto
+ */
+function createEmptyFormData(context: MappingContext): PolizaFormData {
+  const today = new Date().toISOString().split('T')[0];
+  const nextYear = new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0];
+  
+  return {
+    // Campos requeridos
+    numeroPoliza: '',
+    vigenciaDesde: today,
+    vigenciaHasta: nextYear,
+    prima: 0,
+    moneda: 'UYU',
+    asegurado: '',
+    compania: context.companiaId || 0,
+    seccionId: context.seccionId || 0,
+    clienteId: context.clienteId || 0,
+    cobertura: '',
+
+    // Campos opcionales existentes
+    observaciones: '',
+    vehiculo: '',
+    marca: '',
+    modelo: '',
+    matricula: '',
+    motor: '',
+    chasis: '',
+    anio: new Date().getFullYear().toString(),
+    primaComercial: 0,
+    premioTotal: 0,
+    cantidadCuotas: 1,
+    valorCuota: 0,
+    formaPago: 'Contado',
+    primeraCuotaFecha: '',
+    primeraCuotaMonto: 0,
+    documento: '',
+    email: '',
+    telefono: '',
+    direccion: '',
+    localidad: '',
+    departamento: '',
+    corredor: '',
+    plan: '',
+    ramo: '',
+    certificado: '',
+    estadoPoliza: 'VIG',
+    tramite: 'Nuevo',
+    tipo: '',
+    destino: '',
+    combustible: '',
+    calidad: '',
+    categoria: '',
+    tipoVehiculo: '',
+    uso: '',
+
+    // IDs para combos
+    combustibleId: null,
+    categoriaId: null,
+    destinoId: null,
+    calidadId: null,
+
+    // Campos adicionales existentes
+    operacion: context.operacionTipo || null,
+    seccion: '',
+
+    // Campos faltantes que causan errores
+    nombreAsegurado: '',
+    chapa: '',
+
+    // Campos adicionales del hook usePolizaForm
+    color: '',
+    impuestoMSP: 0,
+    descuentos: 0,
+    recargos: 0,
+    codigoPostal: '',
+
+    // Campos específicos de Velneo
+    tramiteVelneo: 'Nuevo',
+    estadoPolizaVelneo: 'VIG',
+    formaPagoVelneo: '1',
+    monedaVelneo: 'UYU',
+    estadoGestionVelneo: '1'
+  };
+}
+
+/**
+ * Convierte nombre de moneda a ID
+ */
+function getMonedaId(moneda: string): number {
+  switch (moneda) {
+    case 'UYU': return 1;
+    case 'USD': return 2;
+    case 'UI': return 3;
+    default: return 1;
+  }
+}
+
+/**
+ * Parsea una fecha desde string a formato ISO
+ */
+function parseDate(dateString: string): string {
+  // Intentar varios formatos comunes en Uruguay
+  const formats = [
+    /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, // DD/MM/YYYY
+    /^(\d{4})-(\d{1,2})-(\d{1,2})$/, // YYYY-MM-DD
+    /^(\d{1,2})-(\d{1,2})-(\d{4})$/, // DD-MM-YYYY
+  ];
+
+  for (const format of formats) {
+    const match = dateString.match(format);
+    if (match) {
+      let day, month, year;
+      if (format === formats[1]) { // YYYY-MM-DD
+        [, year, month, day] = match;
+      } else { // DD/MM/YYYY or DD-MM-YYYY
+        [, day, month, year] = match;
       }
       
-      // Verificar que las fechas no sean muy antiguas o futuras
-      const now = new Date();
-      const maxFutureYears = 2;
-      const maxPastYears = 10;
-      
-      if (fechaInicio > new Date(now.getFullYear() + maxFutureYears, now.getMonth(), now.getDate())) {
-        warnings.push('Fecha de inicio muy lejana en el futuro');
-      }
-      
-      if (fechaFin < new Date(now.getFullYear() - maxPastYears, now.getMonth(), now.getDate())) {
-        warnings.push('Fecha de fin muy antigua');
+      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (!isNaN(date.getTime())) {
+        return date.toISOString().split('T')[0];
       }
     }
-
-    // Validar coherencia financiera
-    if (createRequest.conpremio && createRequest.premioTotal) {
-      if (createRequest.conpremio > createRequest.premioTotal * 1.1) { // 10% de tolerancia
-        warnings.push('Prima mayor que premio total - verificar cálculos');
-      }
-    }
-
-    // Asegurar que campos críticos no estén vacíos
-    if (!createRequest.moneda) {
-      createRequest.moneda = 'PES';
-      warnings.push('Moneda no especificada - asignado PES por defecto');
-    }
-
-    if (!createRequest.ramo) {
-      createRequest.ramo = 'AUTOMOVILES';
-      warnings.push('Ramo no especificado - asignado AUTOMOVILES por defecto');
-    }
-
-    // Normalizar matrícula
-    if (createRequest.conmataut) {
-      const originalMatricula = createRequest.conmataut;
-      createRequest.conmataut = createRequest.conmataut.toUpperCase().replace(/[^A-Z0-9]/g, '');
-      
-      if (originalMatricula !== createRequest.conmataut) {
-        warnings.push(`Matrícula normalizada: ${originalMatricula} → ${createRequest.conmataut}`);
-      }
-    }
-
-    return { warnings, errors };
   }
 
-  /**
-   * Generar observaciones iniciales para documentos procesados
-   */
-  private static generateInitialObservations(documentResult: DocumentProcessResult): string {
-    const observations = [];
-    
-    observations.push('📄 DOCUMENTO PROCESADO AUTOMÁTICAMENTE');
-    observations.push(`📁 Archivo: ${documentResult.nombreArchivo || 'Desconocido'}`);
-    observations.push(`📅 Fecha: ${new Date().toLocaleString('es-UY')}`);
-    
-    if (documentResult.nivelConfianza) {
-      observations.push(`🎯 Confianza: ${(documentResult.nivelConfianza * 100).toFixed(1)}%`);
-    }
-    
-    if (documentResult.requiereVerificacion) {
-      observations.push('⚠️ REQUIERE VERIFICACIÓN MANUAL');
-    }
-    
-    observations.push('✅ Revisar datos antes de procesar');
-    
-    return observations.join('\n');
+  // Fallback a Date constructor
+  const date = new Date(dateString);
+  return isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
+}
+
+/**
+ * Reglas de validación por defecto para pólizas
+ */
+export const defaultPolizaValidationRules: FormDataValidationRule[] = [
+  {
+    field: 'asegurado',
+    required: true,
+    validator: (value: string) => value.length >= 3,
+    errorMessage: 'El nombre del asegurado debe tener al menos 3 caracteres'
+  },
+  {
+    field: 'documento',
+    required: true,
+    validator: (value: string) => /^\d{7,8}$/.test(value),
+    errorMessage: 'El documento debe tener 7 u 8 dígitos'
+  },
+  {
+    field: 'numeroPoliza',
+    required: true,
+    validator: (value: string) => value.length >= 5,
+    errorMessage: 'El número de póliza debe tener al menos 5 caracteres'
+  },
+  {
+    field: 'prima',
+    required: true,
+    validator: (value: number) => value > 0,
+    errorMessage: 'La prima debe ser mayor a 0'
+  },
+  {
+    field: 'vigenciaDesde',
+    required: true,
+    errorMessage: 'La fecha de inicio de vigencia es obligatoria'
+  },
+  {
+    field: 'vigenciaHasta',
+    required: true,
+    errorMessage: 'La fecha de fin de vigencia es obligatoria'
+  },
+  {
+    field: 'email',
+    required: false,
+    validator: (value: string) => !value || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
+    errorMessage: 'Formato de email inválido'
   }
-}
-
-// ✅ Funciones de utilidad
-function formatDateForVelneo(dateValue: any): string {
-  if (!dateValue) return '';
-  
-  try {
-    const date = new Date(dateValue);
-    if (isNaN(date.getTime())) return '';
-    
-    // Formato DD/MM/YYYY para Velneo
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    
-    return `${day}/${month}/${year}`;
-  } catch {
-    return '';
-  }
-}
-
-function formatDateForForm(dateValue: any): string {
-  if (!dateValue) return '';
-  
-  try {
-    // Si ya está en formato DD/MM/YYYY, convertir a YYYY-MM-DD
-    if (typeof dateValue === 'string' && dateValue.includes('/')) {
-      const [day, month, year] = dateValue.split('/');
-      if (day && month && year) {
-        return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-      }
-    }
-    
-    const date = new Date(dateValue);
-    if (isNaN(date.getTime())) return '';
-    
-    // Formato YYYY-MM-DD para inputs de fecha HTML
-    return date.toISOString().split('T')[0];
-  } catch {
-    return '';
-  }
-}
-
-function isValidDateString(value: any): boolean {
-  if (!value) return false;
-  
-  try {
-    const date = new Date(value);
-    return !isNaN(date.getTime());
-  } catch {
-    return false;
-  }
-}
-
-function isValidMatricula(value: string): boolean {
-  if (!value) return true; // Opcional
-  
-  const matricula = value.trim().toUpperCase();
-  // Formato uruguayo: AAA1234, AA1234, 1234AA
-  return /^[A-Z]{2,3}\d{4}$|^\d{4}[A-Z]{2}$/.test(matricula);
-}
-
-function isValidEmail(value: string): boolean {
-  if (!value) return true; // Opcional
-  
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
-}
-
-function isValidTelefono(value: string): boolean {
-  if (!value) return true; // Opcional
-  
-  const telefono = value.replace(/[^0-9]/g, '');
-  return telefono.length >= 8 && telefono.length <= 12;
-}
-
-export default FormDataMapper;
+];

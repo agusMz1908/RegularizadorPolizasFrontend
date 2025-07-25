@@ -22,23 +22,20 @@ export interface DocumentProcessResult {
   estadoProcesamiento: string;
   timestamp?: string;
   
-  // Datos principales extraídos
   numeroPoliza?: string;
   asegurado?: string;
   vigenciaDesde?: string;
   vigenciaHasta?: string;
   prima?: number;
-  
-  // Metadatos - TODOS OPCIONALES PARA COMPATIBILIDAD
+
   nivelConfianza?: number;
   requiereVerificacion?: boolean;
   requiereRevision?: boolean;
   readyForVelneo?: boolean;
   listoParaVelneo?: boolean;
   tiempoProcesamiento?: number;
-  porcentajeCompletitud?: number;  // ✅ CAMBIAR A OPCIONAL
+  porcentajeCompletitud?: number; 
   
-  // Datos adicionales del Azure
   anio?: string;
   plan?: string;
   ramo?: string;
@@ -61,7 +58,6 @@ export interface DocumentProcessResult {
   corredor?: string;
   compania?: string;
   
-  // Estructura completa de datos del backend
   datosVelneo?: any;
   polizaData?: any;
   extractedFields?: ExtractedField[] | Record<string, any>;
