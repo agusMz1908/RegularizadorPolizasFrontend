@@ -1,5 +1,8 @@
 export { default } from './PolizaWizard';
 export { default as PolizaWizard } from './PolizaWizard';
+export { UploadStep } from './steps/UploadStep';
+export { ProcessingStep } from './steps/ProcessingStep';
+export { FormStep } from './steps/FormStep';
 
 export type {
   Cliente,
