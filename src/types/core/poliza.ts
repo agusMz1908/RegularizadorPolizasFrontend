@@ -1,15 +1,3 @@
-/**
- * src/types/core/poliza.ts
- * Solo tipos principales de pólizas (sin funciones)
- */
-
-// ============================================================================
-// 🏆 INTERFACES PRINCIPALES
-// ============================================================================
-
-/**
- * Request para crear póliza - SINCRONIZADO CON BACKEND
- */
 export interface PolizaCreateRequest {
   // ✅ CAMPOS BÁSICOS REQUERIDOS
   comcod: number;

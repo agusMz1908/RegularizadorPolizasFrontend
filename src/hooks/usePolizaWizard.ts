@@ -130,18 +130,18 @@ const goBack = useCallback(() => {
     setClienteResults([]);
   }, []);
 
-  const selectCliente = useCallback((cliente: Cliente) => {
-    setState((prev: WizardState) => ({ 
-      ...prev, 
-      selectedCliente: cliente, 
-      currentStep: 'company' 
-    }));
-    setClienteSearch('');
-    setClienteResults([]);
-    setError(null);
-    
-    console.log('👤 Cliente seleccionado:', cliente);
-  }, []);
+const selectCliente = useCallback((cliente: Cliente) => {
+  setState((prev: WizardState) => ({ 
+    ...prev, 
+    selectedCliente: cliente,  // ← SIN MAPEO, estructura original
+    currentStep: 'company' 
+  }));
+  setClienteSearch('');
+  setClienteResults([]);
+  setError(null);
+  
+  console.log('👤 Cliente seleccionado (estructura Velneo original):', cliente);
+}, []);
 
 const selectCompany = useCallback((company: Company) => {
   console.log('🏢 Compañía seleccionada:', {

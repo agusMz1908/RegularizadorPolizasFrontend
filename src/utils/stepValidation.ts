@@ -67,11 +67,11 @@ function validateClienteStep(wizardState: WizardState, formData?: PolizaFormData
     if (!clienteData.id) {
       errors.push('Cliente debe tener un ID válido');
     }
-    if (!clienteData.nombre) {
+    if (!clienteData.clinom) {  // ✅ CORRECTO: campo real de Velneo
       errors.push('Cliente debe tener un nombre');
     }
-    if (!clienteData.documento) {
-      errors.push('Cliente debe tener un documento');
+    if (!clienteData.cliced && !clienteData.cliruc) {  // ✅ CORRECTO: campos reales de Velneo
+      errors.push('Cliente debe tener un documento (CI o RUC)');
     }
   }
 

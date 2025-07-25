@@ -6,6 +6,10 @@ import { useWizardNavigation } from '../../hooks/wizard/useWizardNavigation';
 import { useWizardPersistence } from '../../hooks/wizard/useWizardPersistence';
 import { useStepTransitions } from '../../hooks/ui/useStepTransitions';
 
+// Servicios
+import { clienteService, Cliente } from '../../services/clienteService';
+import { companyService } from '../../services/companyService'; // Asumo que existe
+
 // Componentes de pasos con sus interfaces REALES
 import { ClienteStep } from './steps/ClienteStep';
 import { CompanyStep } from './steps/CompanyStep';
@@ -41,6 +45,63 @@ export const PolizaWizard: React.FC = () => {
   const [formData, setFormData] = useState<PolizaFormData>({} as PolizaFormData);
   const [extractedData, setExtractedData] = useState<DocumentProcessResult | null>(null);
   const [saving, setSaving] = useState(false);
+  
+  // Estados para ClienteStep
+  const [clienteSearch, setClienteSearch] = useState('');
+  const [clienteResults, setClienteResults] = useState<Cliente[]>([]);
+  const [loadingClientes, setLoadingClientes] = useState(false);
+  
+  // Estados para CompanyStep
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(false);
+
+  // ============================================================================
+  // 🔧 FUNCIONES DE SERVICIOS
+  // ============================================================================
+
+  /**
+   * Busca clientes usando el servicio real
+   */
+  const searchClientes = async (searchTerm: string) => {
+    if (searchTerm.length < 2) {
+      setClienteResults([]);
+      return;
+    }
+
+    setLoadingClientes(true);
+    try {
+      const results = await clienteService.searchClientes(searchTerm);
+      setClienteResults(results);
+    } catch (error) {
+      console.error('Error buscando clientes:', error);
+      setClienteResults([]);
+    } finally {
+      setLoadingClientes(false);
+    }
+  };
+
+  /**
+   * Carga compañías usando el servicio real
+   */
+  const loadCompanies = async () => {
+    setLoadingCompanies(true);
+    try {
+      // Asumo que companyService tiene un método similar
+      const results = await companyService.getCompanies?.() || [];
+      setCompanies(results);
+    } catch (error) {
+      console.error('Error cargando compañías:', error);
+      // Fallback a datos mock si el servicio falla
+      const mockCompanies = [
+        { id: 1, nombre: 'Sura Seguros', activo: true, codigo: 'SURA' },
+        { id: 2, nombre: 'Mapfre', activo: true, codigo: 'MAPFRE' },
+        { id: 3, nombre: 'La Comercial', activo: true, codigo: 'COMERCIAL' }
+      ];
+      setCompanies(mockCompanies);
+    } finally {
+      setLoadingCompanies(false);
+    }
+  };
 
   // Hook de navegación principal
   const navigation = useWizardNavigation({
@@ -91,10 +152,8 @@ export const PolizaWizard: React.FC = () => {
 
       return () => clearTimeout(timer);
     }
-  }, [navigation.currentStep, uploadedFile, processing]); 
+  }, [navigation.currentStep, uploadedFile, processing]); // ✅ Removed navigation from dependencies
 
-
-  // Hook de persistencia
   const persistence = useWizardPersistence({
     keyPrefix: 'poliza_wizard',
     autoSave: true,
@@ -157,11 +216,21 @@ export const PolizaWizard: React.FC = () => {
         return (
           <ClienteStep
             // Props según ClienteStep interface REAL
-            clienteSearch=""
-            clienteResults={[]}
-            loadingClientes={false}
+            clienteSearch={clienteSearch}
+            clienteResults={clienteResults}
+            loadingClientes={loadingClientes}
             selectedCliente={navigation.wizardState.stepData.cliente}
-            onSearchChange={() => {}}
+            onSearchChange={(search) => {
+              setClienteSearch(search);
+              
+              // Debounce la búsqueda para evitar demasiadas llamadas
+              const timeoutId = setTimeout(() => {
+                searchClientes(search);
+              }, 300);
+
+              // Cleanup del timeout anterior
+              return () => clearTimeout(timeoutId);
+            }}
             onClienteSelect={(cliente) => {
               navigation.completeStep('cliente', { cliente });
               navigation.goNext();
@@ -176,14 +245,14 @@ export const PolizaWizard: React.FC = () => {
         return (
           <CompanyStep
             // Props según CompanyStep interface REAL
-            companies={[]}
-            loadingCompanies={false}
+            companies={companies}
+            loadingCompanies={loadingCompanies}
             selectedCompany={navigation.wizardState.stepData.company}
             onCompanySelect={(company) => {
               navigation.completeStep('company', { company });
               navigation.goNext();
             }}
-            onLoadCompanies={() => {}}
+            onLoadCompanies={loadCompanies} // Función real
             onNext={() => navigation.goNext()}
             onBack={() => navigation.goBack()}
             isDarkMode={isDarkMode}

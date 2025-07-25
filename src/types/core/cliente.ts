@@ -1,4 +1,5 @@
-import { Poliza } from "./poliza";
+// ✅ CORRECCIÓN
+import { PolizaDto } from "../core/poliza";
 
 export interface Cliente {
   id: number;
@@ -80,5 +81,5 @@ export interface Cliente {
   noti_obs_sini_wap: boolean;
   last_update: string | null;
   app_id: number;
-  polizas: Poliza[];
+  polizas: PolizaDto[];  // ✅ CAMBIADO: Poliza[] → PolizaDto[]
 }
