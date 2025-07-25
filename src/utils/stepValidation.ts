@@ -56,6 +56,7 @@ export function validateStepCompletion(
 
 /**
  * Validación paso Cliente
+ * ✅ CORREGIDO: Validar formato del listado, no formato de Velneo
  */
 function validateClienteStep(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
   const errors: string[] = [];
@@ -64,13 +65,22 @@ function validateClienteStep(wizardState: WizardState, formData?: PolizaFormData
   if (!clienteData) {
     errors.push('Debe seleccionar un cliente');
   } else {
+    // ✅ VALIDAR ID (campo común)
     if (!clienteData.id) {
       errors.push('Cliente debe tener un ID válido');
     }
-    if (!clienteData.clinom) {  // ✅ CORRECTO: campo real de Velneo
+
+    // ✅ VALIDAR NOMBRE (usar campos del listado, no de Velneo)
+    // El cliente del listado puede tener 'nombre' o 'clinom'
+    const nombreCliente = clienteData.nombre || clienteData.clinom;
+    if (!nombreCliente) {
       errors.push('Cliente debe tener un nombre');
     }
-    if (!clienteData.cliced && !clienteData.cliruc) {  // ✅ CORRECTO: campos reales de Velneo
+
+    // ✅ VALIDAR DOCUMENTO (usar campos del listado, no de Velneo)
+    // El cliente del listado puede tener 'documento' o los campos específicos de Velneo
+    const documentoCliente = clienteData.documento || clienteData.cliced || clienteData.cliruc;
+    if (!documentoCliente) {
       errors.push('Cliente debe tener un documento (CI o RUC)');
     }
   }

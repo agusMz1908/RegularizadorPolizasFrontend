@@ -1,16 +1,12 @@
-// src/components/wizard/PolizaWizard.tsx - CON TODAS LAS INTERFACES REALES
+// src/components/wizard/PolizaWizard.tsx - CON FUNCIÓN SELECTCLIENTE CORREGIDA
 
 import React, { useEffect, useState } from 'react';
 import { useTheme } from '../../hooks/useTheme';
-import { useWizardNavigation } from '../../hooks/wizard/useWizardNavigation';
-import { useWizardPersistence } from '../../hooks/wizard/useWizardPersistence';
-import { useStepTransitions } from '../../hooks/ui/useStepTransitions';
 
-// Servicios
-import { clienteService, Cliente } from '../../services/clienteService';
-import { companyService } from '../../services/companyService'; // Asumo que existe
+// Hook principal del wizard
+import { usePolizaWizard } from '../../hooks/usePolizaWizard';
 
-// Componentes de pasos con sus interfaces REALES
+// Componentes de pasos
 import { ClienteStep } from './steps/ClienteStep';
 import { CompanyStep } from './steps/CompanyStep';
 import { SeccionStep } from './steps/SeccionStep';
@@ -39,187 +35,97 @@ export const PolizaWizard: React.FC = () => {
   const { effectiveTheme } = useTheme();
   const isDarkMode = effectiveTheme === 'dark';
 
-  // Estados adicionales para los pasos complejos
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [processing, setProcessing] = useState(false);
+  // ✅ USAR EL HOOK PRINCIPAL QUE YA TIENE TODO IMPLEMENTADO
+  const {
+    // Estado del wizard
+    selectedCliente,
+    selectedCompany,
+    selectedSeccion,
+    selectedOperacion,
+    uploadedFile,
+    extractedData,
+    currentStep,
+    isComplete,
+    
+    // Estados de carga
+    loading,
+    processing,
+    processingProgress,
+    error,
+    
+    // Estados específicos del cliente
+    clienteSearch,
+    setClienteSearch,
+    clienteResults,
+    searchClientes,
+    loadingClientes,
+    
+    // Estados de compañías
+    companies,
+    loadCompanies,
+    loadingCompanies,
+    
+    // Estados de secciones
+    secciones,
+    loadSecciones,
+    loadingSecciones,
+    
+    // Funciones principales - ✅ ESTAS SON LAS CORRECTAS
+    selectCliente,        // ← Esta es la función correcta
+    selectCompany,
+    selectSeccion,
+    selectOperacion,
+    setUploadedFile,
+    processDocument,
+    createPoliza,
+    retryProcessing,
+    
+    // Navegación
+    goToStep,
+    goBack,
+    reset,
+    
+    // Utilidades
+    setError,
+    validateCurrentStep,
+    getAuthToken
+  } = usePolizaWizard();
+
+  // Estados locales adicionales para el componente principal
   const [formData, setFormData] = useState<PolizaFormData>({} as PolizaFormData);
-  const [extractedData, setExtractedData] = useState<DocumentProcessResult | null>(null);
   const [saving, setSaving] = useState(false);
-  
-  // Estados para ClienteStep
-  const [clienteSearch, setClienteSearch] = useState('');
-  const [clienteResults, setClienteResults] = useState<Cliente[]>([]);
-  const [loadingClientes, setLoadingClientes] = useState(false);
-  
-  // Estados para CompanyStep
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [loadingCompanies, setLoadingCompanies] = useState(false);
 
   // ============================================================================
-  // 🔧 FUNCIONES DE SERVICIOS
+  // 🎬 EFECTOS
   // ============================================================================
 
-  /**
-   * Busca clientes usando el servicio real
-   */
-  const searchClientes = async (searchTerm: string) => {
-    if (searchTerm.length < 2) {
-      setClienteResults([]);
-      return;
-    }
-
-    setLoadingClientes(true);
-    try {
-      const results = await clienteService.searchClientes(searchTerm);
-      setClienteResults(results);
-    } catch (error) {
-      console.error('Error buscando clientes:', error);
-      setClienteResults([]);
-    } finally {
-      setLoadingClientes(false);
-    }
-  };
-
-  /**
-   * Carga compañías usando el servicio real
-   */
-  const loadCompanies = async () => {
-    setLoadingCompanies(true);
-    try {
-      // Asumo que companyService tiene un método similar
-      const results = await companyService.getCompanies?.() || [];
-      setCompanies(results);
-    } catch (error) {
-      console.error('Error cargando compañías:', error);
-      // Fallback a datos mock si el servicio falla
-      const mockCompanies = [
-        { id: 1, nombre: 'Sura Seguros', activo: true, codigo: 'SURA' },
-        { id: 2, nombre: 'Mapfre', activo: true, codigo: 'MAPFRE' },
-        { id: 3, nombre: 'La Comercial', activo: true, codigo: 'COMERCIAL' }
-      ];
-      setCompanies(mockCompanies);
-    } finally {
-      setLoadingCompanies(false);
-    }
-  };
-
-  // Hook de navegación principal
-  const navigation = useWizardNavigation({
-    initialStep: 'cliente',
-    enablePersistence: true,
-    enableValidation: true,
-    enableLogging: true,
-    onStepChange: (step, previousStep) => {
-      console.log(`📍 Navegando de ${previousStep} → ${step}`);
-      
-      // Iniciar transición animada
-      if (previousStep) {
-        const currentIndex = navigation.getCurrentStepIndex();
-        const previousIndex = navigation.steps.findIndex(s => s.id === previousStep);
-        const direction = currentIndex > previousIndex ? 'forward' : 'backward';
-        
-        transitions.transitionToStep(step, direction);
-      }
-    },
-    onStepComplete: (step, data) => {
-      console.log(`✅ Paso ${step} completado:`, data);
-      persistence.saveState(navigation.wizardState, undefined, data);
-    },
-    onWizardComplete: (data) => {
-      console.log(`🎉 Wizard completado:`, data);
-    },
-    onValidationError: (step, errors) => {
-      console.error(`❌ Errores de validación en ${step}:`, errors);
-    }
-  });
-  
+  // Cargar compañías al montar el componente
   useEffect(() => {
-    if (navigation.currentStep === 'extract' && uploadedFile && !processing) {
-      const timer = setTimeout(() => {
-        // Simular datos extraídos
-        const mockExtractedData: DocumentProcessResult = {
-          documentId: 'doc-123',
-          estadoProcesamiento: 'completed',
-          extractedFields: [],
-          polizaData: {},
-          readyForVelneo: true
-        };
-        
-        setExtractedData(mockExtractedData);
-        navigation.completeStep('extract', mockExtractedData);
-        navigation.goNext();
-      }, 3000);
-
-      return () => clearTimeout(timer);
-    }
-  }, [navigation.currentStep, uploadedFile, processing]); // ✅ Removed navigation from dependencies
-
-  const persistence = useWizardPersistence({
-    keyPrefix: 'poliza_wizard',
-    autoSave: true,
-    autoSaveInterval: 30000,
-    includeFormData: true,
-    includeStepData: true,
-    onSave: (data) => {
-      console.log('💾 Estado guardado automáticamente');
-    },
-    onLoad: (data) => {
-      console.log('📂 Estado cargado:', data);
-    },
-    onExpired: (sessionId) => {
-      console.log('⏰ Sesión expirada:', sessionId);
-    }
-  });
-
-  // Hook de transiciones (usando la interfaz real)
-  const transitions = useStepTransitions(navigation.currentStep, {
-    type: 'slide-left',
-    duration: 300,
-    easing: 'cubic-bezier(0.4, 0, 0.2, 1)'
-  });
-
-  // ============================================================================
-  // 🔄 EFECTOS Y SINCRONIZACIÓN
-  // ============================================================================
-
-  // Cargar estado persistido al montar
-  useEffect(() => {
-    const loadPersistedState = async () => {
-      const persistedData = await persistence.loadState();
-      
-      if (persistedData && persistedData.wizardState) {
-        console.log('🔄 Restaurando estado persistido');
-      }
-    };
-
-    loadPersistedState();
+    loadCompanies();
   }, []);
 
-  // Auto-guardar cuando cambie el estado del wizard
+  // Cargar secciones cuando se selecciona una compañía
   useEffect(() => {
-    if (navigation.wizardState && !navigation.isProcessing) {
-      persistence.saveState(navigation.wizardState);
+    if (selectedCompany && currentStep === 'seccion') {
+      console.log('🔍 Compañía seleccionada, cargando secciones...');
+      loadSecciones();
     }
-  }, [navigation.wizardState, navigation.isProcessing]);
+  }, [selectedCompany, currentStep]);
 
   // ============================================================================
-  // 🎨 FUNCIONES DE RENDERIZADO
+  // 🎭 RENDERIZADO DE PASOS
   // ============================================================================
 
-  /**
-   * Renderiza el paso actual según el estado de navegación
-   * USANDO LAS INTERFACES REALES DE CADA COMPONENTE
-   */
   const renderCurrentStep = () => {
-    switch (navigation.currentStep) {
+    switch (currentStep) {
       case 'cliente':
         return (
           <ClienteStep
-            // Props según ClienteStep interface REAL
             clienteSearch={clienteSearch}
             clienteResults={clienteResults}
             loadingClientes={loadingClientes}
-            selectedCliente={navigation.wizardState.stepData.cliente}
+            selectedCliente={selectedCliente}
+            
             onSearchChange={(search) => {
               setClienteSearch(search);
               
@@ -231,12 +137,21 @@ export const PolizaWizard: React.FC = () => {
               // Cleanup del timeout anterior
               return () => clearTimeout(timeoutId);
             }}
+            
+            // ✅ CORREGIDO: Usar la función correcta del hook
             onClienteSelect={(cliente) => {
-              navigation.completeStep('cliente', { cliente });
-              navigation.goNext();
+              console.log('🎯 Cliente seleccionado en PolizaWizard:', cliente);
+              selectCliente(cliente);  // ← Esta es la función correcta del hook
             }}
-            onNext={() => navigation.goNext()}
-            onBack={() => navigation.goBack()}
+            
+            onNext={() => {
+              if (selectedCliente) {
+                goToStep('company');
+              } else {
+                setError('Debe seleccionar un cliente');
+              }
+            }}
+            onBack={() => goBack()}
             isDarkMode={isDarkMode}
           />
         );
@@ -244,17 +159,24 @@ export const PolizaWizard: React.FC = () => {
       case 'company':
         return (
           <CompanyStep
-            // Props según CompanyStep interface REAL
             companies={companies}
             loadingCompanies={loadingCompanies}
-            selectedCompany={navigation.wizardState.stepData.company}
+            selectedCompany={selectedCompany}
+            
             onCompanySelect={(company) => {
-              navigation.completeStep('company', { company });
-              navigation.goNext();
+              console.log('🏢 Compañía seleccionada en PolizaWizard:', company);
+              selectCompany(company);  // ← Función correcta del hook
             }}
-            onLoadCompanies={loadCompanies} // Función real
-            onNext={() => navigation.goNext()}
-            onBack={() => navigation.goBack()}
+            
+            onLoadCompanies={loadCompanies}
+            onNext={() => {
+              if (selectedCompany) {
+                goToStep('seccion');
+              } else {
+                setError('Debe seleccionar una compañía');
+              }
+            }}
+            onBack={() => goBack()}
             isDarkMode={isDarkMode}
           />
         );
@@ -262,73 +184,101 @@ export const PolizaWizard: React.FC = () => {
       case 'seccion':
         return (
           <SeccionStep
-            // Props según SeccionStep interface REAL (las props comunes)
-            onNext={() => navigation.goNext()}
-            onBack={() => navigation.goBack()}
-            onComplete={(data) => navigation.completeStep('seccion', data)}
-            wizardData={navigation.wizardState.stepData}
-            isTransitioning={transitions.transitionState.isTransitioning}
+            onNext={async () => {
+              if (selectedSeccion) {
+                goToStep('operacion');
+                return true;
+              } else {
+                setError('Debe seleccionar una sección');
+                return false;
+              }
+            }}
+            onBack={() => goBack()}
+            onComplete={async (data) => {
+              // Marcar paso como completado
+              console.log('🎯 Sección completada:', data);
+              return true;
+            }}
+            wizardData={{ seccion: selectedSeccion }}
+            isTransitioning={false}
           />
         );
-      
+
       case 'operacion':
         return (
           <OperacionStep
-            // Props según OperacionStep interface REAL
-            selectedOperacion={navigation.wizardState.stepData.operacion}
+            selectedOperacion={selectedOperacion}
+            
             onOperacionSelect={(operacion) => {
-              navigation.completeStep('operacion', { operacion });
+              console.log('⚙️ Operación seleccionada en PolizaWizard:', operacion);
+              selectOperacion(operacion);  // ← Función correcta del hook
             }}
-            onNext={() => navigation.goNext()}
-            onBack={() => navigation.goBack()}
+            
+            onNext={() => {
+              if (selectedOperacion) {
+                goToStep('upload');
+              } else {
+                setError('Debe seleccionar un tipo de operación');
+              }
+            }}
+            onBack={() => goBack()}
             isDarkMode={isDarkMode}
           />
         );
-      
+
       case 'upload':
         return (
           <UploadStep
-            // Props según UploadStep interface REAL
             uploadedFile={uploadedFile}
             processing={processing}
+            
             onFileSelect={(file) => {
-              setUploadedFile(file);
+              console.log('📄 Archivo seleccionado en PolizaWizard:', file?.name);
+              setUploadedFile(file);  // ← Función correcta del hook
+            }}
+            
+            onProcess={async (file) => {
               if (file) {
-                navigation.completeStep('upload', { file });
+                try {
+                  await processDocument(file);
+                  goToStep('extract');
+                } catch (error) {
+                  console.error('Error procesando documento:', error);
+                  setError('Error procesando el documento');
+                }
               }
             }}
-            onProcess={(file) => {
-              setProcessing(true);
-              // Simular procesamiento
-              setTimeout(() => {
-                setProcessing(false);
-                navigation.goNext();
-              }, 2000);
+            
+            onNext={() => {
+              if (uploadedFile) {
+                goToStep('extract');
+              } else {
+                setError('Debe subir un documento');
+              }
             }}
-            onNext={() => navigation.goNext()}
-            onBack={() => navigation.goBack()}
+            onBack={() => goBack()}
             isDarkMode={isDarkMode}
           />
         );
-      
+
       case 'extract':
         return (
           <ProcessingStep
-            // Props según ProcessingStep interface REAL
             uploadedFile={uploadedFile}
-            progress={processing ? 50 : 100}
-            selectedCliente={navigation.wizardState.stepData.cliente}
-            selectedCompany={navigation.wizardState.stepData.company}
-            onNext={() => navigation.goNext()}
-            onBack={() => navigation.goBack()}
+            progress={processingProgress}
+            selectedCliente={selectedCliente}
+            selectedCompany={selectedCompany}
+            onNext={() => {
+              goToStep('form');
+            }}
+            onBack={() => goBack()}
             isDarkMode={isDarkMode}
           />
         );
-      
+
       case 'form':
         return (
           <FormStep
-            // Props según FormStep interface REAL
             formData={formData}
             extractedData={extractedData}
             validation={{
@@ -346,233 +296,71 @@ export const PolizaWizard: React.FC = () => {
               hasFieldError: () => false,
               isFieldTouched: () => false
             }}
-            onFormDataChange={(data) => {
-              setFormData(data);
-              navigation.completeStep('form', data);
-            }}
-            onSubmit={() => {
+            onFormDataChange={(data) => setFormData(data)}
+            onSubmit={async () => {
               setSaving(true);
-              setTimeout(() => {
+              try {
+                await createPoliza(formData);
+              } finally {
                 setSaving(false);
-                navigation.goNext();
-              }, 1000);
+              }
             }}
             saving={saving}
-            onNext={() => navigation.goNext()}
-            onBack={() => navigation.goBack()}
+            onNext={() => {
+              if (formData && Object.keys(formData).length > 0) {
+                goToStep('success');
+              } else {
+                setError('Debe completar el formulario');
+              }
+            }}
+            onBack={() => goBack()}
             isDarkMode={isDarkMode}
           />
         );
-      
+
       case 'success':
         return (
           <SuccessStep
-            // Props según SuccessStep interface REAL (las props comunes)
-            onNext={() => navigation.goNext()}
-            onBack={() => navigation.goBack()}
-            onComplete={(data) => navigation.completeStep('success', data)}
-            wizardData={navigation.wizardState.stepData}
-            isTransitioning={transitions.transitionState.isTransitioning}
+            onNext={async () => {
+              reset();
+              return true;
+            }}
+            onBack={() => goBack()}
+            onComplete={async (data) => {
+              console.log('🎉 Proceso completado:', data);
+              return true;
+            }}
+            wizardData={{
+              cliente: selectedCliente,
+              company: selectedCompany,
+              seccion: selectedSeccion,
+              operacion: selectedOperacion,
+              form: formData
+            }}
+            isTransitioning={false}
           />
         );
-      
+
       default:
         return (
-          <div className="text-center py-16">
+          <div className="p-8 text-center">
             <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-            <h3 className={`text-xl font-semibold mb-2 ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Paso no encontrado
-            </h3>
-            <p className={`mb-6 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              El paso "{navigation.currentStep}" no existe
+            </h2>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              El paso "{currentStep}" no existe o no está implementado.
             </p>
             <button
-              onClick={() => navigation.goToStep('cliente')}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              onClick={reset}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
-              Ir al inicio
+              <RotateCcw className="w-4 h-4 mr-2 inline" />
+              Reiniciar Wizard
             </button>
           </div>
         );
     }
-  };
-
-  /**
-   * Renderiza información de persistencia y estado
-   */
-  const renderWizardStatus = () => {
-    if (!persistence.hasPersistedData && !navigation.isProcessing) return null;
-
-    return (
-      <div className={`mb-4 p-3 rounded-lg border ${
-        isDarkMode 
-          ? 'bg-gray-800 border-gray-600 text-gray-300' 
-          : 'bg-blue-50 border-blue-200 text-blue-800'
-      }`}>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {persistence.isSaving ? (
-              <>
-                <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                <span className="text-sm">Guardando...</span>
-              </>
-            ) : persistence.hasPersistedData ? (
-              <>
-                <Save className="w-4 h-4 text-green-600" />
-                <span className="text-sm">
-                  Guardado {persistence.lastSaved?.toLocaleTimeString()}
-                </span>
-              </>
-            ) : null}
-          </div>
-
-          {persistence.hasPersistedData && (
-            <button
-              onClick={() => {
-                persistence.clearState();
-                navigation.resetWizard();
-              }}
-              className={`text-sm flex items-center space-x-1 transition-colors ${
-                isDarkMode 
-                  ? 'text-gray-400 hover:text-gray-300' 
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span>Reiniciar</span>
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  /**
-   * Renderiza una barra de progreso simple
-   */
-  const renderProgressBar = () => {
-    return (
-      <div className={`border-b transition-colors ${
-        isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-gray-50'
-      }`}>
-        <div className="px-8 py-4">
-          <div className="flex items-center justify-between">
-            {navigation.steps.map((step, index) => {
-              const isCompleted = navigation.completedSteps.has(step.id);
-              const isCurrent = step.id === navigation.currentStep;
-              
-              return (
-                <React.Fragment key={step.id}>
-                  {/* Paso */}
-                  <div className="flex flex-col items-center">
-                    {/* Círculo del paso */}
-                    <div className={`
-                      w-10 h-10 rounded-full flex items-center justify-center transition-all
-                      ${isCompleted
-                        ? 'bg-green-500 text-white'
-                        : isCurrent
-                        ? 'bg-blue-500 text-white'
-                        : isDarkMode
-                        ? 'bg-gray-600 text-gray-300'
-                        : 'bg-gray-300 text-gray-600'
-                      }
-                    `}>
-                      {isCompleted ? '✓' : index + 1}
-                    </div>
-                    
-                    {/* Label */}
-                    <span className={`
-                      mt-2 text-xs font-medium text-center
-                      ${isCurrent
-                        ? isDarkMode ? 'text-white' : 'text-gray-900'
-                        : isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                      }
-                    `}>
-                      {step.title}
-                    </span>
-                  </div>
-                  
-                  {/* Línea conectora */}
-                  {index < navigation.steps.length - 1 && (
-                    <div className={`
-                      flex-1 h-0.5 mx-4 transition-colors
-                      ${index < navigation.getCurrentStepIndex()
-                        ? 'bg-green-500'
-                        : isDarkMode
-                        ? 'bg-gray-600'
-                        : 'bg-gray-300'
-                      }
-                    `} />
-                  )}
-                </React.Fragment>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  /**
-   * Renderiza botones de navegación simples
-   */
-  const renderNavigation = () => {
-    return (
-      <div className={`border-t transition-colors ${
-        isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
-      }`}>
-        <div className="px-8 py-6">
-          <div className="flex items-center justify-between">
-            {/* Botón Atrás */}
-            <button
-              onClick={navigation.goBack}
-              disabled={!navigation.canGoBack || navigation.isProcessing}
-              className={`
-                flex items-center gap-2 px-6 py-3 rounded-lg transition-all
-                ${navigation.canGoBack && !navigation.isProcessing
-                  ? isDarkMode
-                    ? 'text-gray-300 hover:text-white hover:bg-gray-700'
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100'
-                  : 'text-gray-400 cursor-not-allowed'
-                }
-              `}
-            >
-              ← Atrás
-            </button>
-
-            {/* Botón Siguiente */}
-            <button
-              onClick={navigation.goNext}
-              disabled={!navigation.canGoNext || navigation.isProcessing}
-              className={`
-                flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all
-                ${navigation.canGoNext && !navigation.isProcessing
-                  ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-gray-300 dark:bg-gray-600 text-gray-500 dark:text-gray-400 cursor-not-allowed'
-                }
-              `}
-            >
-              {navigation.isProcessing ? (
-                <>
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Procesando...
-                </>
-              ) : navigation.isComplete ? (
-                'Finalizar'
-              ) : (
-                <>
-                  Siguiente →
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
   };
 
   // ============================================================================
@@ -580,91 +368,83 @@ export const PolizaWizard: React.FC = () => {
   // ============================================================================
 
   return (
-    <div className={`min-h-screen transition-colors duration-300 ${
-      isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
-    }`}>
-      {/* Container principal del wizard */}
-      <div className={`min-h-screen max-w-7xl mx-auto shadow-xl transition-colors ${
-        isDarkMode ? 'bg-gray-800' : 'bg-white'
-      }`}>
+    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
+      <div className="max-w-7xl mx-auto">
         
-        {/* Header simple */}
-        <div className={`border-b transition-colors ${
-          isDarkMode ? 'border-gray-700 bg-gray-800' : 'border-gray-200 bg-white'
+        {/* Header del Wizard */}
+        <div className={`sticky top-0 z-10 border-b ${
+          isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
         }`}>
-          <div className="px-8 py-6">
-            <h1 className={`text-2xl font-bold ${
-              isDarkMode ? 'text-white' : 'text-gray-900'
-            }`}>
-              Crear Nueva Póliza
-            </h1>
-            <p className={`mt-2 ${
-              isDarkMode ? 'text-gray-400' : 'text-gray-600'
-            }`}>
-              Paso {navigation.getCurrentStepIndex() + 1} de {navigation.getTotalSteps()}
-            </p>
+          <div className="px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className={`text-2xl font-bold ${
+                  isDarkMode ? 'text-white' : 'text-gray-900'
+                }`}>
+                  Regularizador de Pólizas
+                </h1>
+                <p className={`text-sm ${
+                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
+                }`}>
+                  Paso {currentStep} • {isComplete ? 'Completado' : 'En progreso'}
+                </p>
+              </div>
+              
+              {/* Botones de acción */}
+              <div className="flex items-center space-x-3">
+                {error && (
+                  <button
+                    onClick={() => setError(null)}
+                    className="text-red-600 hover:text-red-800 text-sm"
+                  >
+                    Limpiar error
+                  </button>
+                )}
+                
+                <button
+                  onClick={reset}
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    isDarkMode
+                      ? 'text-gray-400 hover:text-white hover:bg-gray-700'
+                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                  }`}
+                >
+                  <RotateCcw className="w-4 h-4 mr-2 inline" />
+                  Reiniciar
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Barra de Progreso */}
-        {renderProgressBar()}
-
-        {/* Contenedor Principal */}
-        <div className="px-4 sm:px-6 lg:px-8 py-8">
-          
-          {/* Estado del Wizard */}
-          {renderWizardStatus()}
-
-          {/* Contenedor de Pasos con Transiciones */}
-          <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden min-h-[600px]">
-            
-            {/* Contenido del Paso Actual */}
-            <div 
-              className={`transition-all duration-300 ease-in-out ${transitions.getStepClasses(navigation.currentStep)}`}
-            >
-              {renderCurrentStep()}
-            </div>
-
-            {/* Overlay de Transición */}
-            {transitions.transitionState.isTransitioning && (
-              <div className="absolute inset-0 bg-white/50 dark:bg-gray-900/50 flex items-center justify-center z-10">
-                <div className="flex items-center space-x-3">
-                  <div className="w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
-                  <span className={`${
-                    isDarkMode ? 'text-gray-300' : 'text-gray-600'
-                  }`}>
-                    Cambiando paso...
-                  </span>
-                </div>
+        {/* Error Global */}
+        {error && (
+          <div className="mx-6 mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+            <div className="flex items-start space-x-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-red-800 dark:text-red-200 font-medium">
+                  Error en el proceso
+                </p>
+                <p className="text-red-700 dark:text-red-300 text-sm mt-1">
+                  {error}
+                </p>
               </div>
-            )}
+              <button
+                onClick={() => setError(null)}
+                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
+              >
+                ×
+              </button>
+            </div>
           </div>
+        )}
 
-          {/* Navegación del Wizard */}
-          {renderNavigation()}
-
+        {/* Contenido del Paso Actual */}
+        <div className="px-6 py-6">
+          {renderCurrentStep()}
         </div>
       </div>
-
-      {/* Debug Info (solo en desarrollo) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed bottom-4 right-4 bg-black/80 text-white p-4 rounded-lg text-xs max-w-sm z-50">
-          <div className="space-y-1">
-            <div><strong>Paso:</strong> {navigation.currentStep}</div>
-            <div><strong>Progreso:</strong> {navigation.progress.percentage}%</div>
-            <div><strong>Completados:</strong> {Array.from(navigation.completedSteps).join(', ')}</div>
-            <div>
-              <strong>Persistencia:</strong> 
-              {persistence.hasPersistedData ? ' ✅' : ' ❌'}
-            </div>
-            <div>
-              <strong>Transición:</strong> 
-              {transitions.transitionState.isTransitioning ? ' 🎬' : ' ✨'}
-            </div>
-            <div><strong>Errores:</strong> {navigation.getValidationErrors().length}</div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
