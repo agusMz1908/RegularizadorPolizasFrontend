@@ -1,6 +1,6 @@
 import React from 'react';
 import { AlertTriangle, CheckCircle, Info } from 'lucide-react';
-import { UseFormValidationReturn } from '../../../../../hooks/wizard/useFormValidation';
+import { UseFormValidationReturn } from '../../../hooks/wizard/useFormValidation';
 
 interface ValidationSummaryProps {
   validation: UseFormValidationReturn;

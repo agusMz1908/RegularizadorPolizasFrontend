@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { User, FileText, Car, CreditCard, FileCheck, CheckCircle, AlertTriangle } from 'lucide-react';
-import { UseFormValidationReturn } from '../../../../../hooks/wizard/useFormValidation';
+import { UseFormValidationReturn } from '../../../hooks/wizard/useFormValidation';
 
 interface Tab {
   id: string;

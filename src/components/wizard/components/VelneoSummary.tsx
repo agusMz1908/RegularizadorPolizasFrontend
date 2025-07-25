@@ -22,15 +22,15 @@ import {
   Target,
   Zap
 } from 'lucide-react';
-import { PolizaFormData, PolizaCreateRequest } from '../../../../../types/core/poliza';
-import { DocumentProcessResult } from '../../../../../types/ui/wizard';
+import { PolizaFormData, PolizaCreateRequest } from '../../../types/core/poliza';
+import { DocumentProcessResult } from '../../../types/ui/wizard';
 import { 
   mapFormDataToVelneo,
   validateFormData,
   defaultPolizaValidationRules,
   MappingContext,
   FormDataMappingResult
-} from '../../../../../utils/formDataMapper';
+} from '../../../utils/formDataMapper';
 
 interface VelneoSummaryProps {
   formData: PolizaFormData;

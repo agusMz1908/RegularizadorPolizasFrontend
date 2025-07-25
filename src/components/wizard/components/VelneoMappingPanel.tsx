@@ -13,15 +13,15 @@ import {
   Brain,
   TrendingUp
 } from 'lucide-react';
-import { PolizaFormData } from '../../../../../types/core/poliza';
-import { DocumentProcessResult } from '../../../../../types/ui/wizard';
+import { PolizaFormData } from '../../../types/core/poliza';
+import { DocumentProcessResult } from '../../../types/ui/wizard';
 import { 
   mapAzureToFormData, 
   FormDataMappingResult,
   MappingContext,
   validateFormData,
   defaultPolizaValidationRules
-} from '../../../../../utils/formDataMapper';
+} from '../../../utils/formDataMapper';
 
 interface VelneoMappingPanelProps {
   extractedData: DocumentProcessResult | null;
