@@ -1,12 +1,7 @@
-// Para src/services/azureService.ts - Imports y tipos corregidos
-
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
+import type { DocumentProcessResult } from '../types/ui/wizard';
 
-// ✅ IMPORTAR EL TIPO CORRECTO DESDE WIZARD
-import type { DocumentProcessResult } from '../types/wizard';
-
-// ✅ TIPOS LOCALES PARA LA RESPUESTA DEL BACKEND
 export interface AzureProcessResponse {
   archivo: string;
   timestamp: string;
@@ -19,7 +14,7 @@ export interface AzureProcessResponse {
 }
 
 class AzureService {
-  private readonly endpoint = ENDPOINTS.AZURE_PROCESS; // '/azuredocument/process'
+  private readonly endpoint = ENDPOINTS.AZURE_PROCESS;
 
   async processDocument(
     file: File,
@@ -32,13 +27,12 @@ class AzureService {
       fileType: file.type,
       endpoint: this.endpoint
     });
-    
-    // ✅ VALIDACIONES
+
     if (!file || file.size === 0) {
       throw new Error('Archivo inválido o vacío');
     }
 
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 10 * 1024 * 1024; 
     if (file.size > maxSize) {
       throw new Error(`El archivo es demasiado grande (${(file.size / 1024 / 1024).toFixed(2)}MB). Máximo 10MB.`);
     }

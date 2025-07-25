@@ -7,7 +7,7 @@ import type {
   AzureDocumentUtils,
   ValidationResult,
   AzureDocumentValidator
-} from '../types/azure-document';
+} from '../utils/azure-document';
 
 // ✅ TIPOS ADICIONALES PARA EL SERVICIO
 export interface AzureBatchResponse {

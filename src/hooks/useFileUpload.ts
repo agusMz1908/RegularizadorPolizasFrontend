@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { ProcessingError } from '../types/processing';
+import { ProcessingError } from '../utils/processing';
 
 interface UseFileUploadOptions {
   accept?: string;

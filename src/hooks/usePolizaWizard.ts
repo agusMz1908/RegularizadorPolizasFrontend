@@ -4,12 +4,12 @@ import { clienteService } from '../services/clienteService';
 import { companyService } from '../services/companyService';
 import { seccionService } from '../services/seccionService';
 import { azureService } from '../services/azureService';
-import { Seccion, SeccionLookup } from '../types/seccion';
+import { Seccion, SeccionLookup } from '../types/core/seccion';
 import { TipoOperacion } from '../utils/operationLogic';
 
-import { PolizaFormData, PolizaCreateRequest } from '../types/poliza';
-import { Cliente, WizardStep, WizardState, DocumentProcessResult  } from '../types/wizard';
-import { Company } from '../types/company'
+import { PolizaFormData, PolizaCreateRequest } from '../types/core/poliza';
+import { Cliente, WizardStep, WizardState, DocumentProcessResult  } from '../types/ui/wizard';
+import { Company } from '../types/core/company'
 
 interface ExtendedWizardState extends WizardState {
   processingDocument?: boolean;

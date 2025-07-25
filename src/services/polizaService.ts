@@ -1,7 +1,7 @@
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
 
-import { PolizaCreateRequest } from '../types/poliza';
+import { PolizaCreateRequest } from '../types/core/poliza';
 
 class PolizaService {
   private readonly endpoint = ENDPOINTS.POLIZAS; 

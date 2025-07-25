@@ -1,7 +1,7 @@
 
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { STORAGE_KEYS } from '../utils/constants';
-import { AuthState, AuthContextType, LoginDto, User } from '../types/auth';
+import { AuthState, AuthContextType, LoginDto, User } from '../types/core/auth';
 import authService from '../services/authService';
 
 // Estado inicial

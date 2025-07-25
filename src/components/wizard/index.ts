@@ -3,7 +3,6 @@ export { default as PolizaWizard } from './PolizaWizard';
 
 export type {
   Cliente,
-  Company,
   DocumentProcessResult,
   ExtractedField,
   WizardStep,
@@ -13,12 +12,11 @@ export type {
   StepProgress,
   WizardConfig,
   WizardMetrics
-} from '../../types/wizard';
+} from '../../types/ui/wizard';
 
 export type {
   PolizaFormData,
   PolizaCreateRequest,
-  Poliza
-} from '../../types/poliza';
+} from '../../types/core/poliza';
 
 export { usePolizaWizard } from '../../hooks/usePolizaWizard';

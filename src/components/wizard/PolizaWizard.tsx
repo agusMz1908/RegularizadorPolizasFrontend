@@ -11,7 +11,7 @@ import {
   Info, RefreshCw 
 } from 'lucide-react';
 
-import { PolizaCreateRequest, PolizaFormData } from '../../types/poliza';
+import { PolizaCreateRequest, PolizaFormData } from '../../types/core/poliza';
 import { usePolizaWizard } from '../../hooks/usePolizaWizard';
 import { useDarkMode } from '../../context/ThemeContext';
 import FloatingWizardHeader from './FloatingWizardHeader';
@@ -26,7 +26,7 @@ import { useVelneoEntities } from '../../hooks/useVelneoEntities';
 import ScannedValuesPanel from '../wizard/ScannedValuesPanel';
 import { VelneoMapper } from '../../utils/velneoMapper';
 import type { VelneoMappingInput } from '../../utils/velneoMapper';
-import { VelneoContrato, VelneoEstadoPoliza, VelneoFormaPago, VelneoMappingResult, VelneoMoneda, VelneoTipoGestion, VelneoTramite } from '../../types/velneo';
+import { VelneoContrato, VelneoEstadoPoliza, VelneoFormaPago, VelneoMappingResult, VelneoMoneda, VelneoTipoGestion, VelneoTramite } from '../../types/core/velneo';
 
 interface PolizaWizardProps {
   onComplete?: (result: any) => void;

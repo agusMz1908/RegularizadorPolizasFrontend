@@ -1,8 +1,8 @@
 // ✅ src/hooks/usePolizaForm.ts - CORRECCIÓN COMPLETA
 
 import { useState, useCallback, useEffect } from 'react';
-import { PolizaFormData } from '../types/poliza';
-import { ValidationError } from '../types/processing';
+import { PolizaFormData } from '../types/core/poliza';
+import { ValidationError } from '../utils/processing';
 
 interface UsePolizaFormOptions {
   initialData?: Partial<PolizaFormData>;  // ✅ PARTIAL para permitir datos incompletos
@@ -35,9 +35,7 @@ interface UsePolizaFormReturn {
 export const usePolizaForm = (options: UsePolizaFormOptions = {}): UsePolizaFormReturn => {
   const { initialData, ramoCode, onValidation, onSubmit } = options;
   
-  // ✅ VALORES POR DEFECTO COMPLETOS INCLUYENDO CAMPOS FALTANTES
   const defaultFormData: PolizaFormData = {
-    // CAMPOS BÁSICOS REQUERIDOS
     numeroPoliza: '',
     vigenciaDesde: '',
     vigenciaHasta: '',
@@ -48,12 +46,10 @@ export const usePolizaForm = (options: UsePolizaFormOptions = {}): UsePolizaForm
     seccionId: 0,
     clienteId: 0,
     cobertura: '',
+
+    nombreAsegurado: '',        
+    chapa: '',              
     
-    // ✅ CAMPOS QUE FALTABAN - CAUSABAN ERRORES:
-    nombreAsegurado: '',         // Error línea 61
-    chapa: '',                   // Error líneas 78, 82
-    
-    // CAMPOS OPCIONALES
     observaciones: '',
     vehiculo: '',
     marca: '',
@@ -99,8 +95,7 @@ export const usePolizaForm = (options: UsePolizaFormOptions = {}): UsePolizaForm
     descuentos: 0,
     recargos: 0,
     codigoPostal: '',
-    
-    // CAMPOS ESPECÍFICOS DE VELNEO
+
     tramiteVelneo: undefined,
     estadoPolizaVelneo: undefined,
     formaPagoVelneo: undefined,

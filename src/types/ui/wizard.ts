@@ -1,8 +1,8 @@
-import { OPERACIONES_CONFIG, TipoOperacion } from "../utils/operationLogic";
-import { DatosVelneo } from "./azure-document";
-import { Seccion } from "./seccion";
-import { PolizaFormData, PolizaCreateRequest } from "./poliza";
-import { Company } from "../services/companyService";
+import { OPERACIONES_CONFIG, TipoOperacion } from "../../utils/operationLogic";
+import { DatosVelneo } from "../../utils/azure-document";
+import { Seccion } from "../core/seccion";
+import { PolizaFormData, PolizaCreateRequest } from "../core/poliza";
+import { Company } from "../../services/companyService";
 
 export interface Cliente {
   id: number;

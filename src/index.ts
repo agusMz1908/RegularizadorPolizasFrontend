@@ -1,19 +1,18 @@
 export type {
   Cliente,
-} from './types/cliente';
+} from './types/core/cliente';
 
 export type {
-  Poliza,
   PolizaFormData,
   PolizaCreateRequest,
-} from './types/poliza';
+} from './types/core/poliza';
 
 export type {
   ProcessingState,
   DocumentResult,
   ProcessingError,
   ValidationError,
-} from './types/processing';
+} from './utils/processing';
 
 export type {
   ApiResponse,
@@ -35,7 +34,7 @@ export type {
   DropdownOption,
   NavigationContext,
   BreadcrumbItem,
-} from './types/common';
+} from './types/ui/common';
 
 export { 
   API_CONFIG, 
@@ -48,7 +47,6 @@ export { apiClient } from './services/ApiClient';
 export type { ApiResponse as ApiClientResponse, ApiClientOptions } from './services/ApiClient';
 
 export { polizaService } from './services/polizaService';
-export type { PolizaCreateRequest as PolizaServiceRequest } from './services/polizaService';
 
 export { clienteService } from './services/clienteService';
 export type { Cliente as ClienteType } from './services/clienteService';
@@ -57,11 +55,9 @@ export { companyService } from './services/companyService';
 export type { Company, CompanyLookup } from './services/companyService';
 
 export { seccionService } from './services/seccionService';
-export type { Seccion, SeccionLookup } from './services/seccionService';
 
 export { azureService } from './services/azureService';
 export type { 
-  DocumentProcessResult, 
   AzureProcessResponse 
 } from './services/azureService';
 

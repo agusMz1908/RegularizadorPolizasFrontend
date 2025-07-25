@@ -135,4 +135,4 @@ export interface VerificationField {
   requiereAtencion: boolean;
 }
 
-import type { PolizaFormData } from './poliza';
+import type { PolizaFormData } from './core/poliza';

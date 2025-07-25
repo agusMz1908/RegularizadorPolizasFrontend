@@ -3,7 +3,7 @@ import {
   ProcessingState, 
   DocumentResult, 
   ProcessingError 
-} from '../types/processing';
+} from '../utils/processing';
 import { azureDocumentService } from '../services/azureDocumentService';
 
 interface UseDocumentProcessingOptions {

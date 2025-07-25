@@ -1,4 +1,4 @@
-import { LoginDto, AuthResultDto, User, Permission, Role } from '../types/auth';
+import { LoginDto, AuthResultDto, User, Permission, Role } from '../types/core/auth';
 import { apiClient } from './ApiClient';
 import { ENDPOINTS, STORAGE_KEYS } from '../utils/constants';
 

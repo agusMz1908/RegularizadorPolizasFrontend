@@ -4,7 +4,7 @@ import type {
   AzureProcessResponse,
   AzureBatchResponse,
   DatosClienteExtraidos
-} from '../types/azure-document';
+} from '../utils/azure-document';
 
 export interface DocumentProcessingState {
   isProcessing: boolean;

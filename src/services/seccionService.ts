@@ -1,6 +1,6 @@
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
-import { Seccion } from '../types/seccion';
+import { Seccion } from '../types/core/seccion';
 
 export interface SeccionLookup {
   id: number;

@@ -11,7 +11,7 @@ import {
   VelneoMappingResult,
   VelneoMappingInfo,
   VelneoEstadoGestion
-} from '../types/velneo';
+} from '../types/core/velneo';
 
 // ====================================================================
 // 🔹 DICCIONARIOS DE MAPEO
