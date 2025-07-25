@@ -1,6 +1,3 @@
-// src/types/core/validation.ts
-
-// ✅ Tipos básicos de validación
 export interface ValidationError {
   field: string;
   message: string;
@@ -13,6 +10,9 @@ export interface ValidationResult {
   errors: ValidationError[];
   warnings: ValidationError[];
   fieldErrors: Record<string, string>;
+  canSubmit?: boolean;
+  blockers?: ValidationError[];
+  recommendations?: string[];
 }
 
 export interface ValidationRule {
@@ -25,7 +25,6 @@ export interface ValidationRule {
   warningMessage?: string;
 }
 
-// ✅ Contexto de validación
 export interface ValidationContext {
   source: 'manual' | 'azure' | 'import' | 'api';
   operationType: 'create' | 'update' | 'import';
@@ -34,7 +33,6 @@ export interface ValidationContext {
   allowPartialData?: boolean;
 }
 
-// ✅ Validadores específicos
 export interface PolizaValidationRules {
   numeroPoliza: ValidationRule;
   vigenciaDesde: ValidationRule;
@@ -47,7 +45,6 @@ export interface PolizaValidationRules {
   documento: ValidationRule;
 }
 
-// ✅ Resultado de validación específica de póliza
 export interface PolizaValidationResult extends ValidationResult {
   validatedData: any;
   suggestions: string[];
@@ -55,7 +52,6 @@ export interface PolizaValidationResult extends ValidationResult {
   processingTime: number;
 }
 
-// ✅ Tipos para validación de formularios
 export interface FormValidationState {
   isValidating: boolean;
   hasErrors: boolean;
@@ -72,7 +68,6 @@ export interface FormValidationConfig {
   debounceMs: number;
 }
 
-// ✅ Constantes de validación
 export const VALIDATION_CODES = {
   REQUIRED_FIELD: 'REQUIRED_FIELD',
   INVALID_FORMAT: 'INVALID_FORMAT',
@@ -84,7 +79,6 @@ export const VALIDATION_CODES = {
 
 export type ValidationCode = keyof typeof VALIDATION_CODES;
 
-// ✅ Tipos para validaciones específicas de Uruguay
 export interface UruguayValidationRules {
   ci: RegExp;
   ruc: RegExp;
@@ -99,6 +93,27 @@ export const URUGUAY_PATTERNS: UruguayValidationRules = {
   matricula: /^[A-Z]{2,3}\d{4}$|^\d{4}[A-Z]{2}$/,
   telefono: /^[0-9]{8,9}$/,
   codigoPostal: /^\d{5}$/
+};
+
+export const createValidationResult = (
+  isValid: boolean,
+  errors: ValidationError[] = [],
+  warnings: ValidationError[] = [],
+  fieldErrors: Record<string, string> = {}
+): ValidationResult => ({
+  isValid,
+  errors,
+  warnings,
+  fieldErrors
+});
+
+export const errorsToFieldErrors = (errors: ValidationError[]): Record<string, string> => {
+  return errors.reduce((acc, error) => {
+    if (!acc[error.field]) {
+      acc[error.field] = error.message;
+    }
+    return acc;
+  }, {} as Record<string, string>);
 };
 
 export default ValidationResult;

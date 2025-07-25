@@ -1,3 +1,5 @@
+// src/utils/stepHelpers.ts - FUNCIONES FALTANTES IMPLEMENTADAS
+
 import { 
   WizardStepId, 
   WizardStep, 
@@ -6,7 +8,12 @@ import {
   DEFAULT_WIZARD_STEPS 
 } from '../types/wizard/steps';
 import { PolizaFormData } from '../types/core/poliza';
+
 declare const process: { env: { NODE_ENV?: string } };
+
+// ============================================================================
+// 🧭 FUNCIONES DE NAVEGACIÓN
+// ============================================================================
 
 export function getNextStep(currentStep: WizardStepId, steps: WizardStep[]): WizardStepId | null {
   const currentIndex = steps.findIndex(step => step.id === currentStep);
@@ -54,10 +61,12 @@ export function canNavigateToStep(
     return false;
   }
 
+  // Permitir ir hacia atrás si el paso ya fue completado
   if (targetStepIndex < currentStepIndex && completedSteps.has(targetStep)) {
     return true;
   }
 
+  // Para ir hacia adelante, verificar que los pasos requeridos estén completos
   if (targetStepIndex > currentStepIndex) {
     for (let i = 0; i < targetStepIndex; i++) {
       const step = steps[i];
@@ -80,127 +89,9 @@ export function getReachableSteps(
     .map(step => step.id);
 }
 
-export function validateStepCompletion(
-  stepId: WizardStepId, 
-  wizardState: WizardState,
-  formData?: PolizaFormData
-): { isValid: boolean; errors: string[]; warnings: string[] } {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
-  switch (stepId) {
-    case 'cliente':
-      if (!wizardState.stepData.cliente?.selectedCliente) {
-        errors.push('Debe seleccionar un cliente');
-      }
-      break;
-
-    case 'company':
-      if (!wizardState.stepData.company?.selectedCompany) {
-        errors.push('Debe seleccionar una compañía');
-      }
-      break;
-
-    case 'seccion':
-      if (!wizardState.stepData.seccion?.selectedSeccion) {
-        errors.push('Debe seleccionar una sección');
-      }
-      break;
-
-    case 'operacion':
-      if (!wizardState.stepData.operacion?.selectedOperacion) {
-        errors.push('Debe seleccionar el tipo de operación');
-      }
-      break;
-
-    case 'upload':
-      if (!wizardState.stepData.upload?.uploadedFile) {
-        errors.push('Debe subir un archivo PDF');
-      }
-      if (wizardState.stepData.upload?.uploadError) {
-        errors.push('Error en la subida del archivo');
-      }
-      break;
-
-    case 'extract':
-      if (!wizardState.stepData.extract?.extractedData) {
-        errors.push('Los datos no han sido procesados');
-      }
-      if (wizardState.stepData.extract?.processingError) {
-        errors.push('Error en el procesamiento');
-      }
-      if (wizardState.stepData.extract?.confidence && wizardState.stepData.extract.confidence < 0.5) {
-        warnings.push('Baja confianza en la extracción de datos');
-      }
-      break;
-
-    case 'form':
-      if (formData) {
-        if (!formData.asegurado) errors.push('El nombre del asegurado es requerido');
-        if (!formData.numeroPoliza) errors.push('El número de póliza es requerido');
-        if (!formData.vigenciaDesde) errors.push('La fecha de inicio es requerida');
-        if (!formData.vigenciaHasta) errors.push('La fecha de vencimiento es requerida');
-        if (!formData.prima || formData.prima <= 0) errors.push('La prima debe ser mayor a 0');
-
-        if (formData.vigenciaDesde && formData.vigenciaHasta) {
-          const fechaInicio = new Date(formData.vigenciaDesde);
-          const fechaFin = new Date(formData.vigenciaHasta);
-          if (fechaFin <= fechaInicio) {
-            errors.push('La fecha de vencimiento debe ser posterior a la fecha de inicio');
-          }
-        }
-
-        if (formData.documento && !/^\d{7,8}$/.test(formData.documento)) {
-          errors.push('El documento debe tener 7 u 8 dígitos');
-        }
-
-        if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-          errors.push('El formato del email es inválido');
-        }
-
-        if (formData.matricula && !/^[A-Z]{2,3}\d{4}$|^\d{4}[A-Z]{2}$/.test(formData.matricula)) {
-          warnings.push('Formato de matrícula inusual para Uruguay');
-        }
-      } else {
-        errors.push('No hay datos del formulario para validar');
-      }
-      break;
-
-    case 'success':
-      break;
-
-    default:
-      warnings.push(`Validación no implementada para el paso: ${stepId}`);
-  }
-
-  return {
-    isValid: errors.length === 0,
-    errors,
-    warnings
-  };
-}
-
-export function areRequiredStepsCompleted(
-  steps: WizardStep[],
-  completedSteps: Set<WizardStepId>
-): boolean {
-  const requiredSteps = steps.filter(step => step.required);
-  return requiredSteps.every(step => completedSteps.has(step.id));
-}
-
-export function getFirstStepWithErrors(
-  steps: WizardStep[],
-  wizardState: WizardState,
-  formData?: PolizaFormData
-): WizardStepId | null {
-  for (const step of steps) {
-    const validation = validateStepCompletion(step.id, wizardState, formData);
-    if (!validation.isValid) {
-      return step.id;
-    }
-  }
-  return null;
-}
+// ============================================================================
+// 📊 FUNCIONES DE PROGRESO
+// ============================================================================
 
 export function calculateWizardProgress(
   currentStep: WizardStepId,
@@ -210,34 +101,17 @@ export function calculateWizardProgress(
   const currentStepIndex = steps.findIndex(step => step.id === currentStep);
   const totalSteps = steps.length;
   const completedCount = completedSteps.size;
-  
-  const effectiveProgress = currentStepIndex + 1;
-  
+  const percentage = Math.round((completedCount / totalSteps) * 100);
+
   return {
-    currentStepIndex: currentStepIndex,
-    totalSteps: totalSteps,
+    currentStepIndex,
+    totalSteps,
     completedSteps: completedCount,
-    percentage: Math.round((effectiveProgress / totalSteps) * 100),
-    estimatedTimeRemaining: estimateTimeRemaining(currentStepIndex, totalSteps)
+    percentage,
+    canProgress: currentStepIndex < totalSteps - 1,
+    nextStep: getNextStep(currentStep, steps),
+    previousStep: getPreviousStep(currentStep, steps)
   };
-}
-
-function estimateTimeRemaining(currentStepIndex: number, totalSteps: number): number {
-  const stepTimes: Record<WizardStepId, number> = {
-    'cliente': 1,
-    'company': 0.5,
-    'seccion': 0.5,
-    'operacion': 0.5,
-    'upload': 1,
-    'extract': 2,
-    'form': 5,
-    'success': 0.5
-  };
-
-  const remainingSteps = totalSteps - currentStepIndex - 1;
-  const averageTimePerStep = Object.values(stepTimes).reduce((a, b) => a + b, 0) / Object.keys(stepTimes).length;
-  
-  return remainingSteps * averageTimePerStep;
 }
 
 export function getProgressStats(
@@ -247,27 +121,32 @@ export function getProgressStats(
   total: number;
   completed: number;
   remaining: number;
-  required: number;
+  percentage: number;
   requiredCompleted: number;
-  optional: number;
-  optionalCompleted: number;
+  requiredRemaining: number;
 } {
+  const total = steps.length;
+  const completed = completedSteps.size;
+  const remaining = total - completed;
+  const percentage = Math.round((completed / total) * 100);
+
   const requiredSteps = steps.filter(step => step.required);
-  const optionalSteps = steps.filter(step => !step.required);
-  
   const requiredCompleted = requiredSteps.filter(step => completedSteps.has(step.id)).length;
-  const optionalCompleted = optionalSteps.filter(step => completedSteps.has(step.id)).length;
+  const requiredRemaining = requiredSteps.length - requiredCompleted;
 
   return {
-    total: steps.length,
-    completed: completedSteps.size,
-    remaining: steps.length - completedSteps.size,
-    required: requiredSteps.length,
+    total,
+    completed,
+    remaining,
+    percentage,
     requiredCompleted,
-    optional: optionalSteps.length,
-    optionalCompleted
+    requiredRemaining
   };
 }
+
+// ============================================================================
+// 🔄 FUNCIONES DE ESTADO
+// ============================================================================
 
 export function updateWizardStateForStep(
   newStep: WizardStepId,
@@ -283,7 +162,6 @@ export function updateWizardStateForStep(
   return {
     ...currentState,
     currentStep: newStep,
-    previousStep: currentState.currentStep,
     canGoNext: !!getNextStep(newStep, updatedSteps),
     canGoBack: !!getPreviousStep(newStep, updatedSteps)
   };
@@ -294,15 +172,6 @@ export function markStepAsCompleted(
   currentState: WizardState,
   formData?: PolizaFormData
 ): WizardState {
-  const validation = validateStepCompletion(stepId, currentState, formData);
-  
-  if (!validation.isValid) {
-    return {
-      ...currentState,
-      error: `No se puede completar el paso: ${validation.errors.join(', ')}`
-    };
-  }
-
   const newCompletedSteps = new Set(currentState.completedSteps);
   newCompletedSteps.add(stepId);
 
@@ -343,6 +212,10 @@ export function isWizardComplete(
   const requiredSteps = steps.filter(step => step.required);
   return requiredSteps.every(step => completedSteps.has(step.id));
 }
+
+// ============================================================================
+// ⚙️ FUNCIONES DE CONFIGURACIÓN
+// ============================================================================
 
 export function createCustomStepConfiguration(
   baseSteps: WizardStep[] = DEFAULT_WIZARD_STEPS,
@@ -394,6 +267,10 @@ export function getStepsForOperationType(operationType: string): WizardStep[] {
   }
 }
 
+// ============================================================================
+// 🔗 FUNCIONES DE URL
+// ============================================================================
+
 export function getStepUrl(stepId: WizardStepId, baseUrl: string = '/wizard'): string {
   return `${baseUrl}/${stepId}`;
 }
@@ -405,6 +282,10 @@ export function parseStepFromUrl(url: string, baseUrl: string = '/wizard'): Wiza
   return validSteps.includes(stepPart as WizardStepId) ? stepPart as WizardStepId : null;
 }
 
+// ============================================================================
+// ⌨️ FUNCIONES DE NAVEGACIÓN POR TECLADO
+// ============================================================================
+
 export function getKeyboardShortcuts(): Record<string, { action: string; description: string }> {
   return {
     'ArrowRight': { action: 'next', description: 'Ir al siguiente paso' },
@@ -415,6 +296,10 @@ export function getKeyboardShortcuts(): Record<string, { action: string; descrip
     'End': { action: 'last', description: 'Ir al último paso' }
   };
 }
+
+// ============================================================================
+// 🐛 FUNCIONES DE DEBUG
+// ============================================================================
 
 export function logWizardState(state: WizardState, steps: WizardStep[]): void {
   if (process.env.NODE_ENV === 'development') {
@@ -456,32 +341,247 @@ export function validateStepConfiguration(steps: WizardStep[]): { isValid: boole
   };
 }
 
+// ============================================================================
+// 📈 FUNCIONES DE MÉTRICAS
+// ============================================================================
+
+export function calculateStepMetrics(
+  stepId: WizardStepId,
+  startTime: Date,
+  endTime: Date = new Date()
+): {
+  stepId: WizardStepId;
+  duration: number;
+  startTime: Date;
+  endTime: Date;
+} {
+  return {
+    stepId,
+    duration: endTime.getTime() - startTime.getTime(),
+    startTime,
+    endTime
+  };
+}
+
+export function getWizardPerformanceMetrics(
+  completedSteps: Set<WizardStepId>,
+  stepTimes: Record<WizardStepId, number>,
+  totalStartTime: Date
+): {
+  totalSteps: number;
+  completedSteps: number;
+  totalTime: number;
+  averageStepTime: number;
+  fastestStep: { stepId: WizardStepId; time: number } | null;
+  slowestStep: { stepId: WizardStepId; time: number } | null;
+  completionRate: number;
+} {
+  const totalSteps = DEFAULT_WIZARD_STEPS.length;
+  const completed = completedSteps.size;
+  const totalTime = Date.now() - totalStartTime.getTime();
+  
+  const stepTimeArray = Object.entries(stepTimes).map(([stepId, time]) => ({ 
+    stepId: stepId as WizardStepId, 
+    time 
+  }));
+  
+  const averageStepTime = stepTimeArray.length > 0 
+    ? stepTimeArray.reduce((sum, item) => sum + item.time, 0) / stepTimeArray.length
+    : 0;
+
+  const fastestStep = stepTimeArray.length > 0 
+    ? stepTimeArray.reduce((fastest, current) => current.time < fastest.time ? current : fastest)
+    : null;
+
+  const slowestStep = stepTimeArray.length > 0 
+    ? stepTimeArray.reduce((slowest, current) => current.time > slowest.time ? current : slowest)
+    : null;
+
+  return {
+    totalSteps,
+    completedSteps: completed,
+    totalTime,
+    averageStepTime,
+    fastestStep,
+    slowestStep,
+    completionRate: (completed / totalSteps) * 100
+  };
+}
+
+// ============================================================================
+// 🔄 FUNCIONES DE SINCRONIZACIÓN
+// ============================================================================
+
+export function syncWizardStateWithUrl(
+  currentUrl: string,
+  wizardState: WizardState,
+  baseUrl: string = '/wizard'
+): { shouldSync: boolean; targetStep: WizardStepId | null } {
+  const urlStep = parseStepFromUrl(currentUrl, baseUrl);
+  
+  if (!urlStep) {
+    return { shouldSync: false, targetStep: null };
+  }
+
+  if (urlStep !== wizardState.currentStep) {
+    return { shouldSync: true, targetStep: urlStep };
+  }
+
+  return { shouldSync: false, targetStep: null };
+}
+
+export function generateWizardStateChecksum(state: WizardState): string {
+  const stateString = JSON.stringify({
+    currentStep: state.currentStep,
+    completedSteps: Array.from(state.completedSteps).sort(),
+    stepDataKeys: Object.keys(state.stepData).sort()
+  });
+  
+  // Simple hash function
+  let hash = 0;
+  for (let i = 0; i < stateString.length; i++) {
+    const char = stateString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  
+  return hash.toString(36);
+}
+
+// ============================================================================
+// 🔧 FUNCIONES DE UTILIDAD
+// ============================================================================
+
+export function getStepDisplayName(stepId: WizardStepId): string {
+  const stepNames: Record<WizardStepId, string> = {
+    cliente: 'Cliente',
+    company: 'Compañía',
+    seccion: 'Sección',
+    operacion: 'Operación',
+    upload: 'Subir Archivos',
+    extract: 'Extraer Datos',
+    form: 'Completar Formulario',
+    success: 'Finalizado'
+  };
+  
+  return stepNames[stepId] || stepId;
+}
+
+export function getStepDescription(stepId: WizardStepId): string {
+  const descriptions: Record<WizardStepId, string> = {
+    cliente: 'Seleccionar el cliente para la póliza',
+    company: 'Elegir la compañía de seguros',
+    seccion: 'Definir la sección de la póliza',
+    operacion: 'Especificar el tipo de operación',
+    upload: 'Cargar los documentos necesarios',
+    extract: 'Extraer datos automáticamente',
+    form: 'Completar y validar la información',
+    success: 'Proceso completado exitosamente'
+  };
+  
+  return descriptions[stepId] || 'Descripción no disponible';
+}
+
+export function isStepAccessible(
+  stepId: WizardStepId,
+  completedSteps: Set<WizardStepId>,
+  steps: WizardStep[]
+): boolean {
+  const step = steps.find(s => s.id === stepId);
+  if (!step || step.disabled) {
+    return false;
+  }
+
+  // Si el paso ya fue completado, siempre es accesible
+  if (completedSteps.has(stepId)) {
+    return true;
+  }
+
+  // Verificar dependencias previas
+  const stepIndex = steps.findIndex(s => s.id === stepId);
+  for (let i = 0; i < stepIndex; i++) {
+    const prevStep = steps[i];
+    if (prevStep.required && !completedSteps.has(prevStep.id)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function getNextRequiredStep(
+  currentStep: WizardStepId,
+  steps: WizardStep[],
+  completedSteps: Set<WizardStepId>
+): WizardStepId | null {
+  const currentIndex = steps.findIndex(step => step.id === currentStep);
+  
+  for (let i = currentIndex + 1; i < steps.length; i++) {
+    const step = steps[i];
+    if (step.required && !completedSteps.has(step.id) && !step.disabled) {
+      return step.id;
+    }
+  }
+  
+  return null;
+}
+
+export function getIncompleteRequiredSteps(
+  steps: WizardStep[],
+  completedSteps: Set<WizardStepId>
+): WizardStepId[] {
+  return steps
+    .filter(step => step.required && !completedSteps.has(step.id) && !step.disabled)
+    .map(step => step.id);
+}
+
+// ============================================================================
+// 📤 EXPORT DEFAULT
+// ============================================================================
+
 export default {
+  // Navegación
   getNextStep,
   getPreviousStep,
   canNavigateToStep,
   getReachableSteps,
   
-  validateStepCompletion,
-  areRequiredStepsCompleted,
-  getFirstStepWithErrors,
-  
+  // Progreso
   calculateWizardProgress,
   getProgressStats,
   
+  // Estado
   updateWizardStateForStep,
   markStepAsCompleted,
   resetWizardState,
   isWizardComplete,
 
+  // Configuración
   createCustomStepConfiguration,
   updateStepAvailability,
   getStepsForOperationType,
 
+  // URL
   getStepUrl,
   parseStepFromUrl,
   getKeyboardShortcuts,
   
+  // Debug
   logWizardState,
-  validateStepConfiguration
+  validateStepConfiguration,
+
+  // Métricas
+  calculateStepMetrics,
+  getWizardPerformanceMetrics,
+
+  // Sincronización
+  syncWizardStateWithUrl,
+  generateWizardStateChecksum,
+
+  // Utilidades
+  getStepDisplayName,
+  getStepDescription,
+  isStepAccessible,
+  getNextRequiredStep,
+  getIncompleteRequiredSteps
 };

@@ -6,8 +6,8 @@ import { PolizaFormData } from '../../../../types/core/poliza';
 import { DocumentProcessResult } from '../../../../types/ui/wizard';
 import { UseFormValidationReturn } from '../../../../hooks/wizard/useFormValidation';
 import { StepLayout } from '../../shared/StepLayout';
-import { TabNavigation } from './components/TabNavigation';
-import { ValidationSummary } from './components/ValidationSummary';
+import { TabNavigation } from '../../components/TabNavigation';
+import { ValidationSummary } from '../../components/ValidationSummary';
 
 // Importar tabs
 import { DatosBasicosTab } from './tabs/DatosBasicosTab';

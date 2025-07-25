@@ -1,5 +1,3 @@
-// src/hooks/wizard/useWizardNavigation.ts
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { 
   WizardStepId, 
@@ -13,7 +11,6 @@ import {
   getNextStep,
   getPreviousStep,
   canNavigateToStep,
-  validateStepCompletion,
   calculateWizardProgress,
   updateWizardStateForStep,
   markStepAsCompleted,
@@ -22,6 +19,16 @@ import {
   logWizardState,
   getStepsForOperationType
 } from '../../utils/stepHelpers';
+import {
+  validateStepCompletion,
+  areRequiredStepsCompleted,
+  getFirstStepWithErrors
+} from '../../utils/stepValidation';
+import {
+  saveStateToStorage,
+  loadStateFromStorage,
+  clearSavedStateFromStorage
+} from '../../utils/storageHelper';
 
 export interface UseWizardNavigationConfig {
   initialStep?: WizardStepId;
@@ -133,6 +140,11 @@ export const useWizardNavigation = (
     wizardState.completedSteps
   );
 
+  // Estados derivados
+  const canGoNext = !!getNextStep(wizardState.currentStep, steps);
+  const canGoBack = !!getPreviousStep(wizardState.currentStep, steps);
+  const isComplete = isWizardComplete(steps, wizardState.completedSteps);
+
   // ============================================================================
   // 🧭 FUNCIONES DE NAVEGACIÓN
   // ============================================================================
@@ -156,161 +168,157 @@ export const useWizardNavigation = (
         }
       }
 
-      // Marcar paso actual como completado
-      const updatedState = markStepAsCompleted(wizardState.currentStep, wizardState);
-      if (updatedState.error) {
-        setValidationErrors([updatedState.error]);
-        return false;
-      }
-
       // Obtener siguiente paso
-      const nextStepId = getNextStep(wizardState.currentStep, steps);
-      if (!nextStepId) {
-        // Wizard completado
-        onWizardComplete?.(updatedState);
-        return false;
-      }
+      const nextStep = getNextStep(wizardState.currentStep, steps);
+      if (!nextStep) return false;
 
-      // Actualizar estado para el nuevo paso
-      const newState = updateWizardStateForStep(nextStepId, updatedState, steps);
+      // Marcar paso actual como completado
+      const newCompletedSteps = new Set(wizardState.completedSteps);
+      newCompletedSteps.add(wizardState.currentStep);
+
+      // Actualizar estado
+      const newState: WizardState = {
+        ...wizardState,
+        currentStep: nextStep,
+        previousStep: wizardState.currentStep,
+        completedSteps: newCompletedSteps,
+        error: null
+      };
+
       setWizardState(newState);
       setValidationErrors([]);
 
       // Callbacks
-      onStepChange?.(nextStepId, wizardState.currentStep);
-      onStepComplete?.(wizardState.currentStep, wizardState.stepData[wizardState.currentStep]);
-
-      // Logging
+      onStepChange?.(nextStep, wizardState.currentStep);
+      
       if (enableLogging) {
         logWizardState(newState, steps);
-      }
-
-      // Persistencia
-      if (enablePersistence) {
-        saveStateToStorage(storageKey, newState);
       }
 
       return true;
 
     } catch (error) {
-      console.error('Error navegando al siguiente paso:', error);
-      setValidationErrors(['Error inesperado durante la navegación']);
+      console.error('Error en navegación:', error);
       return false;
     } finally {
       setIsProcessing(false);
     }
-  }, [wizardState, steps, enableValidation, enableLogging, enablePersistence, storageKey, onStepChange, onStepComplete, onWizardComplete, onValidationError, isProcessing]);
+  }, [wizardState, steps, isProcessing, enableValidation, enableLogging, onStepChange, onValidationError]);
 
   /**
    * Navega al paso anterior
    */
   const goBack = useCallback((): void => {
-    if (isProcessing) return;
+    const prevStep = getPreviousStep(wizardState.currentStep, steps);
+    if (!prevStep) return;
 
-    const previousStepId = getPreviousStep(wizardState.currentStep, steps);
-    if (!previousStepId) return;
+    const newState: WizardState = {
+      ...wizardState,
+      currentStep: prevStep,
+      previousStep: wizardState.currentStep,
+      error: null
+    };
 
-    const newState = updateWizardStateForStep(previousStepId, wizardState, steps);
     setWizardState(newState);
     setValidationErrors([]);
 
-    onStepChange?.(previousStepId, wizardState.currentStep);
-
+    onStepChange?.(prevStep, wizardState.currentStep);
+    
     if (enableLogging) {
       logWizardState(newState, steps);
     }
-
-    if (enablePersistence) {
-      saveStateToStorage(storageKey, newState);
-    }
-  }, [wizardState, steps, enableLogging, enablePersistence, storageKey, onStepChange, isProcessing]);
+  }, [wizardState, steps, enableLogging, onStepChange]);
 
   /**
    * Navega a un paso específico
    */
   const goToStep = useCallback(async (targetStep: WizardStepId): Promise<boolean> => {
     if (isProcessing) return false;
-    if (wizardState.currentStep === targetStep) return true;
+    if (!canNavigateToStep(targetStep, wizardState.currentStep, steps, wizardState.completedSteps)) {
+      return false;
+    }
 
     setIsProcessing(true);
 
     try {
-      // Verificar si se puede navegar a ese paso
-      if (!canNavigateToStep(targetStep, wizardState.currentStep, steps, wizardState.completedSteps)) {
-        setValidationErrors([`No se puede navegar al paso: ${targetStep}`]);
-        return false;
-      }
+      const newState: WizardState = {
+        ...wizardState,
+        currentStep: targetStep,
+        previousStep: wizardState.currentStep,
+        error: null
+      };
 
-      const newState = updateWizardStateForStep(targetStep, wizardState, steps);
       setWizardState(newState);
       setValidationErrors([]);
 
       onStepChange?.(targetStep, wizardState.currentStep);
-
+      
       if (enableLogging) {
         logWizardState(newState, steps);
-      }
-
-      if (enablePersistence) {
-        saveStateToStorage(storageKey, newState);
       }
 
       return true;
 
     } catch (error) {
-      console.error('Error navegando al paso:', targetStep, error);
-      setValidationErrors(['Error inesperado durante la navegación']);
+      console.error('Error navegando a paso:', error);
       return false;
     } finally {
       setIsProcessing(false);
     }
-  }, [wizardState, steps, enableLogging, enablePersistence, storageKey, onStepChange, isProcessing]);
+  }, [wizardState, steps, isProcessing, enableLogging, onStepChange]);
 
   /**
-   * Salta el paso actual (si es permitido)
+   * Salta el paso actual
    */
   const skipStep = useCallback(async (): Promise<boolean> => {
-    const currentStepConfig = steps.find(step => step.id === wizardState.currentStep);
-    if (!currentStepConfig?.skippable) {
-      setValidationErrors(['Este paso no se puede saltar']);
-      return false;
-    }
+    const currentStepConfig = steps.find(s => s.id === wizardState.currentStep);
+    if (!currentStepConfig?.skippable) return false;
 
     return goNext();
   }, [wizardState.currentStep, steps, goNext]);
 
   // ============================================================================
-  // 🗂️ GESTIÓN DE ESTADO
+  // 📊 GESTIÓN DE ESTADO
   // ============================================================================
 
   /**
-   * Completa un paso específico con datos
+   * Completa un paso con datos
    */
   const completeStep = useCallback(async (stepId: WizardStepId, data?: any): Promise<boolean> => {
-    const newStepData = { ...wizardState.stepData };
-    if (data) {
-      newStepData[stepId] = data;
-    }
+    try {
+      // Actualizar datos del paso
+      const newStepData = {
+        ...wizardState.stepData,
+        [stepId]: data
+      };
 
-    const updatedState = markStepAsCompleted(stepId, {
-      ...wizardState,
-      stepData: newStepData
-    });
+      // Marcar como completado
+      const newCompletedSteps = new Set(wizardState.completedSteps);
+      newCompletedSteps.add(stepId);
 
-    if (updatedState.error) {
-      setValidationErrors([updatedState.error]);
+      const newState: WizardState = {
+        ...wizardState,
+        stepData: newStepData,
+        completedSteps: newCompletedSteps
+      };
+
+      setWizardState(newState);
+
+      // Callback
+      onStepComplete?.(stepId, data);
+
+      // Verificar si el wizard está completo
+      if (isWizardComplete(steps, newCompletedSteps)) {
+        onWizardComplete?.(newState);
+      }
+
+      return true;
+
+    } catch (error) {
+      console.error('Error completando paso:', error);
       return false;
     }
-
-    setWizardState(updatedState);
-    onStepComplete?.(stepId, data);
-
-    if (enablePersistence) {
-      saveStateToStorage(storageKey, updatedState);
-    }
-
-    return true;
-  }, [wizardState, enablePersistence, storageKey, onStepComplete]);
+  }, [wizardState, steps, onStepComplete, onWizardComplete]);
 
   /**
    * Reinicia el wizard
@@ -319,39 +327,29 @@ export const useWizardNavigation = (
     const newState = resetWizardState();
     setWizardState(newState);
     setValidationErrors([]);
-    setIsProcessing(false);
-
+    
     if (enablePersistence) {
       clearSavedStateFromStorage(storageKey);
     }
   }, [enablePersistence, storageKey]);
 
   /**
-   * Establece datos para un paso específico
+   * Establece datos de un paso
    */
   const setStepData = useCallback((stepId: WizardStepId, data: any): void => {
+    const newStepData = {
+      ...wizardState.stepData,
+      [stepId]: data
+    };
+
     setWizardState(prev => ({
       ...prev,
-      stepData: {
-        ...prev.stepData,
-        [stepId]: data
-      }
+      stepData: newStepData
     }));
-
-    if (enablePersistence) {
-      const newState = {
-        ...wizardState,
-        stepData: {
-          ...wizardState.stepData,
-          [stepId]: data
-        }
-      };
-      saveStateToStorage(storageKey, newState);
-    }
-  }, [wizardState, enablePersistence, storageKey]);
+  }, [wizardState.stepData]);
 
   /**
-   * Obtiene datos de un paso específico
+   * Obtiene datos de un paso
    */
   const getStepData = useCallback((stepId: WizardStepId): any => {
     return wizardState.stepData[stepId];
@@ -464,30 +462,12 @@ export const useWizardNavigation = (
   // 🔄 EFECTOS
   // ============================================================================
 
-  // Actualizar paso inicial si cambia
+  // Auto-guardar cuando cambie el estado (si está habilitado)
   useEffect(() => {
-    if (wizardState.currentStep !== initialStep && wizardState.completedSteps.size === 0) {
-      goToStep(initialStep);
-    }
-  }, [initialStep]); // Solo cuando cambia initialStep, no incluir goToStep para evitar loops
-
-  // Auto-guardado periódico si está habilitado
-  useEffect(() => {
-    if (!enablePersistence) return;
-
-    const interval = setInterval(() => {
+    if (enablePersistence && wizardState) {
       saveStateToStorage(storageKey, wizardState);
-    }, 30000); // Cada 30 segundos
-
-    return () => clearInterval(interval);
-  }, [enablePersistence, storageKey, wizardState]);
-
-  // Logging automático en desarrollo
-  useEffect(() => {
-    if (enableLogging && typeof window !== 'undefined' && (window as any).__DEV__) {
-      logWizardState(wizardState, steps);
     }
-  }, [wizardState.currentStep, enableLogging]);
+  }, [wizardState, enablePersistence, storageKey]);
 
   // ============================================================================
   // 📤 RETURN DEL HOOK
@@ -502,10 +482,10 @@ export const useWizardNavigation = (
     progress,
     
     // Estado de navegación
-    canGoNext: !!getNextStep(wizardState.currentStep, steps),
-    canGoBack: !!getPreviousStep(wizardState.currentStep, steps),
+    canGoNext,
+    canGoBack,
     canNavigateTo,
-    isComplete: isWizardComplete(steps, wizardState.completedSteps),
+    isComplete,
     isProcessing,
     
     // Acciones de navegación
@@ -535,72 +515,9 @@ export const useWizardNavigation = (
     getStepByIndex,
     getReachableSteps,
     
-    // Estado interno
+    // Estado interno para debugging
     wizardState
   };
 };
-
-// ============================================================================
-// 🗄️ FUNCIONES DE PERSISTENCIA
-// ============================================================================
-
-/**
- * Guarda estado en localStorage
- */
-function saveStateToStorage(key: string, state: WizardState): void {
-  try {
-    if (typeof window === 'undefined') return;
-    
-    const serialized = JSON.stringify({
-      ...state,
-      completedSteps: Array.from(state.completedSteps), // Set no es serializable
-      timestamp: Date.now()
-    });
-    
-    localStorage.setItem(key, serialized);
-  } catch (error) {
-    console.warn('Error guardando estado del wizard:', error);
-  }
-}
-
-/**
- * Carga estado desde localStorage
- */
-function loadStateFromStorage(key: string): WizardState | null {
-  try {
-    if (typeof window === 'undefined') return null;
-    
-    const saved = localStorage.getItem(key);
-    if (!saved) return null;
-    
-    const parsed = JSON.parse(saved);
-    
-    // Verificar que no sea muy antiguo (más de 24 horas)
-    if (parsed.timestamp && Date.now() - parsed.timestamp > 24 * 60 * 60 * 1000) {
-      localStorage.removeItem(key);
-      return null;
-    }
-    
-    return {
-      ...parsed,
-      completedSteps: new Set(parsed.completedSteps || []) // Restaurar Set
-    };
-  } catch (error) {
-    console.warn('Error cargando estado del wizard:', error);
-    return null;
-  }
-}
-
-/**
- * Limpia estado guardado
- */
-function clearSavedStateFromStorage(key: string): void {
-  try {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem(key);
-  } catch (error) {
-    console.warn('Error limpiando estado del wizard:', error);
-  }
-}
 
 export default useWizardNavigation;

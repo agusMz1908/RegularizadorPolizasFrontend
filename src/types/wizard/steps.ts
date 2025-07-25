@@ -1,6 +1,3 @@
-// src/types/ui/steps.ts
-
-// ✅ Tipos de pasos del wizard
 export type WizardStepId = 
   | 'cliente' 
   | 'company' 
@@ -56,133 +53,30 @@ export interface WizardProgress {
   completedSteps: number;
   percentage: number;
   estimatedTimeRemaining?: number;
+  canProgress: boolean;
+  nextStep: WizardStepId | null;
+  previousStep: WizardStepId | null;
 }
 
-// ✅ Navegación del wizard
-export interface WizardNavigation {
-  goToStep: (stepId: WizardStepId) => void;
-  goNext: () => void;
-  goBack: () => void;
-  skipStep: () => void;
-  restart: () => void;
-  canNavigateToStep: (stepId: WizardStepId) => boolean;
-}
-
-// ✅ Datos específicos de cada paso
-export interface ClienteStepData {
-  selectedCliente: any | null;
-  searchTerm: string;
-  searchResults: any[];
-  isSearching: boolean;
-}
-
-export interface CompanyStepData {
-  selectedCompany: any | null;
-  availableCompanies: any[];
-  isLoading: boolean;
-}
-
-export interface SeccionStepData {
-  selectedSeccion: any | null;
-  availableSecciones: any[];
-  isLoading: boolean;
-}
-
-export interface OperacionStepData {
-  selectedOperacion: string | null;
-  operacionConfig: any | null;
-  autoDetected: boolean;
-}
-
-export interface UploadStepData {
-  uploadedFile: File | null;
-  uploadProgress: number;
-  isUploading: boolean;
-  uploadError: string | null;
-}
-
-export interface ExtractStepData {
-  extractedData: any | null;
-  isProcessing: boolean;
-  processingProgress: number;
-  processingError: string | null;
-  confidence: number;
-}
-
-export interface FormStepData {
-  formData: any;
-  validation: any;
-  activeTab: string;
-  isSaving: boolean;
-  saveError: string | null;
-}
-
-export interface SuccessStepData {
-  result: any;
-  polizaCreated: any | null;
-  nextActions: string[];
-}
-
-// ✅ Unión de todos los datos de pasos
-export type StepData = 
-  | ClienteStepData
-  | CompanyStepData  
-  | SeccionStepData
-  | OperacionStepData
-  | UploadStepData
-  | ExtractStepData
-  | FormStepData
-  | SuccessStepData;
-
-// ✅ Eventos del wizard
-export interface WizardEvent {
-  type: 'step_change' | 'step_complete' | 'step_error' | 'wizard_complete' | 'wizard_error';
-  stepId: WizardStepId;
-  data?: any;
-  timestamp: Date;
-}
-
-// ✅ Metadatos del wizard
-export interface WizardMetadata {
-  sessionId: string;
-  startTime: Date;
-  lastActivity: Date;
-  userAgent: string;
-  source: 'manual' | 'automated' | 'imported';
-  version: string;
-}
-
-// ✅ Resultado final del wizard
-export interface WizardResult {
-  success: boolean;
-  data: any;
-  metadata: WizardMetadata;
-  completionTime: Date;
-  totalDuration: number;
-  stepsCompleted: WizardStepId[];
-  errors: string[];
-  warnings: string[];
-}
-
-// ✅ Configuraciones predefinidas
+// ✅ Configuración por defecto de los pasos
 export const DEFAULT_WIZARD_STEPS: WizardStep[] = [
   {
     id: 'cliente',
-    title: 'Seleccionar Cliente',
-    description: 'Buscar y seleccionar el cliente',
-    icon: 'Users',
+    title: 'Cliente',
+    description: 'Seleccionar cliente para la póliza',
+    icon: 'user',
     order: 1,
     required: true,
     completed: false,
-    current: false,
+    current: true,
     disabled: false,
     skippable: false
   },
   {
     id: 'company',
     title: 'Compañía',
-    description: 'Seleccionar compañía aseguradora',
-    icon: 'Building2',
+    description: 'Seleccionar compañía de seguros',
+    icon: 'building',
     order: 2,
     required: true,
     completed: false,
@@ -193,8 +87,8 @@ export const DEFAULT_WIZARD_STEPS: WizardStep[] = [
   {
     id: 'seccion',
     title: 'Sección',
-    description: 'Seleccionar sección',
-    icon: 'Target',
+    description: 'Seleccionar sección de la póliza',
+    icon: 'folder',
     order: 3,
     required: true,
     completed: false,
@@ -205,8 +99,8 @@ export const DEFAULT_WIZARD_STEPS: WizardStep[] = [
   {
     id: 'operacion',
     title: 'Operación',
-    description: 'Tipo de operación',
-    icon: 'Settings',
+    description: 'Tipo de operación a realizar',
+    icon: 'settings',
     order: 4,
     required: true,
     completed: false,
@@ -216,9 +110,9 @@ export const DEFAULT_WIZARD_STEPS: WizardStep[] = [
   },
   {
     id: 'upload',
-    title: 'Subir Archivo',
-    description: 'Cargar documento de póliza',
-    icon: 'Upload',
+    title: 'Subir Archivos',
+    description: 'Cargar documentos de la póliza',
+    icon: 'upload',
     order: 5,
     required: true,
     completed: false,
@@ -228,21 +122,21 @@ export const DEFAULT_WIZARD_STEPS: WizardStep[] = [
   },
   {
     id: 'extract',
-    title: 'Procesamiento',
-    description: 'Extraer datos con IA',
-    icon: 'Cpu',
+    title: 'Extraer Datos',
+    description: 'Procesamiento automático con IA',
+    icon: 'cpu',
     order: 6,
     required: true,
     completed: false,
     current: false,
     disabled: false,
-    skippable: false
+    skippable: true
   },
   {
     id: 'form',
-    title: 'Formulario',
-    description: 'Revisar y completar datos',
-    icon: 'FileText',
+    title: 'Completar Datos',
+    description: 'Validar y completar información',
+    icon: 'edit',
     order: 7,
     required: true,
     completed: false,
@@ -252,9 +146,9 @@ export const DEFAULT_WIZARD_STEPS: WizardStep[] = [
   },
   {
     id: 'success',
-    title: 'Completado',
-    description: 'Póliza creada exitosamente',
-    icon: 'CheckCircle',
+    title: 'Finalizado',
+    description: 'Póliza procesada exitosamente',
+    icon: 'check-circle',
     order: 8,
     required: false,
     completed: false,
@@ -264,4 +158,164 @@ export const DEFAULT_WIZARD_STEPS: WizardStep[] = [
   }
 ];
 
-export default WizardStep;
+// ✅ Tipos para navegación
+export interface StepTransition {
+  from: WizardStepId;
+  to: WizardStepId;
+  condition?: (state: WizardState) => boolean;
+  validation?: (state: WizardState) => { isValid: boolean; errors: string[] };
+}
+
+// ✅ Configuraciones por tipo de operación
+export interface OperationStepConfig {
+  operationType: string;
+  steps: WizardStepId[];
+  skipSteps?: WizardStepId[];
+  requiredSteps?: WizardStepId[];
+  customValidations?: Record<WizardStepId, (state: WizardState) => boolean>;
+}
+
+export const OPERATION_STEP_CONFIGS: Record<string, OperationStepConfig> = {
+  'Nuevo': {
+    operationType: 'Nuevo',
+    steps: ['cliente', 'company', 'seccion', 'operacion', 'upload', 'extract', 'form', 'success'],
+    requiredSteps: ['cliente', 'company', 'seccion', 'operacion', 'upload', 'form']
+  },
+  'Renovacion': {
+    operationType: 'Renovacion',
+    steps: ['cliente', 'company', 'seccion', 'operacion', 'upload', 'extract', 'form', 'success'],
+    requiredSteps: ['company', 'seccion', 'operacion', 'upload', 'form']
+  },
+  'Endoso': {
+    operationType: 'Endoso',
+    steps: ['cliente', 'company', 'seccion', 'operacion', 'form', 'success'],
+    skipSteps: ['upload', 'extract'],
+    requiredSteps: ['cliente', 'company', 'seccion', 'operacion', 'form']
+  },
+  'Cancelacion': {
+    operationType: 'Cancelacion',
+    steps: ['cliente', 'company', 'seccion', 'form', 'success'],
+    requiredSteps: ['cliente', 'company', 'seccion', 'form']
+  }
+};
+
+// ✅ Constantes para iconos (usando lucide-react)
+export const STEP_ICONS: Record<WizardStepId, string> = {
+  cliente: 'user',
+  company: 'building',
+  seccion: 'folder',
+  operacion: 'settings',
+  upload: 'upload',
+  extract: 'cpu',
+  form: 'edit',
+  success: 'check-circle'
+};
+
+// ✅ Mensajes por defecto
+export const STEP_MESSAGES = {
+  LOADING: 'Cargando...',
+  PROCESSING: 'Procesando...',
+  COMPLETED: 'Completado',
+  ERROR: 'Error',
+  REQUIRED: 'Este campo es requerido',
+  INVALID: 'Datos inválidos',
+  SUCCESS: 'Operación exitosa'
+};
+
+// ✅ Configuración de timeouts
+export const WIZARD_TIMEOUTS = {
+  AUTO_SAVE: 30000, // 30 segundos
+  SESSION_TIMEOUT: 1800000, // 30 minutos
+  PROCESSING_TIMEOUT: 300000, // 5 minutos
+  VALIDATION_DEBOUNCE: 500 // 500ms
+};
+
+// ✅ Estados de validación
+export type ValidationStatus = 'idle' | 'validating' | 'valid' | 'invalid' | 'error';
+
+export interface StepValidationState {
+  status: ValidationStatus;
+  errors: string[];
+  warnings: string[];
+  lastValidated?: Date;
+}
+
+// ✅ Métricas del wizard
+export interface WizardMetrics {
+  startTime: Date;
+  endTime?: Date;
+  currentStepStartTime: Date;
+  stepTimes: Record<WizardStepId, number>;
+  totalTime: number;
+  errorCount: number;
+  retryCount: number;
+  completionRate: number;
+}
+
+// ✅ Eventos del wizard
+export type WizardEvent = 
+  | 'step-enter'
+  | 'step-exit'
+  | 'step-complete'
+  | 'step-error'
+  | 'wizard-start'
+  | 'wizard-complete'
+  | 'wizard-error'
+  | 'wizard-reset';
+
+export interface WizardEventData {
+  event: WizardEvent;
+  stepId?: WizardStepId;
+  timestamp: Date;
+  data?: any;
+  error?: Error;
+}
+
+// ✅ Hooks y utilidades para types
+export interface WizardHookConfig {
+  initialStep?: WizardStepId;
+  steps?: WizardStep[];
+  operationType?: string;
+  enablePersistence?: boolean;
+  enableValidation?: boolean;
+  enableLogging?: boolean;
+  enableMetrics?: boolean;
+  autoSave?: boolean;
+  sessionTimeout?: number;
+  storageKey?: string;
+}
+
+// ✅ Contexto del wizard
+export interface WizardContextValue {
+  state: WizardState;
+  steps: WizardStep[];
+  progress: WizardProgress;
+  config: WizardHookConfig;
+  actions: {
+    goNext: () => Promise<boolean>;
+    goBack: () => void;
+    goToStep: (step: WizardStepId) => Promise<boolean>;
+    completeStep: (stepId: WizardStepId, data?: any) => Promise<boolean>;
+    resetWizard: () => void;
+    setStepData: (stepId: WizardStepId, data: any) => void;
+  };
+  validation: {
+    validateCurrentStep: (formData?: any) => boolean;
+    getValidationErrors: () => string[];
+    isStepValid: (stepId: WizardStepId) => boolean;
+  };
+  persistence: {
+    saveState: () => void;
+    loadState: () => boolean;
+    clearSavedState: () => void;
+    hasStoredState: () => boolean;
+  };
+}
+
+export default {
+  DEFAULT_WIZARD_STEPS,
+  OPERATION_STEP_CONFIGS,
+  STEP_ICONS,
+  STEP_MESSAGES,
+  WIZARD_TIMEOUTS
+};
