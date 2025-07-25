@@ -174,6 +174,40 @@ export interface DocumentProcessResult {
   porcentajeCompletitud?: number;
 }
 
+export interface DatosClienteExtraidos {
+  nombre?: string;
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
+  codigoPostal?: string;
+}
+
+export interface AzureBatchResponse {
+  archivos: AzureProcessResponse[];
+  totalProcesados: number;
+  exitosos: number;
+  fallidos: number;
+  tiempoTotal: number;
+  resumen: string;
+}
+
+export interface ClientSearchResult {
+  encontrado: boolean;
+  cliente?: {
+    id: number;
+    nombre: string;
+    documento: string;
+    email?: string;
+    telefono?: string;
+    direccion?: string;
+  };
+  confianza: number;
+  mensaje: string;
+}
+
 // ================================
 // FUNCIONES DE UTILIDAD
 // ================================

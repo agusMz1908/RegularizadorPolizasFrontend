@@ -1,7 +1,6 @@
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
 
-// ✅ TIPOS SIMPLIFICADOS PARA CLIENTE
 export interface Cliente {
   id: number;
   clinom: string;
@@ -14,7 +13,7 @@ export interface Cliente {
 }
 
 class ClienteService {
-  private readonly endpoint = ENDPOINTS.CLIENTES; // '/clientes'
+  private readonly endpoint = ENDPOINTS.CLIENTES;
 
   async getClientes(params?: any): Promise<any> {
     console.log('👥 ClienteService: Obteniendo clientes...');
@@ -31,15 +30,21 @@ class ClienteService {
   async searchClientes(searchTerm: string): Promise<Cliente[]> {
     console.log('🔍 ClienteService: Buscando clientes:', searchTerm);
     
-    const response = await apiClient.get<any>(`${this.endpoint}/search`, {
-      searchTerm
+    const response = await apiClient.get<any>(`${this.endpoint}/direct`, {
+      filtro: searchTerm  
     });
     
     if (!response.success) {
       throw new Error(response.error || 'Error buscando clientes');
     }
+
+    const data = response.data;
     
-    return response.data || [];
+    if (data && data.items) {
+      return data.items;
+    }
+
+    return Array.isArray(response.data) ? response.data : [];
   }
 
   async getClienteById(id: number): Promise<Cliente> {

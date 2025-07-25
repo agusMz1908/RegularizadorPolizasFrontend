@@ -648,4 +648,3 @@ const validateCurrentStep = useCallback((currentState: any): boolean => {
   };
 };
 
-export { PolizaCreateRequest };

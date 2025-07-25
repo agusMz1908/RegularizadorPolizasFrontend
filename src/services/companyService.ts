@@ -15,7 +15,7 @@ export interface CompanyLookup {
 }
 
 class CompanyService {
-  private readonly endpoint = ENDPOINTS.COMPANIES; // '/companies'
+  private readonly endpoint = ENDPOINTS.COMPANIES; 
 
   async getCompanies(): Promise<Company[]> {
     console.log('🏢 CompanyService: Obteniendo compañías...');
@@ -32,7 +32,7 @@ class CompanyService {
   async getCompaniesForLookup(): Promise<CompanyLookup[]> {
     console.log('🏢 CompanyService: Obteniendo compañías para lookup...');
     
-    const response = await apiClient.get<CompanyLookup[]>(`${this.endpoint}/lookup`);
+    const response = await apiClient.get<CompanyLookup[]>('/Companies');
     
     if (!response.success) {
       throw new Error(response.error || 'Error obteniendo compañías para lookup');

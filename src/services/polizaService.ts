@@ -1,47 +1,10 @@
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
 
-// ✅ TIPOS SIMPLIFICADOS (sin importar ../types)
-export interface PolizaCreateRequest {
-  comcod: number;
-  clinro: number;
-  conpol: string;
-  confchdes: string;
-  confchhas: string;
-  conpremio: number;
-  asegurado: string;
-  observaciones?: string;
-  moneda?: string;
-  
-  // Campos extendidos
-  vehiculo?: string;
-  marca?: string;
-  modelo?: string;
-  motor?: string;
-  chasis?: string;
-  matricula?: string;
-  combustible?: string;
-  anio?: number;
-  primaComercial?: number;
-  premioTotal?: number;
-  corredor?: string;
-  plan?: string;
-  ramo?: string;
-  documento?: string;
-  email?: string;
-  telefono?: string;
-  direccion?: string;
-  localidad?: string;
-  departamento?: string;
-  procesadoConIA?: boolean;
-  
-  // IDs adicionales
-  seccionId?: number;
-  operacionId?: number;
-}
+import { PolizaCreateRequest } from '../types/poliza';
 
 class PolizaService {
-  private readonly endpoint = ENDPOINTS.POLIZAS; // ✅ '/polizas' minúscula
+  private readonly endpoint = ENDPOINTS.POLIZAS; 
 
   async createPoliza(request: PolizaCreateRequest): Promise<any> {
     console.log('📋 PolizaService: Creando póliza en Velneo...');

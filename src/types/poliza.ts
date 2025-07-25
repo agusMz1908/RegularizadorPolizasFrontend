@@ -52,6 +52,7 @@ export interface Poliza {
 }
 
 export interface PolizaFormData {
+  // ✅ CAMPOS BÁSICOS REQUERIDOS
   numeroPoliza: string;
   vigenciaDesde: string;
   vigenciaHasta: string;
@@ -59,12 +60,18 @@ export interface PolizaFormData {
   moneda: string;
   asegurado: string;
   observaciones?: string;
-
+  
+  // IDs DE RELACIÓN OBLIGATORIOS
   compania: number;    
   seccionId: number;           
   clienteId: number;          
   cobertura: string;           
-
+  
+  // ✅ PROPIEDADES FALTANTES QUE CAUSAN ERRORES:
+  nombreAsegurado?: string;    // Para usePolizaForm - Error en línea 61
+  chapa?: string;              // Para usePolizaForm - Error en línea 78, 82
+  
+  // ✅ DATOS DEL VEHÍCULO
   vehiculo?: string;
   marca?: string;
   modelo?: string;
@@ -74,6 +81,7 @@ export interface PolizaFormData {
   combustible?: string;
   anio?: string | number;
 
+  // ✅ DATOS COMERCIALES
   primaComercial?: number;
   premioTotal?: number;
   cantidadCuotas?: number;
@@ -81,14 +89,16 @@ export interface PolizaFormData {
   formaPago?: string;
   primeraCuotaFecha?: string;
   primeraCuotaMonto?: number;
-
+  
+  // ✅ DATOS DE CONTACTO DEL CLIENTE
   documento?: string;
   email?: string;
   telefono?: string;
   direccion?: string;
   localidad?: string;
   departamento?: string;
-
+  
+  // ✅ DATOS DE LA PÓLIZA
   corredor?: string;
   plan?: string;
   ramo?: string;
@@ -96,18 +106,21 @@ export interface PolizaFormData {
   estadoPoliza?: string;
   tramite?: string;
   tipo?: string;
-
+  
+  // ✅ CLASIFICACIONES DEL VEHÍCULO
   destino?: string;
   calidad?: string;
   categoria?: string;
   tipoVehiculo?: string;
   uso?: string;
-
+  
+  // ✅ IDs DE RELACIONES (para combos)
   combustibleId?: string | null;
   categoriaId?: number | null;
   destinoId?: number | null;
   calidadId?: number | null;
-
+  
+  // ✅ CAMPOS ADICIONALES
   operacion?: any;
   seccion?: string;
   color?: string;
@@ -116,10 +129,11 @@ export interface PolizaFormData {
   recargos?: number;
   codigoPostal?: string;
 
-  tramiteVelneo?: VelneoTramite;
-  estadoPolizaVelneo?: VelneoEstadoPoliza;
-  formaPagoVelneo?: VelneoFormaPago;
-  monedaVelneo?: VelneoMoneda;
+  // ✅ CAMPOS ESPECÍFICOS DE VELNEO
+  tramiteVelneo?: any;
+  estadoPolizaVelneo?: any;
+  formaPagoVelneo?: any;
+  monedaVelneo?: any;
   estadoGestionVelneo?: string;
 }
 
@@ -202,4 +216,7 @@ export interface PolizaCreateRequest {
   last_update?: Date;        // Para última actualización
   com_alias?: string;        // Para alias de compañía
   combustibles?: string;     // Para tipo de combustible (nota el 's' al final)
+
+  nombreAsegurado?: string;
+  chapa?: string;
 }
