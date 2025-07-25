@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import { azureDocumentService, DocumentProcessResult } from '../services/azureDocumentService';
+import { polizaService } from '../services/polizaService';
+import { clienteService } from '../services/clienteService';
+import { companyService } from '../services/companyService';
 import { seccionService } from '../services/seccionService';
+import { azureService, DocumentProcessResult } from '../services/azureService';
 import { Seccion, SeccionLookup } from '../types/seccion';
 import { TipoOperacion } from '../utils/operationLogic';
 import { PolizaFormData } from '../types/poliza';
@@ -44,6 +47,63 @@ export interface WizardState {
   uploadedFile: File | null;
   extractedData: DocumentProcessResult | null;
   isComplete: boolean;
+}
+
+export interface PolizaCreateRequest {
+  // CAMPOS BÁSICOS REQUERIDOS
+  comcod: number;
+  clinro: number;
+  conpol: string;
+  confchdes: string;
+  confchhas: string;
+  conpremio: number;
+  asegurado: string;
+  observaciones?: string;
+  moneda?: string;
+
+  // CAMPOS DEL VEHÍCULO
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
+  combustible?: string;
+  anio?: number;
+
+  // CAMPOS COMERCIALES
+  primaComercial?: number;
+  premioTotal?: number;
+  corredor?: string;
+  plan?: string;
+  ramo?: string;
+
+  // CAMPOS DEL CLIENTE
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
+
+  // NUEVOS CAMPOS DEL WIZARD
+  seccionId?: number;
+  estado?: string;
+  tramite?: string;
+  estadoPoliza?: string;
+  calidadId?: number;
+  destinoId?: number;
+  categoriaId?: number;
+  tipoVehiculo?: string;
+  uso?: string;
+  formaPago?: string;
+  cantidadCuotas?: number;
+  valorCuota?: number;
+  tipo?: string;
+  cobertura?: string;
+  certificado?: string;
+  
+  procesadoConIA?: boolean;
 }
 
 const initialState: WizardState = {
@@ -218,74 +278,40 @@ const selectOperacion = useCallback((operacion: TipoOperacion) => {
     });
   }, []);
 
-  const processDocument = useCallback(async (): Promise<void> => {
-    if (!state.uploadedFile) {
-      setError('No hay archivo para procesar');
-      return;
-    }
-
-    if (!state.selectedCliente) {
-      setError('Debe seleccionar un cliente primero');
-      return;
-    }
-
-    if (!state.selectedCompany) {
-      setError('Debe seleccionar una compañía primero');
-      return;
-    }
-
-    const token = getAuthToken();
-    if (!token) {
-      setError('No hay sesión activa. Por favor, inicia sesión.');
-      return;
-    }
-
-    console.log('🚀 Iniciando procesamiento Azure AI...');
-    console.log('📋 Contexto:', {
-      archivo: state.uploadedFile.name,
-      cliente: state.selectedCliente.clinom,
-      compania: state.selectedCompany.comnom,
-      token: token ? 'Presente' : 'Ausente'
+const processDocument = async (file: File) => {
+  try {
+    setState(prev => ({ ...prev, processingDocument: true, documentError: null }));
+    
+    console.log('📄 Procesando documento con servicio unificado:', file.name);
+    
+    // ✅ USAR EL NUEVO SERVICIO
+    const result = await azureService.processDocument(file, (progress) => {
+      setState(prev => ({ ...prev, uploadProgress: progress }));
     });
     
-    setProcessing(true);
-    setProcessingProgress(0);
-    setError(null);
-
-    // Cambiar al paso de extracción
-    setState(prev => ({ ...prev, currentStep: 'extract' }));
-
-    try {
-      const result = await azureDocumentService.processDocument(
-        state.uploadedFile,
-        (progress) => {
-          setProcessingProgress(progress);
-          console.log(`📊 Progreso Azure AI: ${progress}%`);
-        }
-      );
-
-      console.log('✅ Documento procesado exitosamente:', result);
-      if (!result || !result.datosVelneo) {
-        throw new Error('No se pudieron extraer datos del documento');
-      }
-
-      setState(prev => ({
-        ...prev,
-        extractedData: result,
-        currentStep: 'form'
-      }));
-
-      console.log('📝 Datos listos para formulario:', result.datosVelneo);
-
-    } catch (err: any) {
-      console.error('❌ Error procesando documento:', err);
-      setError(err.message || 'Error procesando el documento');
-      
-      setState(prev => ({ ...prev, currentStep: 'upload' }));
-    } finally {
-      setProcessing(false);
-    }
-  }, [state.uploadedFile, state.selectedCliente, state.selectedCompany, getAuthToken]);
+    setState(prev => ({ 
+      ...prev, 
+      processingDocument: false,
+      documentResult: result,
+      currentStep: 'form'
+    }));
+    
+    console.log('✅ Documento procesado exitosamente con servicio unificado');
+    
+    return result;
+    
+  } catch (error: any) {
+    console.error('❌ Error procesando documento:', error);
+    setState(prev => ({ 
+      ...prev, 
+      processingDocument: false,
+      documentError: error.message,
+      uploadProgress: 0
+    }));
+    
+    throw error;
+  }
+};
 
 const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void> => {
   console.log('🔥 createPoliza INICIADO');
@@ -313,49 +339,74 @@ const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void>
     const velneoDatos = state.extractedData?.datosVelneo;
     console.log('📊 Datos de Velneo extraídos:', velneoDatos);
     
-    // ✅ PREPARAR REQUEST PARA VELNEO
-    const polizaRequest = {
+    // ✅ TIPADO CORRECTO PARA EL REQUEST
+    const polizaRequest: PolizaCreateRequest = {
+      // CAMPOS BÁSICOS REQUERIDOS
       comcod: parseInt(state.selectedCompany.id.toString()),
       clinro: parseInt(state.selectedCliente.id.toString()),
-      conpol: formData.numeroPoliza || velneoDatos?.datosPoliza?.numeroPoliza,
-      confchdes: formData.vigenciaDesde,
-      confchhas: formData.vigenciaHasta,
-      conpremio: typeof formData.prima === 'string' ? parseFloat(formData.prima) : formData.prima,
-      asegurado: state.selectedCliente.clinom,
+      conpol: formData.numeroPoliza || velneoDatos?.datosPoliza?.numeroPoliza || "",
+      confchdes: formData.vigenciaDesde || "",
+      confchhas: formData.vigenciaHasta || "",
+      conpremio: typeof formData.prima === 'string' ? parseFloat(formData.prima) : (formData.prima || 0),
+      asegurado: state.selectedCliente.clinom || "",
       observaciones: formData.observaciones || 'Procesado automáticamente con Azure AI',
       moneda: formData.moneda || 'UYU',
       
-      // ✅ CAMPOS EXTENDIDOS del datosVelneo
-      vehiculo: velneoDatos?.datosVehiculo?.marcaModelo || velneoDatos?.datosVehiculo?.marca,
-      marca: velneoDatos?.datosVehiculo?.marca,
-      modelo: velneoDatos?.datosVehiculo?.modelo,
-      motor: velneoDatos?.datosVehiculo?.motor,
-      chasis: velneoDatos?.datosVehiculo?.chasis,
-      matricula: velneoDatos?.datosVehiculo?.matricula,
-      combustible: velneoDatos?.datosVehiculo?.combustible,
-      anio: velneoDatos?.datosVehiculo?.anio ? parseInt(velneoDatos.datosVehiculo.anio.toString()) : null,
+      // ✅ NUEVOS CAMPOS DEL WIZARD QUE FALTABAN
+      seccionId: state.selectedSeccion?.id || 0,
+      tramite: formData.tramite,
+      estadoPoliza: formData.estadoPoliza,
+      calidadId: formData.calidadId ? Number(formData.calidadId) : undefined,
+      destinoId: formData.destinoId ? Number(formData.destinoId) : undefined,
+      categoriaId: formData.categoriaId ? Number(formData.categoriaId) : undefined,
+      tipoVehiculo: formData.tipoVehiculo,
+      uso: formData.uso,
+      formaPago: formData.formaPago,
+      cantidadCuotas: formData.cantidadCuotas,
+      valorCuota: formData.valorCuota,
+      tipo: formData.tipo,
+      cobertura: formData.cobertura,
+      certificado: formData.certificado,
       
-      // ✅ CAMPOS COMERCIALES
-      primaComercial: velneoDatos?.condicionesPago?.prima,
-      premioTotal: velneoDatos?.condicionesPago?.premio || velneoDatos?.condicionesPago?.total,
-      corredor: velneoDatos?.datosBasicos?.corredor,
+      // CAMPOS EXISTENTES DEL VEHÍCULO
+      vehiculo: velneoDatos?.datosVehiculo?.marcaModelo || velneoDatos?.datosVehiculo?.marca || formData.vehiculo,
+      marca: velneoDatos?.datosVehiculo?.marca || formData.marca,
+      modelo: velneoDatos?.datosVehiculo?.modelo || formData.modelo,
+      motor: velneoDatos?.datosVehiculo?.motor || formData.motor,
+      chasis: velneoDatos?.datosVehiculo?.chasis || formData.chasis,
+      matricula: velneoDatos?.datosVehiculo?.matricula || formData.matricula,
+      combustible: velneoDatos?.datosVehiculo?.combustible || formData.combustible,
+      anio: velneoDatos?.datosVehiculo?.anio ? parseInt(velneoDatos.datosVehiculo.anio.toString()) : (formData.anio ? Number(formData.anio) : undefined),
+      
+      // CAMPOS COMERCIALES
+      primaComercial: velneoDatos?.condicionesPago?.prima || formData.primaComercial,
+      premioTotal: velneoDatos?.condicionesPago?.premio || velneoDatos?.condicionesPago?.total || formData.premioTotal,
+      corredor: velneoDatos?.datosBasicos?.corredor || formData.corredor,
       plan: formData.plan,
       ramo: velneoDatos?.datosPoliza?.ramo || formData.ramo || 'AUTOMOVILES',
       
-      // ✅ DATOS DEL CLIENTE
-      documento: velneoDatos?.datosBasicos?.documento || state.selectedCliente.cliced || state.selectedCliente.cliruc,
-      email: velneoDatos?.datosBasicos?.email || state.selectedCliente.cliemail,
-      telefono: velneoDatos?.datosBasicos?.telefono || state.selectedCliente.telefono,
-      direccion: velneoDatos?.datosBasicos?.domicilio || state.selectedCliente.clidir,
-      localidad: velneoDatos?.datosBasicos?.localidad,
-      departamento: velneoDatos?.datosBasicos?.departamento,
+      // DATOS DEL CLIENTE
+      documento: velneoDatos?.datosBasicos?.documento || state.selectedCliente.cliced || state.selectedCliente.cliruc || formData.documento,
+      email: velneoDatos?.datosBasicos?.email || state.selectedCliente.cliemail || formData.email,
+      telefono: velneoDatos?.datosBasicos?.telefono || state.selectedCliente.telefono || formData.telefono,
+      direccion: velneoDatos?.datosBasicos?.domicilio || state.selectedCliente.clidir || formData.direccion,
+      localidad: velneoDatos?.datosBasicos?.localidad || formData.localidad,
+      departamento: velneoDatos?.datosBasicos?.departamento || formData.departamento,
       
       procesadoConIA: true
     };
 
+    // ✅ LOGGING DETALLADO PARA DEBUG
     console.log('📤 LISTO PARA ENVIAR A VELNEO. Request preparado:', polizaRequest);
+    console.log('🎯 CAMPOS CRÍTICOS ESPECÍFICOS:');
+    console.log('   - tramite:', polizaRequest.tramite);
+    console.log('   - estado:', polizaRequest.estado);
+    console.log('   - formaPago:', polizaRequest.formaPago);
+    console.log('   - moneda:', polizaRequest.moneda);
+    console.log('   - cobertura:', polizaRequest.cobertura);
+    console.log('   - certificado:', polizaRequest.certificado);
+    console.log('   - seccionId:', polizaRequest.seccionId);
     console.log('🌐 URL del API:', import.meta.env.VITE_API_URL);
-    console.log('🔑 Headers de auth:', getAuthHeaders());
 
     // ✅ LLAMADA REAL A LA API
     console.log('🚀 INICIANDO FETCH A VELNEO...');
@@ -391,96 +442,51 @@ const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void>
         if (response.status === 401) {
           errorMessage = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
         } else if (response.status === 400) {
-          errorMessage = `Datos inválidos: ${errorMessage}`;
-          // Si hay errores de validación específicos, mostrarlos
-          if (errorData.errors && Array.isArray(errorData.errors)) {
-            errorMessage += `\n• ${errorData.errors.join('\n• ')}`;
-          }
-        } else if (response.status === 504) {
-          errorMessage = 'Timeout en Velneo. La operación puede haberse completado, verifica en el sistema.';
-        } else if (response.status === 502) {
-          errorMessage = 'Error de conectividad con Velneo. Intenta nuevamente.';
+          errorMessage = errorData.message || 'Datos inválidos. Revisa los campos del formulario.';
+        } else if (response.status >= 500) {
+          errorMessage = 'Error del servidor. Intenta nuevamente.';
         }
-      } catch {
-        // Si no se puede parsear el error, usar el mensaje por defecto
+      } catch (parseError) {
+        console.error('Error parsing error response:', parseError);
       }
       
       throw new Error(errorMessage);
     }
 
-    const responseData = await response.json();
-    console.log('✅ Respuesta exitosa de creación de póliza:', responseData);
+    const result = await response.json();
+    console.log('✅ Respuesta exitosa de Velneo:', result);
 
-    // ✅ ACTUALIZAR ESTADO A SUCCESS
     setState(prev => ({
       ...prev,
       currentStep: 'success',
       isComplete: true
     }));
 
-    console.log('🎉 Póliza creada exitosamente en Velneo:', responseData.poliza?.numero);
+    console.log('🎉 Póliza creada exitosamente en Velneo');
 
   } catch (err: any) {
-    console.error('💥 ERROR COMPLETO creando póliza:', err);
-    console.error('💥 Error stack:', err.stack);
-    
-    let errorMessage = err.message || 'Error desconocido creando la póliza';
-    
-    // Manejar errores específicos de red
-    if (err.name === 'AbortError' || err.message.includes('timeout')) {
-      errorMessage = 'Timeout creando la póliza. La operación puede haberse completado, verifica en Velneo.';
-    } else if (err.message.includes('NetworkError') || err.message.includes('fetch')) {
-      errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
-    }
-    
-    setError(errorMessage);
+    console.error('❌ Error completo creando póliza:', err);
+    setError(err.message || 'Error al crear póliza');
   } finally {
     setLoading(false);
-    console.log('🏁 createPoliza FINALIZADO');
   }
-}, [state.selectedCliente, state.selectedCompany, state.extractedData, getAuthToken, getAuthHeaders]);
+}, [state.selectedCliente, state.selectedCompany, state.selectedSeccion, state.extractedData, getAuthToken, getAuthHeaders]);
 
-  const searchClientes = useCallback(async (searchTerm: string): Promise<void> => {
-  if (!searchTerm.trim() || searchTerm.length < 2) {
+const searchClientes = async (searchTerm: string) => {
+  if (!searchTerm.trim()) {
     setClienteResults([]);
     return;
   }
 
-  const token = getAuthToken();
-  if (!token) {
-    setError('No hay sesión activa para buscar clientes');
-    return;
-  }
-
-  setLoadingClientes(true);
-  
   try {
-    console.log('🚀 Buscando clientes DIRECTO en Velneo con término:', searchTerm);
-
-    const searchUrl = `${import.meta.env.VITE_API_URL}/clientes/direct`;
-    const response = await fetch(
-      `${searchUrl}?filtro=${encodeURIComponent(searchTerm)}`,
-      {
-        headers: getAuthHeaders(),
-        signal: AbortSignal.timeout(10000)
-      }
-    );
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Sesión expirada. Por favor, inicia sesión nuevamente.');
-      }
-      throw new Error(`Error buscando clientes: ${response.status}`);
-    }
-
-    const data = await response.json();
+    setState(prev => ({ ...prev, loadingClientes: true, clienteError: null }));
     
-    console.log('📥 Respuesta DIRECTA de Velneo:', {
-      cantidad: data.clientes ? data.clientes.length : 'no clientes',
-      totalCount: data.total_count,
-    });
+    console.log('🔍 Buscando clientes con servicio unificado:', searchTerm);
     
-    const clientes = data.clientes || data.clients || data || [];
+    // ✅ USAR EL NUEVO SERVICIO
+    const clientes = await clienteService.searchClientes(searchTerm);
+    
+    // Mapear a formato esperado por el wizard
     const clientesMapeados = clientes.map((cliente: any) => ({
       id: cliente.id || cliente.clinro,
       clinom: cliente.clinom || cliente.nombre,
@@ -493,104 +499,76 @@ const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void>
     }));
     
     setClienteResults(clientesMapeados);
-    console.log(`✅ Búsqueda DIRECTA completada: ${clientesMapeados.length} clientes`);
+    setState(prev => ({ ...prev, loadingClientes: false }));
     
-  } catch (err: any) {
-    console.error('❌ Error en búsqueda directa:', err);
+    console.log(`✅ Búsqueda completada: ${clientesMapeados.length} clientes encontrados`);
     
-    try {
-      const fallbackUrl = `${import.meta.env.VITE_API_URL}/clientes/all`;
-      const fallbackResponse = await fetch(
-        `${fallbackUrl}?search=${encodeURIComponent(searchTerm)}`,
-        { headers: getAuthHeaders(), signal: AbortSignal.timeout(30000) }
-      );
-
-      if (fallbackResponse.ok) {
-        const fallbackData = await fallbackResponse.json();
-        const clientesFallback = fallbackData.items || fallbackData || [];
-        setClienteResults(clientesFallback);
-        console.log(`✅ Fallback exitoso: ${clientesFallback.length} clientes`);
-      } else {
-        throw new Error('Ambos endpoints fallaron');
-      }
-    } catch (fallbackError) {
-      console.error('❌ Fallback también falló:', fallbackError);
-      setError(err.message || 'Error al buscar clientes');
-      setClienteResults([]);
-    }
-  } finally {
-    setLoadingClientes(false);
+  } catch (error: any) {
+    console.error('❌ Error buscando clientes:', error);
+    setState(prev => ({ 
+      ...prev, 
+      loadingClientes: false, 
+      clienteError: error.message 
+    }));
+    
+    // Fallback en caso de error
+    setClienteResults([]);
   }
-}, [getAuthToken, getAuthHeaders]);
+};
 
-  const loadCompanies = useCallback(async () => {
-    setLoadingCompanies(true);
-    try {
-      const token = await getAuthToken();
-      if (!token) {
-        console.warn('⚠️ No auth token available, skipping companies load');
-        return;
-      }
+const loadCompanies = async () => {
+  try {
+    setState(prev => ({ ...prev, loadingCompanies: true }));
+    
+    console.log('🏢 Cargando compañías con servicio unificado...');
+    
+    // ✅ USAR EL NUEVO SERVICIO
+    const companies = await companyService.getActiveCompanies();
+    
+    setState(prev => ({ 
+      ...prev, 
+      companies, 
+      loadingCompanies: false 
+    }));
+    
+    console.log(`✅ Compañías cargadas: ${companies.length}`);
+    
+  } catch (error: any) {
+    console.error('❌ Error cargando compañías:', error);
+    setState(prev => ({ 
+      ...prev, 
+      loadingCompanies: false,
+      companies: []
+    }));
+  }
+};
 
-      const headers = getAuthHeaders();
-      console.log('🚀 Loading companies from Velneo...');
-      
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/Companies/active`, {
-        method: 'GET',
-        headers
-      });
-
-      if (!response.ok) {
-        if (response.status === 401) {
-          console.warn('⚠️ Unauthorized - token may be expired');
-          return;
-        }
-        throw new Error(`Error cargando compañías: ${response.status}`);
-      }
-
-      const companiesList = await response.json();
-      const mappedCompanies = companiesList.map((company: any) => ({
-        id: company.id,
-        comnom: company.comnom,
-        comalias: company.comalias,
-        activo: company.activo
-      }));
-      
-      setCompanies(mappedCompanies);
-      console.log('🏢 Compañías cargadas:', mappedCompanies.length);
-
-      await loadSecciones();
-
-    } catch (err: any) {
-      console.error('❌ Error cargando compañías:', err);
-      setError('Error cargando compañías');
-      setCompanies([]);
-    } finally {
-      setLoadingCompanies(false);
-    }
-  }, [getAuthToken, getAuthHeaders]);
-
-  const loadSecciones = useCallback(async () => {
-    setLoadingSecciones(true);
-    try {
-      const [activeSecciones, lookupSecciones] = await Promise.all([
-        seccionService.getActiveSecciones(),
-        seccionService.getSeccionesForLookup()
-      ]);
-
-      setSecciones(activeSecciones);
-      setSeccionesLookup(lookupSecciones);
-      console.log('🎯 Secciones cargadas:', activeSecciones.length);
-
-    } catch (err: any) {
-      console.error('❌ Error cargando secciones:', err);
-      setError('Error cargando secciones');
-      setSecciones([]);
-      setSeccionesLookup([]);
-    } finally {
-      setLoadingSecciones(false);
-    }
-  }, []);
+const loadSecciones = async () => {
+  try {
+    setState(prev => ({ ...prev, loadingSecciones: true }));
+    
+    console.log('🔍 Cargando secciones con servicio unificado...');
+    
+    // ✅ USAR EL NUEVO SERVICIO
+    const secciones = await seccionService.getActiveSecciones();
+    
+    setState(prev => ({ 
+      ...prev, 
+      secciones, 
+      loadingSecciones: false 
+    }));
+    
+    console.log(`✅ Secciones cargadas: ${secciones.length}`);
+    
+  } catch (error: any) {
+    console.error('❌ Error cargando secciones:', error);
+    setState(prev => ({ 
+      ...prev, 
+      loadingSecciones: false,
+      secciones: []
+    }));
+  }
+};
 
     const selectSeccion = useCallback((seccion: Seccion) => {
     console.log('🎯 Sección seleccionada:', seccion.seccion);
@@ -603,30 +581,34 @@ const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void>
 
   const retryProcessing = useCallback(async () => {
     if (state.uploadedFile && state.currentStep === 'upload') {
-      await processDocument();
+      if (state.uploadedFile) {
+  await processDocument(state.uploadedFile);
+} else {
+  console.error('❌ No hay archivo para reprocesar');
+  setState(prev => ({ 
+    ...prev, 
+    documentError: 'No hay archivo para procesar'
+  }));
+}
     }
   }, [state.uploadedFile, state.currentStep, processDocument]);
 
-const validateCurrentStep = useCallback((): boolean => {
-  switch (state.currentStep) {
+const validateCurrentStep = useCallback((currentState: any): boolean => {
+  switch (currentState.currentStep) {  // ✅ Usar parámetro
     case 'cliente':
-      return !!state.selectedCliente;
+      return !!currentState.selectedCliente;
     case 'company':
-      return !!state.selectedCompany;
+      return !!currentState.selectedCompania;
     case 'seccion':
-      return !!state.selectedSeccion;
-    case 'operacion':
-      return !!state.selectedOperacion; 
+      return !!currentState.selectedSeccion;
     case 'upload':
-      return !!state.uploadedFile;
-    case 'extract':
-      return processing || !!state.extractedData;
+      return !!currentState.uploadedFile;
     case 'form':
-      return !!state.extractedData;
+      return true; 
     default:
-      return true;
+      return false;
   }
-}, [state, processing]);
+}, []);
 
   return {
     ...state,

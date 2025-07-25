@@ -22,14 +22,15 @@ const AppContent: React.FC = () => {
   }, [isAuthenticated, isLoading, user]);
 
   useEffect(() => {
-    const handleAuthLogout = () => {
-      console.log('🔐 Auth logout event received, logging out...');
+    const handleSessionExpired = () => {
+      console.log('🚫 Sesión expirada detectada, haciendo logout...');
       logout();
     };
 
-    window.addEventListener('auth:logout', handleAuthLogout);
+    window.addEventListener('auth:session-expired', handleSessionExpired);
+
     return () => {
-      window.removeEventListener('auth:logout', handleAuthLogout);
+      window.removeEventListener('auth:session-expired', handleSessionExpired);
     };
   }, [logout]);
 

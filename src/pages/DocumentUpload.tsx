@@ -14,6 +14,9 @@ import {
   ArrowRight,
   RefreshCw
 } from 'lucide-react';
+import { polizaService } from '../services/polizaService';
+import { azureService } from '../services/azureService';
+
 
 // Types
 interface ProcessingStep {
@@ -108,101 +111,189 @@ const DocumentUpload: React.FC = () => {
     ));
   };
 
-  const processDocument = async () => {
-    if (!uploadedFile) return;
+const processDocument = async () => {
+  if (!uploadedFile) return;
 
-    setProcessing(true);
-    setCurrentStep('extract');
-    updateStep('extract', 'processing');
+  setProcessing(true);
+  setCurrentStep('extract');
+  updateStep('extract', 'processing');
 
-    try {
-      // Simular llamada a Azure Document Intelligence
-      const formData = new FormData();
-      formData.append('file', uploadedFile);
+  try {
+    console.log('📄 Procesando documento con Azure Service...');
+    
+    const result = await azureService.processDocument(uploadedFile, (progress) => {
+      console.log(`📊 Progreso: ${progress}%`);
+    });
 
-      // Mock de procesamiento - reemplazar con tu endpoint real
-      await new Promise(resolve => setTimeout(resolve, 3000));
-
-      // Mock de resultado - reemplazar con respuesta real de tu API
-      const mockResult: ProcessingResult = {
-        documentId: `doc_${Date.now()}`,
-        fileName: uploadedFile.name,
-        extractedFields: [
-          { field: 'Número de Póliza', value: '123456789', confidence: 0.98, needsReview: false },
-          { field: 'Asegurado', value: 'Juan Pérez González', confidence: 0.95, needsReview: false },
-          { field: 'Vigencia Desde', value: '25/06/2025', confidence: 0.85, needsReview: true },
-          { field: 'Vigencia Hasta', value: '25/06/2026', confidence: 0.92, needsReview: false },
-          { field: 'Prima Total', value: '$15,500', confidence: 0.90, needsReview: false },
-          { field: 'Compañía', value: 'BSE', confidence: 0.99, needsReview: false }
-        ],
-        polizaData: {
-          numeroPoliza: '123456789',
-          asegurado: 'Juan Pérez González',
-          vigenciaDesde: '2025-06-25',
-          vigenciaHasta: '2026-06-25',
-          prima: 15500,
-          compania: 'BSE'
+    const mappedResult: ProcessingResult = {
+      documentId: result.documentId,
+      fileName: result.nombreArchivo,
+      extractedFields: [
+        { 
+          field: 'Número de Póliza', 
+          value: result.numeroPoliza || '', 
+          confidence: result.nivelConfianza || 0, 
+          needsReview: result.requiereVerificacion || false 
         },
-        readyForVelneo: true
-      };
+        { 
+          field: 'Asegurado', 
+          value: result.asegurado || '', 
+          confidence: result.nivelConfianza || 0, 
+          needsReview: result.requiereVerificacion || false 
+        },
+        { 
+          field: 'Vigencia Desde', 
+          value: result.vigenciaDesde || '', 
+          confidence: result.nivelConfianza || 0, 
+          needsReview: result.requiereVerificacion || false 
+        },
+        { 
+          field: 'Vigencia Hasta', 
+          value: result.vigenciaHasta || '', 
+          confidence: result.nivelConfianza || 0, 
+          needsReview: result.requiereVerificacion || false 
+        },
+        { 
+          field: 'Prima Total', 
+          value: result.prima ? `$${result.prima}` : '', 
+          confidence: result.nivelConfianza || 0, 
+          needsReview: result.requiereVerificacion || false 
+        }
+      ],
+      polizaData: {
+        numeroPoliza: result.numeroPoliza,
+        asegurado: result.asegurado,
+        vigenciaDesde: result.vigenciaDesde,
+        vigenciaHasta: result.vigenciaHasta,
+        prima: result.prima,
+        datosVelneo: result.datosVelneo 
+      },
+      readyForVelneo: result.readyForVelneo || false
+    };
 
-      setProcessingResult(mockResult);
-      updateStep('extract', 'completed', 'Datos extraídos con éxito');
-      updateStep('validate', 'completed', 'Validación completada');
-      setCurrentStep('send');
+    setProcessingResult(mappedResult);
+    updateStep('extract', 'completed', 'Datos extraídos con Azure IA');
+    updateStep('validate', 'completed', 'Validación completada');
+    setCurrentStep('send');
 
-    } catch (error: any) {
-      updateStep('extract', 'error', error.message);
-      setError('Error al procesar el documento');
-    } finally {
-      setProcessing(false);
-    }
-  };
-
-  const sendToVelneo = async () => {
-    if (!processingResult) return;
-
-    setSendingToVelneo(true);
-    updateStep('send', 'processing');
-
-    try {
-      // Simular envío a Velneo
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Mock de resultado exitoso
-      const velneoResponse = {
-        success: true,
-        polizaId: 'VLN_123456789',
-        message: 'Póliza creada exitosamente en Velneo',
-        timestamp: new Date().toISOString()
-      };
-
-      setVelneoResult(velneoResponse);
-      updateStep('send', 'completed', 'Enviado a Velneo exitosamente');
-
-    } catch (error: any) {
-      updateStep('send', 'error', error.message);
-      setError('Error al enviar a Velneo');
-    } finally {
-      setSendingToVelneo(false);
-    }
-  };
-
-  const resetProcess = () => {
-    setUploadedFile(null);
+  } catch (error: any) {
+    console.error('❌ Error procesando documento:', error);
+    updateStep('extract', 'error', error.message);
+    setError(`Error al procesar el documento: ${error.message}`);
+  } finally {
     setProcessing(false);
-    setCurrentStep('upload');
-    setProcessingResult(null);
-    setError(null);
+  }
+};
+
+
+const sendToVelneo = async () => {
+  if (!processingResult) return;
+
+  setSendingToVelneo(true);
+  updateStep('send', 'processing', 'Enviando a Velneo...');
+
+  try {
+    console.log('📤 Enviando a Velneo desde DocumentUpload...');
+    
+    // Preparar datos para Velneo usando los datos extraídos
+    const polizaRequest = {
+      // Datos básicos (estos pueden necesitar ajuste según tu estructura)
+      comcod: 1, // TODO: Obtener de selección de compañía
+      clinro: 1, // TODO: Obtener de selección de cliente
+      conpol: processingResult.polizaData.numeroPoliza || '',
+      confchdes: processingResult.polizaData.vigenciaDesde || '',
+      confchhas: processingResult.polizaData.vigenciaHasta || '',
+      conpremio: processingResult.polizaData.prima || 0,
+      asegurado: processingResult.polizaData.asegurado || '',
+      
+      // Datos extraídos de Azure
+      observaciones: 'Procesado automáticamente desde DocumentUpload con Azure AI',
+      moneda: 'UYU',
+      procesadoConIA: true,
+      
+      // ✅ INCLUIR TODOS LOS DATOS DE VELNEO
+      ...(processingResult.polizaData.datosVelneo && {
+        // Datos del vehículo
+        vehiculo: processingResult.polizaData.datosVelneo.datosVehiculo?.marcaModelo,
+        marca: processingResult.polizaData.datosVelneo.datosVehiculo?.marca,
+        modelo: processingResult.polizaData.datosVelneo.datosVehiculo?.modelo,
+        motor: processingResult.polizaData.datosVelneo.datosVehiculo?.motor,
+        chasis: processingResult.polizaData.datosVelneo.datosVehiculo?.chasis,
+        matricula: processingResult.polizaData.datosVelneo.datosVehiculo?.matricula,
+        combustible: processingResult.polizaData.datosVelneo.datosVehiculo?.combustible,
+        anio: processingResult.polizaData.datosVelneo.datosVehiculo?.anio ? 
+          parseInt(processingResult.polizaData.datosVelneo.datosVehiculo.anio.toString()) : null,
+        
+        // Datos comerciales
+        primaComercial: processingResult.polizaData.datosVelneo.condicionesPago?.prima,
+        premioTotal: processingResult.polizaData.datosVelneo.condicionesPago?.premio || 
+                    processingResult.polizaData.datosVelneo.condicionesPago?.total,
+        corredor: processingResult.polizaData.datosVelneo.datosBasicos?.corredor,
+        ramo: processingResult.polizaData.datosVelneo.datosPoliza?.ramo || 'AUTOMOVILES',
+        
+        // Datos del cliente
+        documento: processingResult.polizaData.datosVelneo.datosBasicos?.documento,
+        email: processingResult.polizaData.datosVelneo.datosBasicos?.email,
+        telefono: processingResult.polizaData.datosVelneo.datosBasicos?.telefono,
+        direccion: processingResult.polizaData.datosVelneo.datosBasicos?.domicilio,
+        localidad: processingResult.polizaData.datosVelneo.datosBasicos?.localidad,
+        departamento: processingResult.polizaData.datosVelneo.datosBasicos?.departamento
+      })
+    };
+
+    console.log('📋 Request preparado para Velneo:', polizaRequest);
+
+    // ✅ LLAMADA REAL A VELNEO usando el servicio unificado
+    const velneoResponse = await polizaService.createPoliza(polizaRequest);
+
+    console.log('✅ Respuesta exitosa de Velneo:', velneoResponse);
+
+    // Actualizar UI con resultado exitoso
+    setVelneoResult({
+      success: true,
+      polizaId: velneoResponse.id || velneoResponse.polizaId || `VLN_${Date.now()}`,
+      message: 'Póliza creada exitosamente en Velneo',
+      timestamp: new Date().toISOString(),
+      data: velneoResponse
+    });
+
+    updateStep('send', 'completed', 'Enviado a Velneo exitosamente');
+
+  } catch (error: any) {
+    console.error('❌ Error enviando a Velneo:', error);
+    
+    updateStep('send', 'error', `Error: ${error.message}`);
+    setError(`Error al enviar a Velneo: ${error.message}`);
+    
+    // Mostrar error en UI pero mantener el resultado
+    setVelneoResult({
+      success: false,
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
+    
+  } finally {
     setSendingToVelneo(false);
-    setVelneoResult(null);
-    setSteps([
-      { id: 'upload', label: 'Subir Documento', status: 'pending' },
-      { id: 'extract', label: 'Extracción con IA', status: 'pending' },
-      { id: 'validate', label: 'Validar Datos', status: 'pending' },
-      { id: 'send', label: 'Enviar a Velneo', status: 'pending' }
-    ]);
-  };
+  }
+};
+
+const resetProcess = () => {
+  setUploadedFile(null);
+  setProcessing(false);
+  setCurrentStep('upload');
+  setProcessingResult(null);
+  setError(null);
+  setSendingToVelneo(false);
+  setVelneoResult(null);
+  setSteps([
+    { id: 'upload', label: 'Subir Documento', status: 'pending' },
+    { id: 'extract', label: 'Extracción con IA', status: 'pending' },
+    { id: 'validate', label: 'Validar Datos', status: 'pending' },
+    { id: 'send', label: 'Enviar a Velneo', status: 'pending' }
+  ]);
+  
+  console.log('🔄 Proceso reseteado');
+};
 
   const getStepIcon = (step: ProcessingStep) => {
     switch (step.status) {

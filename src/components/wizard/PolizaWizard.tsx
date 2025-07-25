@@ -10,7 +10,7 @@ import {
   Lightbulb,
   Info, RefreshCw 
 } from 'lucide-react';
-import { usePolizaWizard } from '../../hooks/usePolizaWizard';
+import { PolizaCreateRequest, usePolizaWizard } from '../../hooks/usePolizaWizard';
 import { useDarkMode } from '../../context/ThemeContext';
 import FloatingWizardHeader from './FloatingWizardHeader';
 import { 
@@ -22,6 +22,9 @@ import {
 } from '../../utils/operationLogic';
 import { useVelneoEntities } from '../../hooks/useVelneoEntities';
 import ScannedValuesPanel from '../wizard/ScannedValuesPanel';
+import { VelneoMapper } from '../../utils/velneoMapper';
+import type { VelneoMappingInput } from '../../utils/velneoMapper';
+import { VelneoContrato, VelneoEstadoPoliza, VelneoFormaPago, VelneoMappingResult, VelneoMoneda, VelneoTipoGestion, VelneoTramite } from '../../types/velneo';
 
 interface PolizaWizardProps {
   onComplete?: (result: any) => void;
@@ -71,6 +74,12 @@ interface PolizaFormData {
   estadoPoliza: string;
   certificado?: string;      
   compania?: string;    
+  
+  tramiteVelneo?: VelneoTramite;
+  estadoPolizaVelneo?: VelneoEstadoPoliza;
+  formaPagoVelneo?: VelneoFormaPago;
+  monedaVelneo?: VelneoMoneda;
+  estadoGestionVelneo?: string;
   
   combustibleId?: string | null;
   categoriaId?: number | null;
@@ -218,11 +227,10 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     }
   }, [wizard.extractedData]);
 
-  useEffect(() => {
+ useEffect(() => {
   if (wizard.extractedData) {
     console.log('🔍 Aplicando lógica automática a datos extraídos:', wizard.extractedData);
     
-    // ✅ Usar directamente wizard.extractedData (es DocumentProcessResult)
     const datos = wizard.extractedData;
     
     // Extraer operación de Azure
@@ -235,23 +243,123 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
     
     console.log('🔧 Campos automáticos:', { tramiteAuto, estadoAuto });
     
+    // ✅ CREAR INPUT PARA MAPEO CON PROPIEDADES CORRECTAS
+    const inputMapeo: VelneoMappingInput = {
+      // 🔧 CORREGIDO: Usar rutas correctas a los datos
+      tramiteTexto: datos.datosVelneo?.datosPoliza?.tipoMovimiento || tramiteAuto,
+      estadoTexto: '', // No existe en DocumentProcessResult
+      estadoPolizaTexto: estadoAuto, // Usar el calculado automáticamente
+      formaPagoTexto: datos.datosVelneo?.condicionesPago?.formaPago || '',
+      monedaTexto: datos.datosVelneo?.condicionesPago?.moneda || '',
+      operacion: operacionDetectada,
+      fechaVencimiento: datos.vigenciaHasta ? new Date(datos.vigenciaHasta) : undefined,
+      fuenteDatos: 'azure'
+    };
+    
+    // 🎯 MAPEAR CAMPOS CON VELNEOMAPPER
+    const resultadoMapeo = VelneoMapper.mapearCamposCompletos(inputMapeo);
+    
+    console.log('🎯 Campos mapeados automáticamente:', resultadoMapeo);
+    
+    // Si hay warnings, mostrarlos
+    if (resultadoMapeo.warnings.length > 0) {
+      console.warn('⚠️ Advertencias en mapeo:', resultadoMapeo.warnings);
+    }
+    
     // Actualizar solo los campos de operación, manteniendo los existentes
     setFormData(prev => ({
       ...prev,
-      // NUEVOS CAMPOS AUTOMÁTICOS
+      // CAMPOS DE OPERACION ORIGINAL
       operacion: operacionDetectada,
       tramite: tramiteAuto,
       estadoPoliza: estadoAuto,
       
-      // ✅ AGREGAR SOLO ESTAS DOS LÍNEAS (sección seleccionada):
+      // 🎯 CAMPOS MAPEADOS DE VELNEO (NUEVOS)
+      tramiteVelneo: resultadoMapeo.campos.tramite,
+      estadoPolizaVelneo: resultadoMapeo.campos.estadoPoliza,
+      formaPagoVelneo: resultadoMapeo.campos.formaPago,
+      monedaVelneo: resultadoMapeo.campos.moneda,
+      estadoGestionVelneo: resultadoMapeo.campos.estadoGestion,
+      
+      // ✅ SECCIÓN SELECCIONADA
       seccion: wizard.selectedSeccion?.seccion || '',
       seccionId: wizard.selectedSeccion?.id || 0,
       
-      // Actualizar observaciones con lógica
-      observaciones: generarObservacionesConLogica(datos, operacionDetectada, tramiteAuto, estadoAuto)
+      // 📝 OBSERVACIONES ENRIQUECIDAS CON INFO DE MAPEO
+      observaciones: generarObservacionesConMapeo(datos, resultadoMapeo, operacionDetectada, tramiteAuto, estadoAuto)
     }));
   }
 }, [wizard.extractedData, wizard.selectedSeccion]);
+
+function generarObservacionesConMapeo(
+  datos: any, 
+  resultadoMapeo: VelneoMappingResult,
+  operacion: TipoOperacion, 
+  tramite: string, 
+  estado: string
+): string {
+  const observaciones = [];
+  
+  // Información sobre detección automática del tipo de movimiento (si existe)
+  if (datos.datosVelneo?.datosPoliza?.tipoMovimiento) {
+    observaciones.push(`Tipo de movimiento original: "${datos.datosVelneo.datosPoliza.tipoMovimiento}"`);
+    observaciones.push('');
+  }
+  
+  // 🎯 INFORMACIÓN DEL MAPEO VELNEO
+  observaciones.push('MAPEO AUTOMÁTICO VELNEO:');
+  observaciones.push(`- Trámite: ${resultadoMapeo.campos.tramite} (${resultadoMapeo.mapping.tramite.metodo})`);
+  observaciones.push(`- Estado Póliza: ${resultadoMapeo.campos.estadoPoliza} (${resultadoMapeo.mapping.estadoPoliza.metodo})`);
+  observaciones.push(`- Forma Pago: ${resultadoMapeo.campos.formaPago} (${resultadoMapeo.mapping.formaPago.metodo})`);
+  observaciones.push(`- Moneda: ${resultadoMapeo.campos.moneda} (${resultadoMapeo.mapping.moneda.metodo})`);
+  observaciones.push('');
+  
+  // CRONOGRAMA DE CUOTAS - BUSCAR EN LA RUTA CORRECTA
+  const cuotasData = datos.datosVelneo?.condicionesPago || datos.condicionesPago;
+  
+  if (cuotasData?.detalleCuotas?.tieneCuotasDetalladas && cuotasData.detalleCuotas.cuotas?.length > 0) {
+    observaciones.push('CRONOGRAMA DE CUOTAS DETECTADO:');
+    observaciones.push(`${resultadoMapeo.campos.formaPago} - ${cuotasData.cuotas} cuotas de ${resultadoMapeo.campos.moneda} $${cuotasData.valorCuota?.toLocaleString()}`);
+    observaciones.push('');
+    
+    // Agregar cuotas individuales
+    cuotasData.detalleCuotas.cuotas.forEach((cuota: any) => {
+      if (cuota.fechaVencimiento) {
+        const fecha = new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY');
+        observaciones.push(`Cuota ${cuota.numero}: ${fecha} - $${cuota.monto?.toLocaleString()}`);
+      } else {
+        observaciones.push(`Cuota ${cuota.numero}: Sin fecha - $${cuota.monto?.toLocaleString()}`);
+      }
+    });
+    observaciones.push('');
+  }
+  
+  // Advertencias del mapeo
+  if (resultadoMapeo.warnings.length > 0) {
+    observaciones.push('ADVERTENCIAS DE MAPEO:');
+    resultadoMapeo.warnings.forEach(warning => {
+      observaciones.push(`- ${warning}`);
+    });
+    observaciones.push('');
+  }
+  
+  // Advertencias según el tipo de operación
+  if (operacion === 'RENOVACION') {
+    observaciones.push('RENOVACIÓN: Verificar que la póliza anterior esté por vencer');
+    observaciones.push('');
+  } else if (operacion === 'ENDOSO') {
+    observaciones.push('ENDOSO: Verificar cambios respecto a la póliza original');
+    observaciones.push('');
+  }
+  
+  // Timestamp de procesamiento
+  observaciones.push(`Procesado el ${new Date().toLocaleString('es-UY')} | ` +
+                     `Procesado automáticamente con Azure Document Intelligence | ` +
+                     `Trámite: ${resultadoMapeo.campos.tramite} | ` +
+                     `Estado: ${resultadoMapeo.campos.estadoPoliza}`);
+  
+  return observaciones.join('\n');
+}
 
 useEffect(() => {
   if (wizard.currentStep === 'form' && wizard.selectedSeccion?.seccion && !formData.ramo) {
@@ -1240,7 +1348,7 @@ const renderOperacionStep = () => (
 
         {wizard.uploadedFile && (
           <button
-            onClick={() => wizard.processDocument()}
+            onClick={() => wizard.processDocument(state.uploadedFile)}
             disabled={wizard.processing}
             className={`inline-flex items-center px-8 py-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg ${
               isDarkMode 
@@ -1844,6 +1952,148 @@ case 'poliza':
                 readOnly={!!wizard.selectedCompany?.comnom}
                 required
               />
+            </div>
+          </div>
+
+          {/* 🎯 NUEVA SECCIÓN: CAMPOS MAPEADOS PARA VELNEO */}
+          <div className={`mt-8 rounded-xl p-6 ${
+            isDarkMode 
+              ? 'bg-gradient-to-br from-gray-700 to-green-900/20 border border-green-800/50' 
+              : 'bg-gradient-to-r from-green-50 to-emerald-100 border-2 border-green-200'
+          }`}>
+            <h4 className={`text-lg font-bold flex items-center ${
+              isDarkMode ? 'text-green-300' : 'text-green-900'
+            } mb-4`}>
+              <CheckCircle className="w-5 h-5 mr-2" />
+              Campos Mapeados para Velneo
+              <span className="ml-2 text-sm font-normal opacity-75">
+                (Detectados automáticamente)
+              </span>
+            </h4>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Trámite Velneo */}
+              <div>
+                <label className={`block text-sm font-bold ${
+                  isDarkMode ? 'text-green-300' : 'text-green-800'
+                } mb-2`}>
+                  Trámite
+                  <span className="ml-2 text-xs opacity-75">(CONTRA)</span>
+                </label>
+                <select
+                  value={formData.tramiteVelneo || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, tramiteVelneo: e.target.value as VelneoTramite }))}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-green-500 transition-all duration-200 ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-green-700/30 text-gray-100 focus:ring-green-500/30' 
+                      : 'bg-white border-green-300 focus:ring-green-100'
+                  }`}
+                >
+                  <option value="">Seleccionar trámite</option>
+                  <option value="Nuevo">Nuevo (Emisión)</option>
+                  <option value="Renovacion">Renovación</option>
+                  <option value="Cambio">Cambio/Modificación</option>
+                  <option value="Endoso">Endoso</option>
+                  <option value="No Renueva">No Renueva</option>
+                  <option value="Cancelacion">Cancelación</option>
+                </select>
+              </div>
+
+              {/* Estado Póliza Velneo */}
+              <div>
+                <label className={`block text-sm font-bold ${
+                  isDarkMode ? 'text-green-300' : 'text-green-800'
+                } mb-2`}>
+                  Estado Póliza
+                  <span className="ml-2 text-xs opacity-75">(CONVIG)</span>
+                </label>
+                <select
+                  value={formData.estadoPolizaVelneo || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, estadoPolizaVelneo: e.target.value as VelneoEstadoPoliza }))}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-green-500 transition-all duration-200 ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-green-700/30 text-gray-100 focus:ring-green-500/30' 
+                      : 'bg-white border-green-300 focus:ring-green-100'
+                  }`}
+                >
+                  <option value="">Seleccionar estado</option>
+                  <option value="VIG">VIG - Vigente</option>
+                  <option value="VEN">VEN - Vencida</option>
+                  <option value="END">END - Endosada</option>
+                  <option value="CAN">CAN - Cancelada</option>
+                  <option value="ANT">ANT - Antecedente</option>
+                </select>
+              </div>
+
+              {/* Forma de Pago Velneo */}
+              <div>
+                <label className={`block text-sm font-bold ${
+                  isDarkMode ? 'text-green-300' : 'text-green-800'
+                } mb-2`}>
+                  Forma de Pago
+                  <span className="ml-2 text-xs opacity-75">(CONSTA)</span>
+                </label>
+                <select
+                  value={formData.formaPagoVelneo || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, formaPagoVelneo: e.target.value as VelneoFormaPago }))}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-green-500 transition-all duration-200 ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-green-700/30 text-gray-100 focus:ring-green-500/30' 
+                      : 'bg-white border-green-300 focus:ring-green-100'
+                  }`}
+                >
+                  <option value="">Seleccionar forma de pago</option>
+                  <option value="Efectivo">Efectivo</option>
+                  <option value="Tarjeta Cred.">Tarjeta de Crédito</option>
+                  <option value="Débito Banc.">Débito Bancario</option>
+                  <option value="Transferencia bancaria">Transferencia Bancaria</option>
+                  <option value="Cheque directo">Cheque Directo</option>
+                  <option value="Cobrador">Cobrador</option>
+                  <option value="Conforme">Conforme</option>
+                  <option value="Pass Card">Pass Card</option>
+                </select>
+              </div>
+
+              {/* Moneda Velneo */}
+              <div>
+                <label className={`block text-sm font-bold ${
+                  isDarkMode ? 'text-green-300' : 'text-green-800'
+                } mb-2`}>
+                  Moneda
+                  <span className="ml-2 text-xs opacity-75">(MONCOD)</span>
+                </label>
+                <select
+                  value={formData.monedaVelneo || ''}
+                  onChange={(e) => setFormData(prev => ({ ...prev, monedaVelneo: e.target.value as VelneoMoneda }))}
+                  className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:border-green-500 transition-all duration-200 ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-green-700/30 text-gray-100 focus:ring-green-500/30' 
+                      : 'bg-white border-green-300 focus:ring-green-100'
+                  }`}
+                >
+                  <option value="">Seleccionar moneda</option>
+                  <option value="PES">PES - Pesos Uruguayos</option>
+                  <option value="DOL">DOL - Dólares</option>
+                  <option value="EU">EU - Euros</option>
+                  <option value="RS">RS - Reales</option>
+                  <option value="UF">UF - Unidad de Fomento</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Indicador de Mapeo Automático */}
+            <div className={`mt-4 p-3 rounded-lg ${
+              isDarkMode 
+                ? 'bg-green-900/30 border border-green-800/50' 
+                : 'bg-green-100 border border-green-300'
+            }`}>
+              <div className="flex items-center">
+                <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
+                <span className={`text-sm ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>
+                  Campos mapeados automáticamente desde Azure Document Intelligence. 
+                  Puedes modificarlos si es necesario antes de enviar a Velneo.
+                </span>
+              </div>
             </div>
           </div>
         </div>
@@ -2519,28 +2769,44 @@ case 'observaciones':
         {/* Navegación mejorada */}
         <div className="flex justify-between items-center bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
           <button
-            onClick={wizard.goBack}
-            className="flex items-center px-6 py-3 bg-gradient-to-r from-gray-400 to-gray-600 text-white rounded-xl hover:from-gray-500 hover:to-gray-700 focus:outline-none focus:ring-4 focus:ring-gray-300 transition-all duration-200 font-medium shadow-md"
-          >
-            <ArrowLeft className="w-5 h-5 mr-2" />
-            Volver al procesamiento
-          </button>
-          <button
             onClick={async () => {
               console.log('🔥 BOTÓN CREAR PÓLIZA CLICKEADO - PolizaWizard.tsx');
               setSaving(true);
               try {
                 console.log('💾 Creando póliza con datos:', formData);
-                console.log('🚀 Llamando wizard.createPoliza...');
+                const contratoVelneo = prepararDatosParaVelneo();
+                console.log('📋 Datos preparados para Velneo:', contratoVelneo);
                 
-                // ✅ LLAMADA REAL en lugar del mock
-                await wizard.createPoliza(formData);
+                // 🚀 OPCIÓN A: Enviar directamente a tu endpoint Velneo
+                console.log('🚀 Enviando a Velneo...');
                 
-                console.log('✅ wizard.createPoliza completado, ir a success');
-                // wizard.goToStep('success'); // ← No necesario, createPoliza ya lo hace
-              } catch (error) {
+                const token = localStorage.getItem('authToken');
+                
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/polizas`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                  },
+                  body: JSON.stringify(contratoVelneo)
+                });
+                
+                if (response.ok) {
+                  const result = await response.json();
+                  console.log('✅ Póliza enviada exitosamente a Velneo:', result);
+                  
+                  // Continuar con el flujo del wizard
+                  await wizard.createPoliza(formData);
+                  console.log('✅ Proceso completado, ir a success');
+                } else {
+                  const error = await response.json();
+                  console.error('❌ Error enviando a Velneo:', error);
+                  throw new Error(`Error en Velneo: ${error.message}`);
+                }
+                
+              } catch (error: any) {
                 console.error('❌ Error creando póliza:', error);
-                // El error se maneja en createPoliza
+                wizard.setError(`Error: ${error.message}`);
               } finally {
                 setSaving(false);
               }
@@ -2750,7 +3016,108 @@ const getTramiteAutoFromOperacion = (operacion?: string): string => {
     return stepOrder.indexOf(step) + 1;
   };
 
-  const getTotalSteps = (): number => 8; // Actualizado de 7 a 8
+const prepararDatosParaVelneo = (): PolizaCreateRequest => {
+  console.log('📋 Preparando datos para envío a Velneo...');
+  console.log('🔍 FormData actual:', formData);
+  console.log('🏢 Compañía seleccionada:', wizard.selectedCompany);
+  console.log('👤 Cliente seleccionado:', wizard.selectedCliente);
+  console.log('📑 Sección seleccionada:', wizard.selectedSeccion);
+  
+  // Validaciones básicas
+  if (!wizard.selectedCompany?.id) {
+    throw new Error('Compañía no seleccionada');
+  }
+  if (!wizard.selectedCliente?.id) {
+    throw new Error('Cliente no seleccionado');
+  }
+  if (!wizard.selectedSeccion?.id) {
+    throw new Error('Sección no seleccionada');
+  }
+  if (!formData.numeroPoliza) {
+    throw new Error('Número de póliza requerido');
+  }
+  
+  // Crear input para mapeo final
+  const inputMapeo: VelneoMappingInput = {
+    tramiteTexto: formData.tramiteVelneo || formData.tramite || '',
+    estadoTexto: formData.estadoGestionVelneo || '', 
+    estadoPolizaTexto: formData.estadoPolizaVelneo || formData.estadoPoliza || '',
+    formaPagoTexto: formData.formaPagoVelneo || formData.formaPago || '',
+    monedaTexto: formData.monedaVelneo || formData.moneda || '',
+    fechaVencimiento: formData.vigenciaHasta ? new Date(formData.vigenciaHasta) : undefined,
+    fuenteDatos: 'formulario'
+  };
+  
+  // Mapear campos
+  const camposMapeados = VelneoMapper.mapearCamposCompletos(inputMapeo);
+  console.log('🎯 Campos mapeados:', camposMapeados);
+  
+  if (camposMapeados.warnings.length > 0) {
+    console.warn('⚠️ Advertencias del mapeo:', camposMapeados.warnings);
+  }
+  
+  // Construir el objeto para Velneo
+  const contratoVelneo: PolizaCreateRequest = {
+    // ✅ IDS REQUERIDOS (convertir a números)
+    comcod: Number(wizard.selectedCompany.id),
+    clinro: Number(wizard.selectedCliente.id),
+    seccod: Number(wizard.selectedSeccion.id),
+    
+    // ✅ DATOS BÁSICOS DE LA PÓLIZA
+    conpol: formData.numeroPoliza,
+    conend: formData.certificado || '0',
+    confchdes: formData.vigenciaDesde,
+    confchhas: formData.vigenciaHasta,
+    conpremio: Number(formData.prima || 0),
+    contot: Number(formData.premioTotal || formData.prima || 0),
+    concuo: Number(formData.cantidadCuotas || 1),
+    
+    // ✅ CAMPOS VELNEO MAPEADOS
+    contra: camposMapeados.campos.tramite,
+    congeses: camposMapeados.campos.estadoGestion,
+    convig: camposMapeados.campos.estadoPoliza,
+    consta: camposMapeados.campos.formaPago,
+    moncod: camposMapeados.campos.moneda,
+    congesti: '1', // Tipo de gestión fijo
+    
+    // ✅ DATOS DEL CLIENTE/ASEGURADO
+    condom: formData.direccion || '',
+    clinom: formData.asegurado,
+    
+    // ✅ DATOS DEL VEHÍCULO
+    conmaraut: formData.marca || '',
+    conanioaut: Number(formData.anio) || new Date().getFullYear(),
+    conmataut: formData.matricula || '',
+    conchasis: formData.chasis || '',
+    conmotor: formData.motor || '',
+    
+    // ✅ DATOS CATEGORIZADOS DEL VEHÍCULO (convertir a números si existen)
+    catdsc: formData.categoriaId ? Number(formData.categoriaId) : undefined,
+    desdsc: formData.destinoId ? Number(formData.destinoId) : undefined,
+    caldsc: formData.calidadId ? Number(formData.calidadId) : undefined,
+    
+    // ✅ METADATOS Y AUDITORÍA
+    observaciones: formData.observaciones,
+    conges: 'SISTEMA_AUTO',
+    congesfi: new Date(),
+    ingresado: new Date(),
+    last_update: new Date(),
+    
+    // ✅ CAMPOS ADICIONALES
+    ramo: formData.ramo || 'AUTOMOVILES',
+    com_alias: wizard.selectedCompany.comnom || wizard.selectedCompany.comalias || '',
+    combustibles: formData.combustible || 'NAFTA',
+    primaComercial: Number(formData.primaComercial || 0),
+    
+    // ✅ CAMPOS DE PROCESAMIENTO
+    documentoId: wizard.extractedData?.documentId,
+    archivoOriginal: wizard.uploadedFile?.name,
+    procesadoConIA: true
+  };
+  
+  console.log('✅ Contrato Velneo preparado:', contratoVelneo);
+  return contratoVelneo;
+};
 
   return (
     <div className={`min-h-screen ${getBgClass()}`}>

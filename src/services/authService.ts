@@ -1,37 +1,40 @@
 import { LoginDto, AuthResultDto, User, Permission, Role } from '../types/auth';
+import { apiClient } from './ApiClient';
+import { ENDPOINTS, STORAGE_KEYS } from '../utils/constants';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:7191/api';
 
 class AuthService {
   private readonly baseUrl = `${API_BASE_URL}/auth`;
 
-  async login(credentials: LoginDto): Promise<AuthResultDto> {
-    const response = await fetch(`${this.baseUrl}/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(credentials),
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Credenciales inválidas. Por favor verifica tu usuario y contraseña.');
-      }
-      if (response.status === 403) {
-        throw new Error('Usuario inactivo. Contacta al administrador.');
-      }
-      throw new Error(`Error en el servidor: ${response.status}`);
-    }
-
-    const data: AuthResultDto = await response.json();
+async login(credentials: LoginDto): Promise<AuthResultDto> {
+  console.log('🔐 AuthService: Iniciando login...');
+  
+  const response = await apiClient.post<AuthResultDto>(ENDPOINTS.AUTH_LOGIN, credentials);
+  
+  if (!response.success) {
+    console.error('❌ Login fallido:', response.error);
     
-    if (!data.token || !data.userId || !data.nombre) {
-      throw new Error('Respuesta del servidor incompleta');
+    // Mapear errores específicos
+    if (response.statusCode === 401) {
+      throw new Error('Credenciales inválidas. Por favor verifica tu usuario y contraseña.');
+    } else if (response.statusCode === 403) {
+      throw new Error('Usuario inactivo. Contacta al administrador.');
+    } else {
+      throw new Error(response.error || 'Error en el servidor. Intenta nuevamente.');
     }
-
-    return data;
   }
+  
+  const authResult = response.data!;
+  
+  // Guardar en localStorage usando constantes
+  localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, authResult.token);
+  localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(authResult.nombre));
+  
+  console.log('✅ Login exitoso:', authResult.nombre);
+  
+  return authResult;
+}
 
   async getCurrentUser(token: string): Promise<User> {
     const payload = this.decodeJWT(token);
@@ -65,6 +68,11 @@ class AuthService {
     }
   }
 
+  getStoredToken(): string | null {
+  return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+  }
+
+
   saveAuthData(authResult: AuthResultDto, user: User): void {
     const authData = {
       token: authResult.token,
@@ -97,20 +105,15 @@ class AuthService {
     }
   }
 
-  clearAuthData(): void {
-    localStorage.removeItem('regularizador_token');
-    localStorage.removeItem('regularizador_user');
-  }
+clearAuthData(): void {
+  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.USER_DATA);
+  console.log('🧹 Datos de autenticación limpiados');
+}
 
-  isTokenExpired(expiration: string): boolean {
-    try {
-      const expirationDate = new Date(expiration);
-      const now = new Date();
-      return now >= expirationDate;
-    } catch {
-      return true;
-    }
-  }
+isTokenExpired(expiration: number): boolean {
+  return Date.now() > expiration;
+}
 
   isValidTokenFormat(token: string): boolean {
     try {
@@ -149,6 +152,15 @@ class AuthService {
       return null;
     }
   }
+  
+  getStoredUser(): any | null {
+  try {
+    const userData = localStorage.getItem(STORAGE_KEYS.USER_DATA);
+    return userData ? JSON.parse(userData) : null;
+  } catch {
+    return null;
+  }
+}
 
   private parseRolesFromToken(payload: any): Role[] {
     const roles: Role[] = [];
@@ -168,5 +180,6 @@ class AuthService {
     return roles;
   }
 }
+
 
 export default new AuthService();

@@ -1,6 +1,6 @@
 // src/hooks/useVelneoEntities.ts
 import { useState, useEffect } from 'react';
-import { apiService } from '../services/api';
+import { apiClient } from '../services/ApiClient';
 
 // Tipos para las entidades
 export interface CombustibleDto {
@@ -53,16 +53,20 @@ export const useVelneoEntities = () => {
       setLoading(prev => ({ ...prev, combustibles: true }));
       setErrors(prev => ({ ...prev, combustibles: null }));
       
-      const response = await apiService.get('/Combustible');
+      const response = await apiClient.get<CombustibleDto[]>('/Combustible');
       console.log('🔥 Combustibles cargados:', response.data);
-      setCombustibles(response.data as CombustibleDto[]);
-    } catch (error: any) {
-      console.error('❌ Error cargando combustibles:', error);
-      setErrors(prev => ({ 
+
+      if (!response.success) {
+        throw new Error(response.error || 'Error cargando combustibles');
+      }
+      setCombustibles(response.data || []);
+      } catch (error: any) {
+        console.error('❌ Error cargando combustibles:', error);
+        setErrors(prev => ({ 
         ...prev, 
         combustibles: error.response?.data?.message || 'Error cargando combustibles' 
       }));
-    } finally {
+      } finally {
       setLoading(prev => ({ ...prev, combustibles: false }));
     }
   };
@@ -73,9 +77,13 @@ export const useVelneoEntities = () => {
       setLoading(prev => ({ ...prev, categorias: true }));
       setErrors(prev => ({ ...prev, categorias: null }));
       
-      const response = await apiService.get('/Categoria');
-      console.log('🚗 Categorías cargadas:', response.data);
-      setCategorias(response.data as CategoriaDto[]);
+      const response = await apiClient.get<CategoriaDto[]>('/Categoria');
+      console.log('🔥 Categorias cargadas:', response.data);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Error cargando combustibles');
+      }
+      setCategorias(response.data || []);
     } catch (error: any) {
       console.error('❌ Error cargando categorías:', error);
       setErrors(prev => ({ 
@@ -93,9 +101,13 @@ export const useVelneoEntities = () => {
       setLoading(prev => ({ ...prev, destinos: true }));
       setErrors(prev => ({ ...prev, destinos: null }));
       
-      const response = await apiService.get('/Destino');
-      console.log('🎯 Destinos cargados:', response.data);
-      setDestinos(response.data as DestinoDto[]);
+      const response = await apiClient.get<DestinoDto[]>('/Destino');
+      console.log('🔥 Combustibles cargados:', response.data);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Error cargando destinos');
+      }
+      setDestinos(response.data || []);
     } catch (error: any) {
       console.error('❌ Error cargando destinos:', error);
       setErrors(prev => ({ 
@@ -113,9 +125,13 @@ export const useVelneoEntities = () => {
       setLoading(prev => ({ ...prev, calidades: true }));
       setErrors(prev => ({ ...prev, calidades: null }));
       
-      const response = await apiService.get('/Calidad');
-      console.log('⭐ Calidades cargadas:', response.data);
-      setCalidades(response.data as CalidadDto[]);
+      const response = await apiClient.get<CalidadDto[]>('/Calidad');
+      console.log('🔥 Calidades cargadas:', response.data);
+
+      if (!response.success) {
+        throw new Error(response.error || 'Error cargando calidades');
+      }
+      setCalidades(response.data || []);
     } catch (error: any) {
       console.error('❌ Error cargando calidades:', error);
       setErrors(prev => ({ 

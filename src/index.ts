@@ -1,16 +1,14 @@
 export type {
-  // Cliente types
   Cliente,
 } from './types/cliente';
 
 export type {
-  // Poliza types
   Poliza,
   PolizaFormData,
+  PolizaCreateRequest,
 } from './types/poliza';
 
 export type {
-  // Processing types
   ProcessingState,
   DocumentResult,
   ProcessingError,
@@ -18,7 +16,6 @@ export type {
 } from './types/processing';
 
 export type {
-  // API types
   ApiResponse,
   DocumentProcessRequest,
   DocumentProcessResponse,
@@ -32,7 +29,6 @@ export type {
 } from './types/api';
 
 export type {
-  // Common types
   PaginationParams,
   PaginatedResponse,
   FilterParams,
@@ -41,17 +37,40 @@ export type {
   BreadcrumbItem,
 } from './types/common';
 
-export { apiService } from './services/api';
+export { 
+  API_CONFIG, 
+  STORAGE_KEYS, 
+  ENDPOINTS, 
+  HTTP_STATUS 
+} from './utils/constants';
 
-export { azureDocumentService, AzureDocumentService } from './services/azureDocumentService';
+export { apiClient } from './services/ApiClient';
+export type { ApiResponse as ApiClientResponse, ApiClientOptions } from './services/ApiClient';
+
+export { polizaService } from './services/polizaService';
+export type { PolizaCreateRequest as PolizaServiceRequest } from './services/polizaService';
+
+export { clienteService } from './services/clienteService';
+export type { Cliente as ClienteType } from './services/clienteService';
+
+export { companyService } from './services/companyService';
+export type { Company, CompanyLookup } from './services/companyService';
+
+export { seccionService } from './services/seccionService';
+export type { Seccion, SeccionLookup } from './services/seccionService';
+
+export { azureService } from './services/azureService';
+export type { 
+  DocumentProcessResult, 
+  AzureProcessResponse 
+} from './services/azureService';
+
+export { useApiService, useGlobalErrorHandler } from './hooks/useApiService';
+export type { UseApiServiceOptions, UseApiServiceState } from './hooks/useApiService';
 
 export { useFileUpload } from './hooks/useFileUpload';
 export { useDocumentProcessing } from './hooks/useDocumentProcessing';
 export { usePolizaForm } from './hooks/usePolizaForm';
-
-// ✅ NUEVO HOOK AZURE
-export { useAzureDocumentProcessing } from './hooks/useAzureDocumentProcessing';
-export type { DocumentProcessingState } from './hooks/useAzureDocumentProcessing';
 
 export { Header } from './components/common/Header';
 export { ErrorMessage } from './components/common/ErrorMessage';

@@ -1,102 +1,84 @@
-// src/services/seccionService.ts
-import { apiService } from './api';
-import { Seccion, SeccionLookup } from '../types/seccion';
+import { apiClient } from './ApiClient';
+import { ENDPOINTS } from '../utils/constants';
+
+export interface Seccion {
+  id: number;
+  seccion: string;
+  descripcion: string;
+  activo: boolean;
+  companyId?: number;
+}
+
+export interface SeccionLookup {
+  id: number;
+  seccion: string;
+  descripcion: string;
+}
 
 class SeccionService {
-  // Obtener todas las secciones activas
+  private readonly endpoint = ENDPOINTS.SECCIONES; // '/secciones'
+
   async getActiveSecciones(): Promise<Seccion[]> {
-    try {
-      console.log('🔍 SeccionService: Getting active secciones...');
-      
-      const response = await apiService.get<Seccion[]>('/secciones/active');
-      
-      if (response.success && response.data) {
-        console.log('✅ SeccionService: Active secciones loaded:', response.data.length);
-        return response.data;
-      }
-      
-      console.warn('⚠️ SeccionService: No active secciones found');
-      return [];
-    } catch (error) {
-      console.error('❌ SeccionService: Error loading active secciones:', error);
-      throw new Error('Error al cargar las secciones activas');
+    console.log('🔍 SeccionService: Obteniendo secciones activas...');
+    
+    const response = await apiClient.get<Seccion[]>(`${this.endpoint}/active`);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Error obteniendo secciones activas');
     }
+    
+    return response.data || [];
   }
 
-  // Obtener secciones para lookup/dropdown
   async getSeccionesForLookup(): Promise<SeccionLookup[]> {
-    try {
-      console.log('🔍 SeccionService: Getting secciones for lookup...');
-      
-      const response = await apiService.get<SeccionLookup[]>('/secciones/lookup');
-      
-      if (response.success && response.data) {
-        console.log('✅ SeccionService: Lookup secciones loaded:', response.data.length);
-        return response.data;
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('❌ SeccionService: Error loading lookup secciones:', error);
-      throw new Error('Error al cargar las secciones para selección');
+    console.log('🔍 SeccionService: Obteniendo secciones para lookup...');
+    
+    const response = await apiClient.get<SeccionLookup[]>(`${this.endpoint}/lookup`);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Error obteniendo secciones para lookup');
     }
+    
+    return response.data || [];
   }
 
-  // Obtener sección por ID
-  async getSeccionById(id: number): Promise<Seccion | null> {
-    try {
-      console.log('🔍 SeccionService: Getting seccion by ID:', id);
-      
-      const response = await apiService.get<Seccion>(`/secciones/${id}`);
-      
-      if (response.success && response.data) {
-        console.log('✅ SeccionService: Seccion found:', response.data.seccion);
-        return response.data;
-      }
-      
-      return null;
-    } catch (error) {
-      console.error('❌ SeccionService: Error getting seccion by ID:', error);
-      return null;
-    }
-  }
-
-  // Buscar secciones por término
-  async searchSecciones(searchTerm: string): Promise<Seccion[]> {
-    try {
-      console.log('🔍 SeccionService: Searching secciones:', searchTerm);
-      
-      const response = await apiService.get<Seccion[]>(`/secciones/search?searchTerm=${encodeURIComponent(searchTerm)}`);
-      
-      if (response.success && response.data) {
-        console.log('✅ SeccionService: Found secciones:', response.data.length);
-        return response.data;
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('❌ SeccionService: Error searching secciones:', error);
-      return [];
-    }
-  }
-
-  // Obtener secciones por compañía
   async getSeccionesByCompany(companyId: number): Promise<Seccion[]> {
-    try {
-      console.log('🔍 SeccionService: Getting secciones for company:', companyId);
-      
-      const response = await apiService.get<Seccion[]>(`/secciones/company/${companyId}`);
-      
-      if (response.success && response.data) {
-        console.log('✅ SeccionService: Company secciones loaded:', response.data.length);
-        return response.data;
-      }
-      
-      return [];
-    } catch (error) {
-      console.error('❌ SeccionService: Error loading company secciones:', error);
-      return [];
+    console.log('🔍 SeccionService: Obteniendo secciones por compañía:', companyId);
+    
+    const response = await apiClient.get<Seccion[]>(`${this.endpoint}/company/${companyId}`);
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Error obteniendo secciones por compañía');
     }
+    
+    return response.data || [];
+  }
+
+  async searchSecciones(searchTerm: string): Promise<Seccion[]> {
+    console.log('🔍 SeccionService: Buscando secciones:', searchTerm);
+    
+    const response = await apiClient.get<Seccion[]>(`${this.endpoint}/search`, {
+      searchTerm
+    });
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Error buscando secciones');
+    }
+    
+    return response.data || [];
+  }
+
+  async getSeccionById(id: number): Promise<Seccion | null> {
+    console.log('🔍 SeccionService: Obteniendo sección por ID:', id);
+    
+    const response = await apiClient.get<Seccion>(`${this.endpoint}/${id}`);
+    
+    if (!response.success) {
+      console.error('❌ SeccionService: Error obteniendo sección:', response.error);
+      return null;
+    }
+    
+    return response.data || null;
   }
 }
 

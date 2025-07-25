@@ -49,43 +49,20 @@ export interface Poliza {
   [key: string]: any;
 }
 
-export interface PolizaConEndosos extends Poliza {
-  totalEndosos?: number;
-  endosos?: any[];
-}
-
 export interface PolizaFormData {
-  // ✅ INFORMACIÓN BÁSICA DE LA PÓLIZA
   numeroPoliza: string;
   vigenciaDesde: string;
   vigenciaHasta: string;
-  prima: number | string;
+  prima: number | string;  
   moneda: string;
   asegurado: string;
-  observaciones: string;
+  observaciones?: string;
   
-  // ✅ CAMPOS QUE ESTABAN FALTANDO (causaban los errores)
-  plan?: string;               // ← AGREGADO
-  ramo?: string;              // ← AGREGADO
+  compania: number;    
+  seccionId: number;           
+  clienteId: number;          
+  cobertura: string;           
   
-  // ✅ CAMPOS ADICIONALES EXISTENTES
-  color?: string;
-  tipoVehiculo?: string;
-  uso?: string;
-  impuestoMSP?: number;
-  formaPago?: string;
-  cantidadCuotas?: number;
-  descuentos?: number;
-  recargos?: number;
-  codigoPostal?: string;
-  seccion?: string;
-  seccionId?: number;
-  certificado?: string;
-  estadoPoliza?: string;
-  compania?: string;
-  corredor?: string;
-  
-  // ✅ CAMPOS DEL VEHÍCULO (para completitud)
   vehiculo?: string;
   marca?: string;
   modelo?: string;
@@ -94,18 +71,109 @@ export interface PolizaFormData {
   matricula?: string;
   combustible?: string;
   anio?: string | number;
-  
-  // ✅ CAMPOS FINANCIEROS ADICIONALES
+
   primaComercial?: number;
   premioTotal?: number;
+  cantidadCuotas?: number;
+  valorCuota?: number;
+  formaPago?: string;
+  primeraCuotaFecha?: string;
+  primeraCuotaMonto?: number;
   
-  // ✅ DATOS DEL CLIENTE ADICIONALES
   documento?: string;
   email?: string;
   telefono?: string;
   direccion?: string;
   localidad?: string;
   departamento?: string;
+  
+  corredor?: string;
+  plan?: string;
+  ramo?: string;
+  certificado?: string;
+  estadoPoliza?: string;
+  tramite?: string;
+  tipo?: string;
+  
+  destino?: string;
+  calidad?: string;
+  categoria?: string;
+  tipoVehiculo?: string;
+  uso?: string;
+  
+  combustibleId?: string | null;
+  categoriaId?: number | null;
+  destinoId?: number | null;
+  calidadId?: number | null;
+  
+  operacion?: any;
+  seccion?: string;
+  
+  color?: string;
+  impuestoMSP?: number;
+  descuentos?: number;
+  recargos?: number;
+  codigoPostal?: string;
+}
+
+export interface PolizaCreateRequest {
+  comcod: number;            
+  clinro: number;            
+  seccod?: number;         
+  conpol: string;         
+  confchdes: string | Date;    
+  confchhas: string | Date;   
+  conpremio: number;           
+  asegurado: string;      
+  
+  observaciones?: string;
+  moneda?: string;
+  cobertura?: string;
+
+  vehiculo?: string;
+  marca?: string;
+  modelo?: string;
+  motor?: string;
+  chasis?: string;
+  matricula?: string;
+  combustible?: string;
+  anio?: number;
+  
+  primaComercial?: number;
+  premioTotal?: number;
+  corredor?: string;
+  plan?: string;
+  ramo?: string;
+  
+  documento?: string;
+  email?: string;
+  telefono?: string;
+  direccion?: string;
+  localidad?: string;
+  departamento?: string;
+  
+  estado?: string;
+  tramite?: string;
+  estadoPoliza?: string;
+  calidadId?: number;
+  destinoId?: number;
+  categoriaId?: number;
+  tipoVehiculo?: string;
+  uso?: string;
+  formaPago?: string;
+  cantidadCuotas?: number;
+  valorCuota?: number;
+  tipo?: string;
+  certificado?: string;
+  
+  procesadoConIA?: boolean;
+  documentoId?: string;
+  archivoOriginal?: string;
+}
+
+export interface PolizaConEndosos extends Poliza {
+  totalEndosos?: number;
+  endosos?: any[];
 }
 
 export interface Compania {
@@ -136,47 +204,4 @@ export interface VelneoPoliza {
   estado?: string;
   clienteId: number;
   id?: number;
-}
-
-export class PolizaMapper {
-  static fromVelneo(velneoData: VelneoPoliza): Poliza {
-    return {
-      id: velneoData.id || 0,
-      clienteId: velneoData.clienteId,
-      numero: velneoData.conpol?.toString(),
-      compania: velneoData.com_alias,
-      ramo: velneoData.ramo,
-      estado: velneoData.estado as any || 'activo',
-      fechaDesde: typeof velneoData.confchdes === 'string' ? velneoData.confchdes : velneoData.confchdes?.toISOString(),
-      fechaHasta: typeof velneoData.confchhas === 'string' ? velneoData.confchhas : velneoData.confchhas?.toISOString(),
-      prima: velneoData.conpremio,
-      moneda: velneoData.moncod === 2 ? 'USD' : 'UYU',
-      
-      conpol: velneoData.conpol,
-      com_alias: velneoData.com_alias,
-      conend: velneoData.conend,
-      contpocob: velneoData.contpocob,
-      confchdes: velneoData.confchdes,
-      confchhas: velneoData.confchhas,
-      conpremio: velneoData.conpremio,
-      moncod: velneoData.moncod,
-    };
-  }
-  
-  static toVelneo(poliza: Poliza): VelneoPoliza {
-    return {
-      conpol: poliza.conpol || poliza.numero || '',
-      com_alias: poliza.com_alias || poliza.compania || '',
-      conend: poliza.conend,
-      contpocob: poliza.contpocob,
-      confchdes: poliza.confchdes || poliza.fechaDesde || new Date().toISOString(),
-      confchhas: poliza.confchhas || poliza.fechaHasta || new Date().toISOString(),
-      conpremio: poliza.conpremio || poliza.prima || 0,
-      moncod: poliza.moncod || (poliza.moneda === 'USD' ? 2 : 1),
-      ramo: poliza.ramo,
-      estado: poliza.estado,
-      clienteId: poliza.clienteId || 0,
-      id: poliza.id,
-    };
-  }
 }

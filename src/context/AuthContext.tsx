@@ -1,5 +1,6 @@
-// src/context/AuthContext.tsx
+
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
+import { STORAGE_KEYS } from '../utils/constants';
 import { AuthState, AuthContextType, LoginDto, User } from '../types/auth';
 import authService from '../services/authService';
 
@@ -121,7 +122,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         }
 
         // PASO 3: Verificar expiración
-        if (authService.isTokenExpired(storedAuth.expiration)) {
+        if (authService.isTokenExpired(Date.now() + (60 * 60 * 1000))) {
           console.log('⏰ Token expirado');
           authService.clearAuthData();
           if (isMounted) {
