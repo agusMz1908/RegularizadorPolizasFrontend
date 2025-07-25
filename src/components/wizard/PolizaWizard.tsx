@@ -10,6 +10,8 @@ import {
   Lightbulb,
   Info, RefreshCw 
 } from 'lucide-react';
+
+import { PolizaFormData } from '../../types/poliza';
 import { PolizaCreateRequest, usePolizaWizard } from '../../hooks/usePolizaWizard';
 import { useDarkMode } from '../../context/ThemeContext';
 import FloatingWizardHeader from './FloatingWizardHeader';
@@ -31,62 +33,6 @@ interface PolizaWizardProps {
   onCancel?: () => void;
 }
 
-interface PolizaFormData {
-  operacion: any;
-  numeroPoliza: string;
-  vigenciaDesde: string;
-  vigenciaHasta: string;
-  prima: number;
-  primaComercial: number;
-  premioTotal: number;
-  asegurado: string;
-  vehiculo: string;
-  marca: string;
-  modelo: string;
-  matricula: string;
-  motor: string;
-  chasis: string;
-  direccion: string;
-  localidad: string;
-  departamento: string;
-  telefono: string;
-  email: string;
-  corredor: string;
-  plan: string;
-  ramo: string;
-  observaciones: string;
-  anio: string;
-  documento: string;
-  destino: string;
-  combustible: string;
-  calidad: string;
-  categoria: string;
-  tipoVehiculo: string;
-  uso: string;
-  formaPago: string;
-  cantidadCuotas: number;
-  valorCuota: number;
-  moneda: string;
-  primeraCuotaFecha: string;
-  primeraCuotaMonto: number;
-  tramite: string;
-  tipo: string;
-  estadoPoliza: string;
-  certificado?: string;      
-  compania?: string;    
-  
-  tramiteVelneo?: VelneoTramite;
-  estadoPolizaVelneo?: VelneoEstadoPoliza;
-  formaPagoVelneo?: VelneoFormaPago;
-  monedaVelneo?: VelneoMoneda;
-  estadoGestionVelneo?: string;
-  
-  combustibleId?: string | null;
-  categoriaId?: number | null;
-  destinoId?: number | null;
-  calidadId?: number | null;
-}
-
 const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => {
   const wizard = usePolizaWizard();
   const isDarkMode = useDarkMode();
@@ -95,52 +41,64 @@ const PolizaWizard: React.FC<PolizaWizardProps> = ({ onComplete, onCancel }) => 
 
   const [activeTab, setActiveTab] = useState('basicos');
   const [formData, setFormData] = useState<PolizaFormData>({
-    numeroPoliza: '',
-    vigenciaDesde: '',
-    vigenciaHasta: '',
-    prima: 0,
-    primaComercial: 0,
-    premioTotal: 0,
-    asegurado: '',
-    vehiculo: '',
-    marca: '',
-    modelo: '',
-    matricula: '',
-    motor: '',
-    chasis: '',
-    direccion: '',
-    localidad: '',
-    departamento: '',
-    telefono: '',
-    email: '',
-    corredor: '',
-    plan: '',
-    ramo: '',
-    observaciones: '',
-    anio: '',
-    documento: '',
-    destino: '',
-    combustible: '',
-    calidad: '',
-    categoria: '',
-    tipoVehiculo: '',
-    uso: '',
-    formaPago: '',
-    cantidadCuotas: 0,
-    valorCuota: 0,
-    moneda: '',
-    primeraCuotaFecha: '',
-    primeraCuotaMonto: 0,
-    tramite: '',
-    tipo: '',
-    estadoPoliza: '',
-    operacion: '',
+  // ✅ CAMPOS REQUERIDOS (según types/poliza.ts)
+  numeroPoliza: '',
+  vigenciaDesde: '',
+  vigenciaHasta: '',
+  prima: 0,
+  moneda: '',
+  asegurado: '',
+  compania: 0,           // ✅ number, no string
+  seccionId: 0,          // ✅ requerido
+  clienteId: 0,          // ✅ requerido  
+  cobertura: '',         // ✅ requerido
 
-    combustibleId: null,
-    categoriaId: null,
-    destinoId: null,
-    calidadId: null,
-  });
+  // ✅ CAMPOS OPCIONALES
+  observaciones: '',
+  vehiculo: '',
+  marca: '',
+  modelo: '',
+  matricula: '',
+  motor: '',
+  chasis: '',
+  anio: '',
+  primaComercial: 0,
+  premioTotal: 0,
+  cantidadCuotas: 0,
+  valorCuota: 0,
+  formaPago: '',
+  primeraCuotaFecha: '',
+  primeraCuotaMonto: 0,
+  documento: '',
+  email: '',
+  telefono: '',
+  direccion: '',
+  localidad: '',
+  departamento: '',
+  corredor: '',
+  plan: '',
+  ramo: '',
+  certificado: '',
+  estadoPoliza: '',
+  tramite: '',
+  tipo: '',
+  destino: '',
+  combustible: '',
+  calidad: '',
+  categoria: '',
+  tipoVehiculo: '',
+  uso: '',
+  
+  // ✅ IDs para combos
+  combustibleId: null,
+  categoriaId: null,
+  destinoId: null,
+  calidadId: null,
+  
+  // ✅ CAMPOS ADICIONALES
+  operacion: null,
+  seccion: '',
+});
 
   const [saving, setSaving] = useState(false);
 
@@ -381,13 +339,15 @@ useEffect(() => {
 }, [wizard.extractedData, formData.certificado]);
 
 useEffect(() => {
-  if (wizard.selectedCompany?.comnom && !formData.compania) {
+  if (wizard.selectedCompany?.id && !formData.compania) {
     setFormData(prev => ({
       ...prev,
-      compania: wizard.selectedCompany?.comnom || wizard.selectedCompany?.comnom || ''
+      compania: Number(wizard.selectedCompany?.id || 0), // ✅ convertir a number
+      clienteId: Number(wizard.selectedCliente?.id || 0), // ✅ asegurar clienteId
+      seccionId: Number(wizard.selectedSeccion?.id || 0)  // ✅ asegurar seccionId
     }));
   }
-}, [wizard.selectedCompany, formData.compania]);
+}, [wizard.selectedCompany, wizard.selectedCliente, wizard.selectedSeccion, formData.compania]);
 
 useEffect(() => {
   if (formData.operacion) {
@@ -1348,7 +1308,7 @@ const renderOperacionStep = () => (
 
         {wizard.uploadedFile && (
           <button
-            onClick={() => wizard.processDocument(state.uploadedFile)}
+            onClick={() => wizard.processDocument(wizard.uploadedFile)} // ✅ usar wizard.uploadedFile, no state.uploadedFile
             disabled={wizard.processing}
             className={`inline-flex items-center px-8 py-3 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 font-medium shadow-lg ${
               isDarkMode 
@@ -1939,19 +1899,25 @@ case 'poliza':
                 <Building className="w-4 h-4 inline mr-1" />
                 Compañía de Seguros
               </label>
-              <input
-                type="text"
-                value={formData.compania || ''}
-                onChange={(e) => setFormData(prev => ({ ...prev, compania: e.target.value }))}
-                className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
-                  isDarkMode 
-                    ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
-                    : 'bg-white border-purple-200 focus:ring-purple-100'
-                } ${wizard.selectedCompany?.comnom ? 'bg-green-50' : ''}`}
-                placeholder="Nombre de la compañía"
-                readOnly={!!wizard.selectedCompany?.comnom}
-                required
-              />
+                <input
+                  type="text"
+                  value={wizard.selectedCompany?.comnom || wizard.selectedCompany?.comalias || ''} // ✅ mostrar nombre de la compañía
+                  onChange={(e) => {
+                    // ✅ No permitir edición manual si hay compañía seleccionada
+                    if (!wizard.selectedCompany) {
+                      // Permitir búsqueda manual solo si no hay compañía seleccionada
+                      console.warn('Selecciona una compañía desde el paso anterior');
+                    }
+                  }}
+                  className={`w-full px-4 py-3 border-2 rounded-xl focus:ring-4 focus:border-purple-500 transition-all duration-200 shadow-sm ${
+                    isDarkMode 
+                      ? 'bg-gray-700/50 border-purple-700/30 text-gray-100 focus:ring-purple-500/30' 
+                      : 'bg-white border-purple-200 focus:ring-purple-100'
+                  } ${wizard.selectedCompany ? 'bg-green-50 cursor-not-allowed' : ''}`}
+                  placeholder="Selecciona una compañía en el paso anterior"
+                  readOnly={true} // ✅ siempre readonly - la compañía se selecciona en el step anterior
+                  required
+                />
             </div>
           </div>
 
@@ -2944,6 +2910,27 @@ case 'observaciones':
     }
   };
 
+  const validateForm = (): boolean => {
+  const errors: string[] = [];
+  
+  if (!formData.numeroPoliza.trim()) errors.push('Número de póliza es requerido');
+  if (!formData.vigenciaDesde) errors.push('Fecha de vigencia desde es requerida');
+  if (!formData.vigenciaHasta) errors.push('Fecha de vigencia hasta es requerida');
+  if (!formData.asegurado.trim()) errors.push('Asegurado es requerido');
+  if (!formData.cobertura.trim()) errors.push('Cobertura es requerida');
+  if (!formData.compania) errors.push('Debe seleccionar una compañía');
+  if (!formData.clienteId) errors.push('Debe seleccionar un cliente');
+  if (!formData.seccionId) errors.push('Debe seleccionar una sección');
+  
+  if (errors.length > 0) {
+    console.error('Errores de validación:', errors);
+    wizard.setError(errors.join(', '));
+    return false;
+  }
+  
+  return true;
+};
+
 const getEstadoAutoFromOperacion = (operacion?: string): string => {
   switch (operacion) {
     case 'EMISION':
@@ -3058,7 +3045,6 @@ const prepararDatosParaVelneo = (): PolizaCreateRequest => {
   
   // Construir el objeto para Velneo
   const contratoVelneo: PolizaCreateRequest = {
-    // ✅ IDS REQUERIDOS (convertir a números)
     comcod: Number(wizard.selectedCompany.id),
     clinro: Number(wizard.selectedCliente.id),
     seccod: Number(wizard.selectedSeccion.id),
@@ -3072,17 +3058,19 @@ const prepararDatosParaVelneo = (): PolizaCreateRequest => {
     contot: Number(formData.premioTotal || formData.prima || 0),
     concuo: Number(formData.cantidadCuotas || 1),
     
+    // ✅ CAMPO ASEGURADO REQUERIDO - USAR CLIENTE SELECCIONADO
+    asegurado: formData.asegurado || wizard.selectedCliente?.clinom || '',
+    
     // ✅ CAMPOS VELNEO MAPEADOS
     contra: camposMapeados.campos.tramite,
     congeses: camposMapeados.campos.estadoGestion,
     convig: camposMapeados.campos.estadoPoliza,
     consta: camposMapeados.campos.formaPago,
-    moncod: camposMapeados.campos.moneda,
     congesti: '1', // Tipo de gestión fijo
     
     // ✅ DATOS DEL CLIENTE/ASEGURADO
-    condom: formData.direccion || '',
-    clinom: formData.asegurado,
+    condom: formData.direccion || wizard.selectedCliente?.clidir || '',
+    clinom: formData.asegurado || wizard.selectedCliente?.clinom || '',
     
     // ✅ DATOS DEL VEHÍCULO
     conmaraut: formData.marca || '',
@@ -3108,6 +3096,12 @@ const prepararDatosParaVelneo = (): PolizaCreateRequest => {
     com_alias: wizard.selectedCompany.comnom || wizard.selectedCompany.comalias || '',
     combustibles: formData.combustible || 'NAFTA',
     primaComercial: Number(formData.primaComercial || 0),
+    
+    // ✅ AGREGAR MÁS DATOS DEL CLIENTE SI ESTÁN DISPONIBLES
+    documento: formData.documento || wizard.selectedCliente?.cliced || wizard.selectedCliente?.cliruc || '',
+    email: formData.email || wizard.selectedCliente?.cliemail || '',
+    telefono: formData.telefono || wizard.selectedCliente?.telefono || '',
+    direccion: formData.direccion || wizard.selectedCliente?.clidir || '',
     
     // ✅ CAMPOS DE PROCESAMIENTO
     documentoId: wizard.extractedData?.documentId,

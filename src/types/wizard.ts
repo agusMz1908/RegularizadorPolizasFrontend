@@ -34,14 +34,15 @@ export interface DocumentProcessResult {
   readyForVelneo?: boolean;
   listoParaVelneo?: boolean;
   timestamp?: string;
-
+  
+  tiempoProcesamiento?: number;  
+  
   numeroPoliza?: string;
   anio?: string;
   vigenciaDesde?: string;
   vigenciaHasta?: string;
   plan?: string;
   ramo?: string;
-
   asegurado?: string;
   documento?: string;
   email?: string;
@@ -49,7 +50,6 @@ export interface DocumentProcessResult {
   direccion?: string;
   localidad?: string;
   departamento?: string;
-
   vehiculo?: string;
   marca?: string;
   modelo?: string;
@@ -57,20 +57,16 @@ export interface DocumentProcessResult {
   chasis?: string;
   matricula?: string;
   combustible?: string;
-
   prima?: number;
   primaComercial?: number;
   premioTotal?: number;
   moneda?: string;
-
   corredor?: string;
   compania?: string;
-
   polizaData?: any;
   extractedFields?: ExtractedField[] | Record<string, any>;
   originalResponse?: any;
   errorMessage?: string;
-  
   datosVelneo?: DatosVelneo;
 }
 
@@ -129,4 +125,26 @@ export interface StepProgress {
   completed: boolean;
   current: boolean;
   data?: any;
+}
+
+export interface WizardConfig {
+  steps: WizardStep[];
+  allowSkip?: boolean;
+  autoSave?: boolean;
+  validationMode?: 'strict' | 'lenient';
+  maxFileSize?: number;
+  allowedFileTypes?: string[];
+  requireAllSteps?: boolean;
+}
+
+export interface WizardMetrics {
+  totalSteps: number;
+  completedSteps: number;
+  progress: number; // 0-100
+  estimatedTimeRemaining?: number; // en segundos
+  averageStepTime?: number;
+  errorCount: number;
+  retryCount: number;
+  startTime?: Date;
+  endTime?: Date;
 }

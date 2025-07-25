@@ -3,123 +3,38 @@ import { polizaService } from '../services/polizaService';
 import { clienteService } from '../services/clienteService';
 import { companyService } from '../services/companyService';
 import { seccionService } from '../services/seccionService';
-import { azureService, DocumentProcessResult } from '../services/azureService';
+import { azureService } from '../services/azureService';
 import { Seccion, SeccionLookup } from '../types/seccion';
 import { TipoOperacion } from '../utils/operationLogic';
-import { PolizaFormData } from '../types/poliza';
 
-export type WizardStep = 'cliente' | 'company' | 'seccion' | 'operacion' | 'upload' | 'extract' | 'form' | 'success';
+import { PolizaFormData, PolizaCreateRequest } from '../types/poliza';
+import { Cliente, Company, WizardStep, WizardState, DocumentProcessResult  } from '../types/wizard';
 
-export interface Cliente {
-  id: number;
-  clinom: string;
-  cliced?: string;
-  cliruc?: string;
-  telefono?: string;
-  cliemail?: string;
-  clidir?: string;
-  activo: boolean;
+interface ExtendedWizardState extends WizardState {
+  processingDocument?: boolean;
+  documentError?: string | null;
+  documentResult?: DocumentProcessResult | null;
+  uploadProgress?: number;
 }
 
-export interface Company {
-  id: number;
-  comnom: string;
-  comalias: string;
-  activo: boolean;
-}
-
-export interface WizardState {
-  currentStep: WizardStep;
-  selectedCliente: Cliente | null;
-  selectedCompany: Company | null;
-  selectedSeccion: Seccion | null;
-  selectedOperacion: TipoOperacion | null;
-  uploadedFile: File | null;
-  extractedData: DocumentProcessResult | null;
-  isComplete: boolean;
-}
-
-export interface WizardState {
-  currentStep: WizardStep;
-  selectedCliente: Cliente | null;
-  selectedCompany: Company | null;
-  selectedSeccion: Seccion | null; 
-  uploadedFile: File | null;
-  extractedData: DocumentProcessResult | null;
-  isComplete: boolean;
-}
-
-export interface PolizaCreateRequest {
-  // CAMPOS BÁSICOS REQUERIDOS
-  comcod: number;
-  clinro: number;
-  conpol: string;
-  confchdes: string;
-  confchhas: string;
-  conpremio: number;
-  asegurado: string;
-  observaciones?: string;
-  moneda?: string;
-
-  // CAMPOS DEL VEHÍCULO
-  vehiculo?: string;
-  marca?: string;
-  modelo?: string;
-  motor?: string;
-  chasis?: string;
-  matricula?: string;
-  combustible?: string;
-  anio?: number;
-
-  // CAMPOS COMERCIALES
-  primaComercial?: number;
-  premioTotal?: number;
-  corredor?: string;
-  plan?: string;
-  ramo?: string;
-
-  // CAMPOS DEL CLIENTE
-  documento?: string;
-  email?: string;
-  telefono?: string;
-  direccion?: string;
-  localidad?: string;
-  departamento?: string;
-
-  // NUEVOS CAMPOS DEL WIZARD
-  seccionId?: number;
-  estado?: string;
-  tramite?: string;
-  estadoPoliza?: string;
-  calidadId?: number;
-  destinoId?: number;
-  categoriaId?: number;
-  tipoVehiculo?: string;
-  uso?: string;
-  formaPago?: string;
-  cantidadCuotas?: number;
-  valorCuota?: number;
-  tipo?: string;
-  cobertura?: string;
-  certificado?: string;
-  
-  procesadoConIA?: boolean;
-}
-
-const initialState: WizardState = {
+const initialState: ExtendedWizardState = {
   currentStep: 'cliente',
   selectedCliente: null,
   selectedCompany: null,
   selectedSeccion: null,
-  selectedOperacion: null, 
+  selectedOperacion: null,
   uploadedFile: null,
   extractedData: null,
   isComplete: false,
+
+  processingDocument: false,
+  documentError: null,
+  documentResult: null,
+  uploadProgress: 0,
 };
 
 export const usePolizaWizard = () => {
-  // 🏗️ ESTADOS PRINCIPALES
-  const [state, setState] = useState<WizardState>(initialState);
+  const [state, setState] = useState<ExtendedWizardState>(initialState);
   const [loading, setLoading] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [processingProgress, setProcessingProgress] = useState(0);
@@ -278,40 +193,120 @@ const selectOperacion = useCallback((operacion: TipoOperacion) => {
     });
   }, []);
 
-const processDocument = async (file: File) => {
+// ✅ FUNCIÓN processDocument COMPLETA Y CORREGIDA
+
+const processDocument = useCallback(async (file?: File | null) => {
+  // ✅ Validación inicial
+  if (!file) {
+    setError('No hay archivo para procesar');
+    return;
+  }
+
+  // ✅ Validar tamaño y tipo
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    setError('El archivo es demasiado grande. Máximo 10MB.');
+    return;
+  }
+
+  const allowedTypes = ['application/pdf'];
+  if (!allowedTypes.includes(file.type)) {
+    setError('Solo se permiten archivos PDF.');
+    return;
+  }
+
+  // ✅ Iniciar procesamiento
+  setProcessing(true);
+  setError(null);
+  setProcessingProgress(0);
+
   try {
-    setState(prev => ({ ...prev, processingDocument: true, documentError: null }));
+    // ✅ Actualizar estado: procesando documento
+    setState(prev => ({ 
+      ...prev, 
+      processingDocument: true, 
+      documentError: null,
+      currentStep: 'extract'
+    }));
     
-    console.log('📄 Procesando documento con servicio unificado:', file.name);
+    console.log('📄 Procesando documento con servicio Azure:', file.name);
+    console.log('📊 Detalles del archivo:', {
+      name: file.name,
+      size: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      type: file.type,
+      lastModified: new Date(file.lastModified).toISOString()
+    });
     
-    // ✅ USAR EL NUEVO SERVICIO
+    // ✅ Procesar con Azure Document Intelligence
     const result = await azureService.processDocument(file, (progress) => {
+      console.log(`📈 Progreso del procesamiento: ${progress}%`);
+      setProcessingProgress(progress);
       setState(prev => ({ ...prev, uploadProgress: progress }));
     });
     
-    setState(prev => ({ 
-      ...prev, 
-      processingDocument: false,
-      documentResult: result,
-      currentStep: 'form'
-    }));
+    console.log('✅ Resultado del procesamiento Azure:', result);
     
-    console.log('✅ Documento procesado exitosamente con servicio unificado');
+    // ✅ Validar que el resultado sea válido
+    if (!result || !result.documentId) {
+      throw new Error('El procesamiento no devolvió un resultado válido');
+    }
+
+    setState((prev: ExtendedWizardState) => ({ 
+      ...prev, 
+      uploadedFile: file 
+    }));
+    setError(null);
+    
+    console.log('✅ Documento procesado exitosamente. Avanzando a formulario.');
+    console.log('📋 Datos extraídos:', {
+      documentId: result.documentId,
+      numeroPoliza: result.numeroPoliza,
+      asegurado: result.asegurado,
+      nivelConfianza: result.nivelConfianza,
+      requiereVerificacion: result.requiereVerificacion
+    });
     
     return result;
     
   } catch (error: any) {
     console.error('❌ Error procesando documento:', error);
+    
+    // ✅ Manejar errores específicos
+    let errorMessage = 'Error desconocido al procesar el documento';
+    
+    if (error.message) {
+      errorMessage = error.message;
+    } else if (error.response?.data?.message) {
+      errorMessage = error.response.data.message;
+    } else if (error.status === 413) {
+      errorMessage = 'El archivo es demasiado grande para procesar';
+    } else if (error.status === 400) {
+      errorMessage = 'El archivo no es válido o está corrupto';
+    } else if (error.status === 500) {
+      errorMessage = 'Error interno del servidor. Intenta nuevamente.';
+    } else if (error.name === 'NetworkError') {
+      errorMessage = 'Error de conexión. Verifica tu internet.';
+    }
+
+    // ✅ Actualizar estado con error
     setState(prev => ({ 
       ...prev, 
       processingDocument: false,
-      documentError: error.message,
-      uploadProgress: 0
+      documentError: errorMessage,
+      uploadProgress: 0,
+      currentStep: 'upload' // Volver al step de upload para reintentar
     }));
     
-    throw error;
+    setError(errorMessage);
+    throw new Error(errorMessage);
+    
+  } finally {
+    // ✅ Limpiar estados de procesamiento
+    setProcessing(false);
+    setProcessingProgress(0);
   }
-};
+}, [setError, setProcessing, setProcessingProgress, setState]);
+
 
 const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void> => {
   console.log('🔥 createPoliza INICIADO');
@@ -353,7 +348,7 @@ const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void>
       moneda: formData.moneda || 'UYU',
       
       // ✅ NUEVOS CAMPOS DEL WIZARD QUE FALTABAN
-      seccionId: state.selectedSeccion?.id || 0,
+      seccod: state.selectedSeccion?.id || 0,
       tramite: formData.tramite,
       estadoPoliza: formData.estadoPoliza,
       calidadId: formData.calidadId ? Number(formData.calidadId) : undefined,
@@ -405,7 +400,7 @@ const createPoliza = useCallback(async (formData: PolizaFormData): Promise<void>
     console.log('   - moneda:', polizaRequest.moneda);
     console.log('   - cobertura:', polizaRequest.cobertura);
     console.log('   - certificado:', polizaRequest.certificado);
-    console.log('   - seccionId:', polizaRequest.seccionId);
+    console.log('   - seccionId:', polizaRequest.seccod);
     console.log('🌐 URL del API:', import.meta.env.VITE_API_URL);
 
     // ✅ LLAMADA REAL A LA API
@@ -652,3 +647,5 @@ const validateCurrentStep = useCallback((currentState: any): boolean => {
     getAuthToken,
   };
 };
+
+export { PolizaCreateRequest };

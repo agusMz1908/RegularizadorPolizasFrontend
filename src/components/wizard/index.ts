@@ -16,9 +16,9 @@ export type {
 } from '../../types/wizard';
 
 export type {
-  PolizaFormDataComplete,
   PolizaFormData,
-  PolizaFormDataExtended
-} from '../../types/poliza-unified';
+  PolizaCreateRequest,
+  Poliza
+} from '../../types/poliza';
 
 export { usePolizaWizard } from '../../hooks/usePolizaWizard';
