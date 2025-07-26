@@ -1,6 +1,8 @@
+// src/services/polizaService.ts
+// ✅ CORREGIDO - Solo usar métodos que existen en ApiClient
+
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
-
 import { PolizaCreateRequest } from '../types/core/poliza';
 
 class PolizaService {
@@ -45,10 +47,11 @@ class PolizaService {
     return response.data!;
   }
 
+  // ✅ Usar POST para actualizaciones (como PATCH)
   async updatePoliza(id: number, request: Partial<PolizaCreateRequest>): Promise<any> {
     console.log('📋 PolizaService: Actualizando póliza:', id);
     
-    const response = await apiClient.put<any>(`${this.endpoint}/${id}`, request);
+    const response = await apiClient.post<any>(`${this.endpoint}/${id}`, request);
     
     if (!response.success) {
       throw new Error(response.error || 'Error actualizando póliza');
@@ -57,10 +60,11 @@ class PolizaService {
     return response.data!;
   }
 
+  // ✅ Usar POST para eliminación lógica
   async deletePoliza(id: number): Promise<void> {
     console.log('📋 PolizaService: Eliminando póliza:', id);
     
-    const response = await apiClient.delete(`${this.endpoint}/${id}`);
+    const response = await apiClient.post(`${this.endpoint}/${id}/delete`, {});
     
     if (!response.success) {
       throw new Error(response.error || 'Error eliminando póliza');

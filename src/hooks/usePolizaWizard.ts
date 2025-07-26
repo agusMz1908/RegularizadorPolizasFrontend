@@ -1,3 +1,6 @@
+// src/hooks/usePolizaWizard.ts
+// ✅ VERSIÓN FINAL CORREGIDA CON PROPIEDADES REALES DEL BACKEND
+
 import { useState, useEffect, useCallback } from 'react';
 import { polizaService } from '../services/polizaService';
 import { clienteService } from '../services/clienteService';
@@ -52,14 +55,40 @@ export const usePolizaWizard = () => {
   const [seccionesLookup, setSeccionesLookup] = useState<SeccionLookup[]>([]);
   const [loadingSecciones, setLoadingSecciones] = useState(false);
 
-  // ✅ Función getAuthToken memoizada
+  // ✅ Función getAuthToken memoizada - CON MÚLTIPLES KEYS
   const getAuthToken = useCallback((): string | null => {
-    const token = localStorage.getItem('authToken');
-    if (!token) {
-      setError('Token de autenticación no encontrado');
-      return null;
+    // Buscar en múltiples posibles keys
+    const possibleKeys = [
+      'regularizador_token',  // ✅ Primero esta que se está usando
+      'authToken',
+      import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token'
+    ];
+
+    for (const key of possibleKeys) {
+      const token = localStorage.getItem(key);
+      if (token) {
+        console.log(`🔐 usePolizaWizard: Token encontrado en key: ${key}`);
+        
+        // Verificar si el token es válido
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const now = Math.floor(Date.now() / 1000);
+          if (payload.exp > now) {
+            return token;
+          } else {
+            console.warn(`🔐 Token expirado en key: ${key}`);
+            localStorage.removeItem(key);
+          }
+        } catch (error) {
+          console.error(`🔐 Token inválido en key: ${key}`);
+          localStorage.removeItem(key);
+        }
+      }
     }
-    return token;
+
+    console.warn('🔐 usePolizaWizard: No se encontró token válido en ninguna key');
+    setError('Token de autenticación no encontrado');
+    return null;
   }, []);
 
   // ✅ Función loadSecciones corregida

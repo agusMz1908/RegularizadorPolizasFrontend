@@ -383,15 +383,77 @@ class ApiClient {
   /**
    * ✅ HEADERS DE AUTENTICACIÓN
    */
-  private getAuthHeaders(): Record<string, string> {
-    const token = this.getStoredToken();
-    return token ? { 'Authorization': `Bearer ${token}` } : {};
+private getAuthHeaders(): Record<string, string> {
+  const token = this.getStoredToken();
+  
+  if (!token) {
+    console.warn('🔐 ApiClient: No se encontró token de autenticación');
+    return {};
   }
 
-  private getStoredToken(): string | null {
-    const storageKey = import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token';
-    return localStorage.getItem(storageKey);
+  // Verificar si el token es válido
+  if (!this.isTokenValid(token)) {
+    console.warn('🔐 ApiClient: Token expirado, removiendo del storage');
+    this.removeStoredToken();
+    return {};
   }
+
+  console.log('🔐 ApiClient: Usando token de autenticación');
+  return { 'Authorization': `Bearer ${token}` };
+}
+
+private getStoredToken(): string | null {
+  // Buscar en múltiples posibles keys
+  const possibleKeys = [
+    'authToken',
+    'regularizador_token',
+    import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token'
+  ];
+
+  for (const key of possibleKeys) {
+    const token = localStorage.getItem(key);
+    if (token) {
+      console.log(`🔐 ApiClient: Token encontrado en key: ${key}`);
+      return token;
+    }
+  }
+
+  console.warn('🔐 ApiClient: No se encontró token en ningún storage key');
+  return null;
+}
+
+private isTokenValid(token: string): boolean {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    const now = Math.floor(Date.now() / 1000);
+    const isValid = payload.exp > now;
+    
+    if (!isValid) {
+      console.warn('🔐 ApiClient: Token expirado', {
+        exp: new Date(payload.exp * 1000),
+        now: new Date()
+      });
+    }
+    
+    return isValid;
+  } catch (error) {
+    console.error('🔐 ApiClient: Error validando token:', error);
+    return false;
+  }
+}
+
+private removeStoredToken(): void {
+  const possibleKeys = [
+    'authToken',
+    'regularizador_token',
+    import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token'
+  ];
+
+  possibleKeys.forEach(key => {
+    localStorage.removeItem(key);
+  });
+}
+
 
   /**
    * ✅ MÉTODOS DE UTILIDAD

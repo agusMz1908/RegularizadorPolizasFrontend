@@ -1,3 +1,6 @@
+// src/index.ts
+// ✅ EXPORTS CORREGIDOS - Sin tipos inexistentes
+
 export type {
   Cliente,
 } from './types/core/cliente';
@@ -44,7 +47,8 @@ export {
 } from './utils/constants';
 
 export { apiClient } from './services/ApiClient';
-export type { ApiResponse as ApiClientResponse, ApiClientOptions } from './services/ApiClient';
+// ✅ Solo exportar tipos que realmente existen en ApiClient
+export type { ApiResponse as ApiClientResponse, RequestConfig as ApiClientConfig } from './services/ApiClient';
 
 export { polizaService } from './services/polizaService';
 
@@ -61,6 +65,7 @@ export type {
   AzureProcessResponse 
 } from './services/azureService';
 
+// ✅ Hooks - solo exportar si existen
 export { useApiService, useGlobalErrorHandler } from './hooks/useApiService';
 export type { UseApiServiceOptions, UseApiServiceState } from './hooks/useApiService';
 
@@ -68,6 +73,7 @@ export { useFileUpload } from './hooks/useFileUpload';
 export { useDocumentProcessing } from './hooks/useDocumentProcessing';
 export { usePolizaForm } from './hooks/usePolizaForm';
 
+// ✅ Componentes comunes - solo exportar si existen
 export { Header } from './components/common/Header';
 export { ErrorMessage } from './components/common/ErrorMessage';
 export { ProgressBar } from './components/common/ProgressBar';
