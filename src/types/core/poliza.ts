@@ -123,6 +123,7 @@ export interface PolizaFormData {
   moneda: string;
   asegurado: string;
   compania: number;
+  nombreCompania: string;
   seccionId: number;
   clienteId: number;
   cobertura: string;
@@ -212,6 +213,7 @@ export const createEmptyPolizaFormData = (): PolizaFormData => ({
   moneda: 'UYU',
   asegurado: '',
   compania: 0,
+  nombreCompania: '',
   seccionId: 0,
   clienteId: 0,
   cobertura: '',

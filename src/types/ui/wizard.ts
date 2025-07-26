@@ -110,15 +110,35 @@ export interface Ramo {
   companias?: number[]; 
 }
 
+export interface WizardStepData {
+  cliente: Cliente | null;
+  company: Company | null;
+  seccion: Seccion | null;
+  operacion: TipoOperacion | null;
+  upload: File | null;
+  extract: DocumentProcessResult | null;
+  form: PolizaFormData | null;
+  success: any;
+}
+
 export interface WizardState {
   currentStep: WizardStep;
-  selectedCliente: Cliente | null;
-  selectedCompany: Company | null;
-  selectedSeccion: Seccion | null;
-  selectedOperacion: TipoOperacion | null; 
-  uploadedFile: File | null;
-  extractedData: DocumentProcessResult | null;
+  previousStep: WizardStep | null;
+  completedSteps: Set<WizardStep>;
+  stepData: WizardStepData; // ✅ ESTRUCTURA ORGANIZADA POR PASOS
   isComplete: boolean;
+  canGoNext: boolean;
+  canGoBack: boolean;
+  isProcessing: boolean;
+  error: string | null;
+  
+  // ✅ CAMPOS LEGACY PARA COMPATIBILIDAD (opcional)
+  selectedCliente?: Cliente | null;
+  selectedCompany?: Company | null;
+  selectedSeccion?: Seccion | null;
+  selectedOperacion?: TipoOperacion | null;
+  uploadedFile?: File | null;
+  extractedData?: DocumentProcessResult | null;
 }
 
 export interface WizardResult {
@@ -167,4 +187,70 @@ export interface WizardMetrics {
   startTime: Date;
   estimatedTimeRemaining?: number;
   averageStepTime?: number;
+}
+
+export interface ClienteStepProps {
+  clienteSearch: string;
+  clienteResults: Cliente[];
+  loadingClientes: boolean;
+  selectedCliente: Cliente | null;
+  onSearchChange: (search: string) => void;
+  onClienteSelect: (cliente: Cliente) => void;
+  onNext: () => void;
+  onBack: () => void;
+  isDarkMode: boolean;
+}
+
+export interface CompanyStepProps {
+  companies: Company[];
+  loadingCompanies: boolean;
+  selectedCompany: Company | null;
+  onCompanySelect: (company: Company) => void;
+  onLoadCompanies: () => void;
+  onNext: () => void;
+  onBack: () => void;
+  isDarkMode: boolean;
+}
+
+export interface SeccionStepProps {
+  secciones?: Seccion[];
+  selectedSeccion?: Seccion | null;
+  onSeccionSelect?: (seccion: Seccion) => void;
+  onNext: () => Promise<boolean>;
+  onBack: () => void;
+  onComplete: (data: any) => Promise<boolean>;
+  wizardData: any;
+  isTransitioning: boolean;
+}
+
+export interface OperacionStepProps {
+  selectedOperacion: TipoOperacion | null;
+  onOperacionSelect: (operacion: TipoOperacion) => void;
+  onNext: () => void;
+  onBack: () => void;
+  isDarkMode: boolean;
+}
+
+export interface UploadStepProps {
+  uploadedFile: File | null;
+  processing: boolean;
+  onFileSelect: (file: File | null) => void;
+  onProcess: (file: File) => Promise<void>;
+  onNext: () => void;
+  onBack: () => void;
+  isDarkMode: boolean;
+}
+
+export interface ProcessingStepProps {
+  uploadedFile: File | null;
+  progress: number;
+  selectedCliente: Cliente | null;
+  selectedCompany: Company | null;
+  onNext: () => void;
+  onBack: () => void;
+  isDarkMode: boolean;
+  mode: string;
+  status: string;
+  stage: string;
+  onRetry: () => void;
 }

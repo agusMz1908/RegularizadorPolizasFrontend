@@ -99,11 +99,11 @@ export const VelneoSummary: React.FC<VelneoSummaryProps> = ({
   }, [formData, extractedData, context]);
 
   // Generar datos del resumen organizados por secciones
-  const generateSummaryData = (
-    data: PolizaFormData, 
-    azure: DocumentProcessResult | null,
-    validation: any
-  ): SummarySection[] => {
+const generateSummaryData = (
+  data: PolizaFormData, 
+  azure: DocumentProcessResult | null,
+  validation: any
+): SummarySection[] => {
     const azureFields = azure?.extractedFields || [];
     
     const getFieldSource = (fieldName: string): 'manual' | 'azure' | 'calculated' => {
@@ -762,29 +762,78 @@ const SourceIndicator: React.FC<SourceIndicatorProps> = ({ source, isDarkMode })
 };
 
 // ✅ Funciones de formateo
-const formatDocumento = (documento: string): string => {
-  if (!documento) return '';
-  return documento.replace(/\D/g, '').padStart(8, '0');
+const formatDocumento = (documento: string | undefined | null): string => {
+  if (!documento) return 'No especificado';
+  const clean = documento.replace(/\D/g, '');
+  if (clean.length >= 7) {
+    return clean.padStart(8, '0');
+  }
+  return documento;
 };
 
-const formatTelefono = (telefono: string): string => {
-  if (!telefono) return '';
+const formatTelefono = (telefono: string | undefined | null): string => {
+  if (!telefono) return 'No especificado';
   const clean = telefono.replace(/\D/g, '');
   if (clean.length === 8) {
     return `${clean.slice(0, 4)}-${clean.slice(4)}`;
   }
+  if (clean.length === 9 && clean.startsWith('09')) {
+    return `${clean.slice(0, 3)}-${clean.slice(3, 6)}-${clean.slice(6)}`;
+  }
   return telefono;
 };
 
-const formatFecha = (fecha: string): string => {
-  if (!fecha) return '';
-  const date = new Date(fecha);
-  return date.toLocaleDateString('es-UY');
+const formatFecha = (fecha: string | undefined | null): string => {
+  if (!fecha) return 'No especificada';
+  
+  try {
+    const date = new Date(fecha);
+    if (isNaN(date.getTime())) {
+      return fecha; // Devolver el string original si no se puede parsear
+    }
+    return date.toLocaleDateString('es-UY', {
+      day: '2-digit',
+      month: '2-digit', 
+      year: 'numeric'
+    });
+  } catch {
+    return fecha;
+  }
 };
 
-const formatMoneda = (valor: number, moneda: string): string => {
-  if (!valor) return `${moneda} 0`;
-  return `${moneda} ${valor.toLocaleString('es-UY', { minimumFractionDigits: 2 })}`;
+const formatMoneda = (valor: string | number | undefined | null, moneda: string): string => {
+  // Manejo de valores vacíos o nulos
+  if (!valor || valor === '' || valor === null || valor === undefined) {
+    return `${moneda} 0.00`;
+  }
+  
+  // Convertir string a number si es necesario
+  let numeroValor: number;
+  if (typeof valor === 'string') {
+    // Limpiar string de caracteres no numéricos excepto punto y coma
+    const valorLimpio = valor.replace(/[^0-9.,]/g, '');
+    // Convertir coma decimal a punto si existe
+    const valorNormalizado = valorLimpio.replace(',', '.');
+    numeroValor = parseFloat(valorNormalizado);
+    
+    // Si no se puede parsear, retornar 0
+    if (isNaN(numeroValor)) {
+      return `${moneda} 0.00`;
+    }
+  } else {
+    numeroValor = valor;
+  }
+  
+  // Verificar que sea un número válido
+  if (isNaN(numeroValor) || !isFinite(numeroValor)) {
+    return `${moneda} 0.00`;
+  }
+  
+  // Formatear el número con separadores de miles y decimales
+  return `${moneda} ${numeroValor.toLocaleString('es-UY', { 
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2 
+  })}`;
 };
 
 export default VelneoSummary;

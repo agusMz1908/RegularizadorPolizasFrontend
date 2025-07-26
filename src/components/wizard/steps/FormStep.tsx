@@ -16,8 +16,21 @@ import {
   Calendar,
   DollarSign
 } from 'lucide-react';
+import { 
+  mapClienteToFormData, 
+  mapCompanyToFormData, 
+  mapSeccionToFormData, 
+  mapOperacionToFormData,
+  getClienteDisplayName,
+  getCompanyDisplayName,
+  getSeccionDisplayName,
+  getOperacionDisplayName,
+  combineWizardData,
+  validateWizardData,
+  debugWizardMapping,
+} from '../../../utils/wizardDataMapper';
 import { PolizaFormData } from '../../../types/core/poliza';
-import { DocumentProcessResult } from '../../../types/ui/wizard';
+import { DocumentProcessResult, WizardState } from '../../../types/ui/wizard';
 import { UseFormValidationReturn } from '../../../hooks/wizard/useFormValidation';
 
 interface FormStepProps {
@@ -30,6 +43,7 @@ interface FormStepProps {
   onNext: () => void;
   onBack: () => void;
   isDarkMode: boolean;
+  wizardState: WizardState;
 }
 
 export const FormStep: React.FC<FormStepProps> = ({
@@ -41,7 +55,8 @@ export const FormStep: React.FC<FormStepProps> = ({
   saving,
   onNext,
   onBack,
-  isDarkMode
+  isDarkMode,
+  wizardState
 }) => {
   const [activeTab, setActiveTab] = useState('basicos');
   
@@ -54,441 +69,568 @@ export const FormStep: React.FC<FormStepProps> = ({
     { id: 'basicos', label: 'Datos Básicos', icon: User, color: 'blue' },
     { id: 'poliza', label: 'Póliza', icon: FileText, color: 'purple' },
     { id: 'vehiculo', label: 'Vehículo', icon: Car, color: 'green' },
-    { id: 'pago', label: 'Condiciones Pago', icon: CreditCard, color: 'orange' },
+    { id: 'condiciones', label: 'Condiciones Pago', icon: CreditCard, color: 'orange' },
     { id: 'observaciones', label: 'Observaciones', icon: FileCheck, color: 'indigo' }
   ];
 
-useEffect(() => {
-  if (extractedData && 
-      extractedData.datosVelneo && 
-      !hasAutoFilled &&  // ✅ Evitar bucle
-      !isAutoFilling) {   // ✅ Evitar ejecuciones múltiples
-    
-    console.log('🤖 FormStep: Auto-completando formulario con datos extraídos...');
-    console.log('📊 Datos extraídos recibidos:', extractedData);
-    
-    autoFillForm();
-    setHasAutoFilled(true); // ✅ Marcar como completado
+  // ✅ Efecto para auto-completado desde datos extraídos
+  useEffect(() => {
+    if (extractedData && 
+        extractedData.datosVelneo && 
+        !hasAutoFilled &&  
+        !isAutoFilling) {   
+      
+      console.log('🤖 FormStep: Auto-completando formulario con datos extraídos...');
+      console.log('📊 Datos extraídos recibidos:', extractedData);
+      
+      autoFillForm();
+      setHasAutoFilled(true); 
+    }
+  }, [extractedData?.datosVelneo, hasAutoFilled, isAutoFilling]);
+
+  // ✅ Efecto para inicializar con datos del wizard
+  useEffect(() => {
+    if (wizardState && Object.keys(formData).length === 0) {
+      initializeFormWithWizardData();
+    }
+  }, [wizardState]);
+
+  const initializeFormWithWizardData = () => {
+  // ✅ Usar la función helper combinada
+  const wizardData = combineWizardData(wizardState.stepData);
+  
+  // ✅ Validar datos antes de aplicar (opcional)
+  const validation = validateWizardData(wizardState.stepData);
+  if (!validation.isValid) {
+    console.warn('⚠️ Datos del wizard inválidos:', validation.errors);
   }
-}, [extractedData?.datosVelneo, hasAutoFilled, isAutoFilling]);
 
-  /**
-   * ✅ Función de auto-completado
-   */
-// Función autoFillForm corregida para FormStep.tsx
-
-const autoFillForm = async () => {
-  if (!extractedData || !extractedData.datosVelneo) {
-    console.warn('⚠️ No hay datosVelneo para auto-completar');
-    return;
+  // ✅ Debug del mapeo (solo en desarrollo)
+  if (process.env.NODE_ENV === 'development') {
+    debugWizardMapping(wizardState.stepData, wizardData);
   }
 
-  setIsAutoFilling(true);
-  const filledFields = new Set<string>();
+  const mergedData = { ...formData, ...wizardData } as PolizaFormData;
+  onFormDataChange(mergedData);
+  
+  console.log('🔗 FormStep: Datos del wizard aplicados:', wizardData);
+};
 
-  try {
-    const autoFilledData: Partial<PolizaFormData> = {};
-    const { datosVelneo } = extractedData;
 
-    console.log('📋 Mapeando desde datosVelneo:', datosVelneo);
+  // ✅ Funciones para mostrar datos del wizard
+  const getClienteDisplay = (): string => {
+    const cliente = wizardState?.stepData?.cliente;
+    if (!cliente) return 'No seleccionado';
+    return cliente.nombre || cliente.clinom || `Cliente ID: ${cliente.id}`;
+  };
 
-    // ===================================================================
-    // ✅ DATOS BÁSICOS DEL ASEGURADO
-    // ===================================================================
-    if (datosVelneo.datosBasicos) {
-      const { datosBasicos } = datosVelneo;
-      
-      if (datosBasicos.asegurado) {
-        autoFilledData.asegurado = datosBasicos.asegurado;
-        autoFilledData.nombreAsegurado = datosBasicos.asegurado;
-        filledFields.add('asegurado');
-        filledFields.add('nombreAsegurado');
-      }
-      
-      if (datosBasicos.documento) {
-        autoFilledData.documento = datosBasicos.documento;
-        filledFields.add('documento');
-      }
-      
-      if (datosBasicos.telefono) {
-        autoFilledData.telefono = datosBasicos.telefono;
-        filledFields.add('telefono');
-      }
-      
-      if (datosBasicos.email) {
-        autoFilledData.email = datosBasicos.email;
-        filledFields.add('email');
-      }
-      
-      if (datosBasicos.domicilio) {
-        autoFilledData.direccion = datosBasicos.domicilio;
-        filledFields.add('direccion');
-      }
-      
-      if (datosBasicos.departamento) {
-        autoFilledData.departamento = datosBasicos.departamento;
-        filledFields.add('departamento');
-      }
-      
-      if (datosBasicos.localidad) {
-        autoFilledData.localidad = datosBasicos.localidad;
-        filledFields.add('localidad');
-      }
-      
-      if (datosBasicos.codigoPostal) {
-        autoFilledData.codigoPostal = datosBasicos.codigoPostal;
-        filledFields.add('codigoPostal');
-      }
-      
-      if (datosBasicos.corredor) {
-        autoFilledData.corredor = datosBasicos.corredor;
-        filledFields.add('corredor');
-      }
-      
-      if (datosBasicos.tipo) {
-        autoFilledData.tipo = datosBasicos.tipo;
-        filledFields.add('tipo');
-      }
-      
-      if (datosBasicos.tramite) {
-        autoFilledData.tramite = datosBasicos.tramite;
-        filledFields.add('tramite');
-      }
+  const getCompaniaDisplay = (): string => {
+    const company = wizardState?.stepData?.company;
+    if (!company) return 'No seleccionada';
+    return company.nombre || `Compañía ID: ${company.id}`;
+  };
+
+  const getSeccionDisplay = (): string => {
+    const seccion = wizardState?.stepData?.seccion;
+    if (!seccion) return 'No seleccionada';
+    return seccion.nombre || `Sección ID: ${seccion.id}`;
+  };
+
+const getOperacionDisplay = (): string => {
+  const operacion = wizardState?.stepData?.operacion;
+  if (!operacion) return 'No especificada';
+  
+  // Mapear string a display name
+  const operacionNames: Record<string, string> = {
+    'EMISION': 'Nueva Póliza',
+    'RENOVACION': 'Renovación',
+    'ENDOSO': 'Endoso',
+    'CAMBIO': 'Modificación'
+  };
+  
+  return operacionNames[operacion] || operacion;
+};
+
+  // ✅ Obtener datos del wizard para auto-completado
+  const getWizardDataForForm = (): Partial<PolizaFormData> => {
+    const wizardData: Partial<PolizaFormData> = {};
+
+    if (wizardState?.stepData?.cliente) {
+      const cliente = wizardState.stepData.cliente;
+      wizardData.clienteId = cliente.id;
+      wizardData.asegurado = cliente.nombre || cliente.clinom;
+      wizardData.documento = cliente.cliced || cliente.cliced || cliente.cliruc;
     }
 
-    // ===================================================================
-    // ✅ DATOS DE LA PÓLIZA
-    // ===================================================================
-    if (datosVelneo.datosPoliza) {
-      const { datosPoliza } = datosVelneo;
-      
-      if (datosPoliza.numeroPoliza) {
-        autoFilledData.numeroPoliza = datosPoliza.numeroPoliza;
-        filledFields.add('numeroPoliza');
-      }
-      
-      // ✅ FECHAS - Convertir de ISO a formato uruguayo dd/mm/yyyy
-      if (datosPoliza.desde) {
-        autoFilledData.vigenciaDesde = formatDateToUruguayan(datosPoliza.desde);
-        filledFields.add('vigenciaDesde');
-      }
-      
-      if (datosPoliza.hasta) {
-        autoFilledData.vigenciaHasta = formatDateToUruguayan(datosPoliza.hasta);
-        filledFields.add('vigenciaHasta');
-      }
-      
-      if (datosPoliza.ramo) {
-        autoFilledData.ramo = datosPoliza.ramo;
-        filledFields.add('ramo');
-      }
-      
-      if (datosPoliza.endoso) {
-        autoFilledData.endoso = datosPoliza.endoso;
-        filledFields.add('endoso');
-      }
-      
-      if (datosPoliza.certificado) {
-        autoFilledData.certificado = datosPoliza.certificado;
-        filledFields.add('certificado');
-      }
-      
-      if (datosPoliza.tipoMovimiento) {
-        autoFilledData.tipoMovimiento = datosPoliza.tipoMovimiento;
-        filledFields.add('tipoMovimiento');
-      }
+    if (wizardState?.stepData?.company) {
+      wizardData.compania = wizardState.stepData.company.id;
     }
 
-    // ===================================================================
-    // ✅ DATOS DEL VEHÍCULO
-    // ===================================================================
-    if (datosVelneo.datosVehiculo) {
-      const { datosVehiculo } = datosVelneo;
-      
-      if (datosVehiculo.marca) {
-        autoFilledData.marca = datosVehiculo.marca;
-        filledFields.add('marca');
-      }
-      
-      if (datosVehiculo.modelo) {
-        autoFilledData.modelo = datosVehiculo.modelo;
-        filledFields.add('modelo');
-      }
-      
-      if (datosVehiculo.marcaModelo) {
-        autoFilledData.vehiculo = datosVehiculo.marcaModelo;
-        filledFields.add('vehiculo');
-      }
-      
-      if (datosVehiculo.matricula) {
-        autoFilledData.matricula = datosVehiculo.matricula;
-        // Si no hay matricula, usar chapa si existe
-        autoFilledData.chapa = datosVehiculo.matricula;
-        filledFields.add('matricula');
-        filledFields.add('chapa');
-      }
-      
-      if (datosVehiculo.motor) {
-        autoFilledData.motor = datosVehiculo.motor;
-        filledFields.add('motor');
-      }
-      
-      if (datosVehiculo.chasis) {
-        autoFilledData.chasis = datosVehiculo.chasis;
-        filledFields.add('chasis');
-      }
-      
-      if (datosVehiculo.anio) {
-        autoFilledData.anio = datosVehiculo.anio;
-        filledFields.add('anio');
-      }
-      
-      if (datosVehiculo.color) {
-        autoFilledData.color = datosVehiculo.color;
-        filledFields.add('color');
-      }
-      
-      if (datosVehiculo.combustible) {
-        autoFilledData.combustible = datosVehiculo.combustible;
-        filledFields.add('combustible');
-      }
-      
-      if (datosVehiculo.categoria) {
-        autoFilledData.categoria = datosVehiculo.categoria;
-        filledFields.add('categoria');
-      }
-      
-      if (datosVehiculo.destino) {
-        autoFilledData.destino = datosVehiculo.destino;
-        filledFields.add('destino');
-      }
-      
-      if (datosVehiculo.uso) {
-        autoFilledData.uso = datosVehiculo.uso;
-        filledFields.add('uso');
-      }
-      
-      if (datosVehiculo.calidad) {
-        autoFilledData.calidad = datosVehiculo.calidad;
-        filledFields.add('calidad');
-      }
-      
-      if (datosVehiculo.tipoVehiculo) {
-        autoFilledData.tipoVehiculo = datosVehiculo.tipoVehiculo;
-        filledFields.add('tipoVehiculo');
-      }
+    if (wizardState?.stepData?.seccion) {
+      wizardData.seccionId = wizardState.stepData.seccion.id;
+      wizardData.seccion = wizardState.stepData.seccion.nombre;
     }
 
-    // ===================================================================
-    // ✅ CONDICIONES DE PAGO - TODOS COMO STRING
-    // ===================================================================
-    if (datosVelneo.condicionesPago) {
-      const { condicionesPago } = datosVelneo;
-      
-      if (condicionesPago.premio) {
-        autoFilledData.prima = condicionesPago.premio.toString();
-        filledFields.add('prima');
-      }
-      
-      if (condicionesPago.total) {
-        autoFilledData.premioTotal = condicionesPago.total.toString();
-        filledFields.add('premioTotal');
-      }
-      
-      if (condicionesPago.cuotas) {
-        autoFilledData.cantidadCuotas = condicionesPago.cuotas;
-        filledFields.add('cantidadCuotas');
-      }
-      
-      if (condicionesPago.formaPago) {
-        autoFilledData.formaPago = condicionesPago.formaPago;
-        filledFields.add('formaPago');
-      }
-      
-      if (condicionesPago.valorCuota) {
-        autoFilledData.valorCuota = condicionesPago.valorCuota.toString();
-        filledFields.add('valorCuota');
-      }
-      
-      // Detalles de cuotas
-      if (condicionesPago.detalleCuotas) {
-        const { detalleCuotas } = condicionesPago;
+    if (wizardState?.stepData?.operacion) {
+      wizardData.tipoMovimiento = wizardState.stepData.operacion;
+    }
+
+    return wizardData;
+  };
+
+  // ✅ Función principal de auto-completado
+  const autoFillForm = async () => {
+    if (!extractedData || !extractedData.datosVelneo) {
+      console.warn('⚠️ No hay datosVelneo para auto-completar');
+      return;
+    }
+
+    setIsAutoFilling(true);
+    const filledFields = new Set<string>();
+
+    try {
+      const autoFilledData: Partial<PolizaFormData> = {};
+      const { datosVelneo } = extractedData;
+
+      // APLICAR DATOS DEL WIZARD PRIMERO
+      const wizardData = getWizardDataForForm();
+      Object.assign(autoFilledData, wizardData);
+      Object.keys(wizardData).forEach(key => filledFields.add(key));
+
+      console.log('📋 Mapeando desde datosVelneo:', datosVelneo);
+
+      // DATOS BÁSICOS DEL ASEGURADO
+      if (datosVelneo.datosBasicos) {
+        const { datosBasicos } = datosVelneo;
         
-        if (detalleCuotas.primerVencimiento) {
-          autoFilledData.primeraCuotaFecha = formatDateToUruguayan(detalleCuotas.primerVencimiento);
-          filledFields.add('primeraCuotaFecha');
+        if (datosBasicos.asegurado) {
+          autoFilledData.asegurado = datosBasicos.asegurado;
+          autoFilledData.nombreAsegurado = datosBasicos.asegurado;
+          filledFields.add('asegurado');
+          filledFields.add('nombreAsegurado');
         }
         
-        if (detalleCuotas.primaCuota) {
-          autoFilledData.primeraCuotaMonto = detalleCuotas.primaCuota.toString();
-          filledFields.add('primeraCuotaMonto');
+        if (datosBasicos.documento) {
+          autoFilledData.documento = datosBasicos.documento;
+          filledFields.add('documento');
+        }
+        
+        if (datosBasicos.telefono) {
+          autoFilledData.telefono = datosBasicos.telefono;
+          filledFields.add('telefono');
+        }
+        
+        if (datosBasicos.email) {
+          autoFilledData.email = datosBasicos.email;
+          filledFields.add('email');
+        }
+        
+        if (datosBasicos.domicilio) {
+          autoFilledData.direccion = datosBasicos.domicilio;
+          filledFields.add('direccion');
+        }
+        
+        if (datosBasicos.departamento) {
+          autoFilledData.departamento = datosBasicos.departamento;
+          filledFields.add('departamento');
+        }
+        
+        if (datosBasicos.localidad) {
+          autoFilledData.localidad = datosBasicos.localidad;
+          filledFields.add('localidad');
+        }
+        
+        if (datosBasicos.codigoPostal) {
+          autoFilledData.codigoPostal = datosBasicos.codigoPostal;
+          filledFields.add('codigoPostal');
+        }
+        
+        if (datosBasicos.corredor) {
+          autoFilledData.corredor = datosBasicos.corredor;
+          filledFields.add('corredor');
+        }
+        
+        if (datosBasicos.tipo) {
+          autoFilledData.tipo = datosBasicos.tipo;
+          filledFields.add('tipo');
+        }
+        
+        if (datosBasicos.tramite) {
+          autoFilledData.tramite = datosBasicos.tramite;
+          filledFields.add('tramite');
         }
       }
-    }
 
-    // ===================================================================
-    // ✅ DATOS DE COBERTURA
-    // ===================================================================
-    if (datosVelneo.datosCobertura) {
-      const { datosCobertura } = datosVelneo;
-      
-      if (datosCobertura.cobertura) {
-        autoFilledData.cobertura = datosCobertura.cobertura;
-        filledFields.add('cobertura');
+      // DATOS DE LA PÓLIZA
+      if (datosVelneo.datosPoliza) {
+        const { datosPoliza } = datosVelneo;
+        
+        if (datosPoliza.numeroPoliza) {
+          autoFilledData.numeroPoliza = datosPoliza.numeroPoliza;
+          filledFields.add('numeroPoliza');
+        }
+        
+        if (datosPoliza.desde) {
+          autoFilledData.vigenciaDesde = formatDateToUruguayan(datosPoliza.desde);
+          filledFields.add('vigenciaDesde');
+        }
+        
+        if (datosPoliza.hasta) {
+          autoFilledData.vigenciaHasta = formatDateToUruguayan(datosPoliza.hasta);
+          filledFields.add('vigenciaHasta');
+        }
+        
+        if (datosPoliza.ramo) {
+          autoFilledData.ramo = datosPoliza.ramo;
+          filledFields.add('ramo');
+        }
+        
+        if (datosPoliza.certificado) {
+          autoFilledData.certificado = datosPoliza.certificado;
+          filledFields.add('certificado');
+        }
+        
+        if (datosPoliza.endoso) {
+          autoFilledData.endoso = datosPoliza.endoso;
+          filledFields.add('endoso');
+        }
+        
+        if (datosPoliza.tipoMovimiento) {
+          autoFilledData.tipoMovimiento = datosPoliza.tipoMovimiento;
+          filledFields.add('tipoMovimiento');
+        }
+        
+        if (datosPoliza.compania) {
+          autoFilledData.compania = datosPoliza.compania;
+          filledFields.add('compania');
+        }
       }
-      
-      if (datosCobertura.moneda) {
-        autoFilledData.moneda = datosCobertura.moneda;
-        filledFields.add('moneda');
-      }
-      
-      if (datosCobertura.zonaCirculacion) {
-        autoFilledData.zonaCirculacion = datosCobertura.zonaCirculacion;
-        filledFields.add('zonaCirculacion');
-      }
-      
-      if (datosCobertura.codigoMoneda) {
-        autoFilledData.codigoMoneda = datosCobertura.codigoMoneda.toString();
-        filledFields.add('codigoMoneda');
-      }
-    }
 
-    // ===================================================================
-    // ✅ BONIFICACIONES
-    // ===================================================================
-    if (datosVelneo.bonificaciones) {
-      const { bonificaciones } = datosVelneo;
-      
-      if (bonificaciones.descuentos !== undefined) {
-        autoFilledData.descuentos = bonificaciones.descuentos.toString();
-        filledFields.add('descuentos');
+      // DATOS DE COBERTURA
+      if (datosVelneo.datosCobertura) {
+        const { datosCobertura } = datosVelneo;
+        
+        if (datosCobertura.cobertura) {
+          autoFilledData.cobertura = datosCobertura.cobertura;
+          filledFields.add('cobertura');
+        }
+        
+        if (datosCobertura.moneda) {
+          autoFilledData.moneda = datosCobertura.moneda;
+          filledFields.add('moneda');
+        }
+        
+        if (datosCobertura.zonaCirculacion) {
+          autoFilledData.zonaCirculacion = datosCobertura.zonaCirculacion;
+          filledFields.add('zonaCirculacion');
+        }
+        
+        if (datosCobertura.codigoMoneda) {
+          autoFilledData.codigoMoneda = datosCobertura.codigoMoneda.toString();
+          filledFields.add('codigoMoneda');
+        }
       }
-      
-      if (bonificaciones.recargos !== undefined) {
-        autoFilledData.recargos = bonificaciones.recargos.toString();
-        filledFields.add('recargos');
-      }
-      
-      if (bonificaciones.impuestoMSP !== undefined) {
-        autoFilledData.impuestoMSP = bonificaciones.impuestoMSP.toString();
-        filledFields.add('impuestoMSP');
-      }
-      
-      if (bonificaciones.totalBonificaciones !== undefined) {
-        autoFilledData.totalBonificaciones = bonificaciones.totalBonificaciones.toString();
-        filledFields.add('totalBonificaciones');
-      }
-    }
 
-    // ===================================================================
-    // ✅ OBSERVACIONES
-    // ===================================================================
-    if (datosVelneo.observaciones) {
-      const { observaciones } = datosVelneo;
+      // DATOS DEL VEHÍCULO
+      if (datosVelneo.datosVehiculo) {
+        const { datosVehiculo } = datosVelneo;
+        
+        if (datosVehiculo.marca) {
+          autoFilledData.marca = datosVehiculo.marca;
+          filledFields.add('marca');
+        }
+        
+        if (datosVehiculo.modelo) {
+          autoFilledData.modelo = datosVehiculo.modelo;
+          filledFields.add('modelo');
+        }
+        
+        if (datosVehiculo.marcaModelo) {
+          autoFilledData.vehiculo = datosVehiculo.marcaModelo;
+          filledFields.add('vehiculo');
+        }
+        
+        if (datosVehiculo.matricula) {
+          autoFilledData.matricula = datosVehiculo.matricula;
+          autoFilledData.chapa = datosVehiculo.matricula;
+          filledFields.add('matricula');
+          filledFields.add('chapa');
+        }
+        
+        if (datosVehiculo.motor) {
+          autoFilledData.motor = datosVehiculo.motor;
+          filledFields.add('motor');
+        }
+        
+        if (datosVehiculo.chasis) {
+          autoFilledData.chasis = datosVehiculo.chasis;
+          filledFields.add('chasis');
+        }
+        
+        if (datosVehiculo.anio) {
+          autoFilledData.anio = datosVehiculo.anio;
+          filledFields.add('anio');
+        }
+        
+        if (datosVehiculo.color) {
+          autoFilledData.color = datosVehiculo.color;
+          filledFields.add('color');
+        }
+        
+        if (datosVehiculo.combustible) {
+          autoFilledData.combustible = datosVehiculo.combustible;
+          filledFields.add('combustible');
+        }
+        
+        if (datosVehiculo.categoria) {
+          autoFilledData.categoria = datosVehiculo.categoria;
+          filledFields.add('categoria');
+        }
+        
+        if (datosVehiculo.destino) {
+          autoFilledData.destino = datosVehiculo.destino;
+          filledFields.add('destino');
+        }
+        
+        if (datosVehiculo.uso) {
+          autoFilledData.uso = datosVehiculo.uso;
+          filledFields.add('uso');
+        }
+        
+        if (datosVehiculo.calidad) {
+          autoFilledData.calidad = datosVehiculo.calidad;
+          filledFields.add('calidad');
+        }
+        
+        if (datosVehiculo.tipoVehiculo) {
+          autoFilledData.tipoVehiculo = datosVehiculo.tipoVehiculo;
+          filledFields.add('tipoVehiculo');
+        }
+      }
+
+      // CONDICIONES DE PAGO
+      if (datosVelneo.condicionesPago) {
+        const { condicionesPago } = datosVelneo;
+        
+        if (condicionesPago.premio) {
+          autoFilledData.prima = condicionesPago.premio.toString();
+          filledFields.add('prima');
+        }
+        
+        if (condicionesPago.total) {
+          autoFilledData.premioTotal = condicionesPago.total.toString();
+          filledFields.add('premioTotal');
+        }
+        
+        if (condicionesPago.cuotas) {
+          autoFilledData.cantidadCuotas = condicionesPago.cuotas.toString();
+          filledFields.add('cantidadCuotas');
+        }
+        
+        if (condicionesPago.formaPago) {
+          autoFilledData.formaPago = condicionesPago.formaPago;
+          filledFields.add('formaPago');
+        }
+        
+        if (condicionesPago.valorCuota) {
+          autoFilledData.valorCuota = condicionesPago.valorCuota.toString();
+          filledFields.add('valorCuota');
+        }
+        
+        if (condicionesPago.detalleCuotas) {
+          const { detalleCuotas } = condicionesPago;
+          
+          if (detalleCuotas.primerVencimiento) {
+            autoFilledData.primeraCuotaFecha = formatDateToUruguayan(detalleCuotas.primerVencimiento);
+            filledFields.add('primeraCuotaFecha');
+          }
+          
+          if (detalleCuotas.primaCuota) {
+            autoFilledData.primeraCuotaMonto = detalleCuotas.primaCuota.toString();
+            filledFields.add('primeraCuotaMonto');
+          }
+        }
+      }
+
+      // BONIFICACIONES
+      if (datosVelneo.bonificaciones) {
+        const { bonificaciones } = datosVelneo;
+        
+        if (bonificaciones.descuentos !== undefined) {
+          autoFilledData.descuentos = bonificaciones.descuentos.toString();
+          filledFields.add('descuentos');
+        }
+        
+        if (bonificaciones.recargos !== undefined) {
+          autoFilledData.recargos = bonificaciones.recargos.toString();
+          filledFields.add('recargos');
+        }
+        
+        if (bonificaciones.impuestoMSP !== undefined) {
+          autoFilledData.impuestoMSP = bonificaciones.impuestoMSP.toString();
+          filledFields.add('impuestoMSP');
+        }
+        
+        if (bonificaciones.totalBonificaciones !== undefined) {
+          autoFilledData.totalBonificaciones = bonificaciones.totalBonificaciones.toString();
+          filledFields.add('totalBonificaciones');
+        }
+      }
+
+      // OBSERVACIONES + DESGLOSE DE CUOTAS
+      let observacionesCompletas = '';
       
-      if (observaciones.observacionesGenerales) {
-        autoFilledData.observaciones = observaciones.observacionesGenerales;
+      if (datosVelneo.observaciones) {
+        const { observaciones } = datosVelneo;
+        
+        if (observaciones.observacionesGenerales) {
+          observacionesCompletas += observaciones.observacionesGenerales;
+        }
+        
+        if (observaciones.observacionesGestion) {
+          autoFilledData.observacionesGestion = observaciones.observacionesGestion;
+          filledFields.add('observacionesGestion');
+        }
+        
+        if (observaciones.informacionAdicional) {
+          autoFilledData.informacionAdicional = observaciones.informacionAdicional;
+          filledFields.add('informacionAdicional');
+        }
+      }
+
+      // AGREGAR DESGLOSE DE CUOTAS SI EXISTE
+      if (datosVelneo.condicionesPago?.detalleCuotas?.cuotas?.length > 0) {
+        const desgloseCuotas = generateCuotasDesglose(datosVelneo);
+        observacionesCompletas += desgloseCuotas;
+        
+        console.log('📋 Desglose de cuotas agregado a observaciones');
+      }
+
+      if (observacionesCompletas) {
+        autoFilledData.observaciones = observacionesCompletas;
         filledFields.add('observaciones');
       }
+
+      console.log('🤖 FormStep: Datos auto-completados:', autoFilledData);
+      console.log('🤖 FormStep: Campos rellenados:', Array.from(filledFields));
+      console.log(`📊 Total campos auto-completados: ${filledFields.size}`);
       
-      if (observaciones.observacionesGestion) {
-        autoFilledData.observacionesGestion = observaciones.observacionesGestion;
-        filledFields.add('observacionesGestion');
-      }
+      setAutoFilledFields(filledFields);
       
-      if (observaciones.informacionAdicional) {
-        autoFilledData.informacionAdicional = observaciones.informacionAdicional;
-        filledFields.add('informacionAdicional');
-      }
+      const mergedData = { ...formData, ...autoFilledData } as PolizaFormData;
+      onFormDataChange(mergedData);
+
+    } catch (error) {
+      console.error('❌ FormStep: Error en auto-completado:', error);
+    } finally {
+      setIsAutoFilling(false);
+    }
+  };
+
+  // ✅ Generar desglose de cuotas
+  const generateCuotasDesglose = (datosVelneo: any): string => {
+    if (!datosVelneo?.condicionesPago?.detalleCuotas?.cuotas) {
+      return '';
     }
 
-    // ✅ Aplicar los datos auto-completados
-    console.log('🤖 FormStep: Datos auto-completados:', autoFilledData);
-    console.log('🤖 FormStep: Campos rellenados:', Array.from(filledFields));
-    console.log(`📊 Total campos auto-completados: ${filledFields.size}`);
+    const { detalleCuotas, formaPago, total, cuotas } = datosVelneo.condicionesPago;
     
-    setAutoFilledFields(filledFields);
+    let desglose = '\n\n=== DESGLOSE DE CUOTAS EXTRAÍDO AUTOMÁTICAMENTE ===\n';
+    desglose += `📋 Forma de Pago: ${formaPago}\n`;
+    desglose += `💰 Total a Pagar: $${total.toLocaleString('es-UY')}\n`;
+    desglose += `🔢 Cantidad de Cuotas: ${cuotas}\n`;
+    desglose += `💳 Valor Promedio por Cuota: $${detalleCuotas.montoPromedio?.toLocaleString('es-UY') || 'N/A'}\n`;
+    desglose += `📅 Primer Vencimiento: ${new Date(detalleCuotas.primerVencimiento).toLocaleDateString('es-UY')}\n\n`;
     
-    // ✅ MERGE CON DATOS EXISTENTES SIN SOBRESCRIBIR
-    const mergedData = { ...formData, ...autoFilledData } as PolizaFormData;
-    onFormDataChange(mergedData);
+    desglose += '📅 CRONOGRAMA DETALLADO DE PAGOS:\n';
+    desglose += ''.padEnd(50, '-') + '\n';
+    
+    detalleCuotas.cuotas.forEach((cuota: any, index: number) => {
+      const fecha = new Date(cuota.fechaVencimiento).toLocaleDateString('es-UY');
+      const numero = cuota.numero || index + 1;
+      desglose += `Cuota ${numero.toString().padStart(2, '0')}: ${fecha} - $${cuota.monto.toLocaleString('es-UY')}\n`;
+    });
+    
+    desglose += ''.padEnd(50, '-') + '\n';
+    desglose += `💡 NOTA: Este desglose fue extraído automáticamente del PDF.\n`;
+    desglose += `    Solo se envía a Velneo: cantidad de cuotas (${cuotas}) y valor por cuota.\n`;
+    desglose += `    Las fechas específicas se conservan aquí para referencia.\n`;
 
-  } catch (error) {
-    console.error('❌ FormStep: Error en auto-completado:', error);
-  } finally {
-    setIsAutoFilling(false);
-  }
-};
+    return desglose;
+  };
 
-const formatDateToUruguayan = (isoDate: string): string => {
-  try {
-    if (!isoDate) return '';
-    
-    const date = new Date(isoDate);
-    if (isNaN(date.getTime())) return isoDate;
-    
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    
-    return `${day}/${month}/${year}`;
-  } catch (error) {
-    console.error('Error formateando fecha:', error);
-    return isoDate;
-  }
-};
+  // ✅ Formatear fecha a formato uruguayo
+  const formatDateToUruguayan = (isoDate: string): string => {
+    try {
+      if (!isoDate) return '';
+      
+      const date = new Date(isoDate);
+      if (isNaN(date.getTime())) return isoDate;
+      
+      const day = date.getDate().toString().padStart(2, '0');
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const year = date.getFullYear();
+      
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      console.error('Error formateando fecha:', error);
+      return isoDate;
+    }
+  };
 
-const getAutoFillStats = (): string => {
-  const totalFields = autoFilledFields.size;
-  const completeness = datosVelneo?.porcentajeCompletitud || 0;
-  const fieldsExtracted = datosVelneo?.metricas?.camposExtraidos || 0;
-  
-  return `${totalFields} campos auto-completados • ${completeness}% completitud • ${fieldsExtracted} campos extraídos`;
-};
+  // ✅ Estadísticas de auto-completado
+  const getAutoFillStats = (): string => {
+    const totalFields = autoFilledFields?.size || 0;
+    const datosVelneo = extractedData?.datosVelneo;
+    const completeness = datosVelneo?.porcentajeCompletitud || 0;
+    const fieldsExtracted = datosVelneo?.metricas?.camposExtraidos || 0;
+    
+    if (totalFields === 0 && completeness === 0) {
+      return 'Sin auto-completado disponible';
+    }
+    
+    return `${totalFields} campos auto-completados • ${completeness}% completitud • ${fieldsExtracted} campos extraídos`;
+  };
 
-  /**
-   * ✅ Re-aplica el auto-completado
-   */
+  // ✅ Re-aplicar auto-completado
   const reApplyAutoFill = () => {
     if (extractedData) {
       setAutoFilledFields(new Set());
+      setHasAutoFilled(false);
       autoFillForm();
     }
   };
 
+  // ✅ Manejar cambios en el formulario
   const handleFormChange = (field: keyof PolizaFormData, value: any) => {
     const updatedData = { ...formData, [field]: value };
     onFormDataChange(updatedData);
     
-    // ✅ Marcar como modificado manualmente (quitar de auto-rellenados)
     setAutoFilledFields(prev => {
       const newSet = new Set(prev);
       newSet.delete(field);
       return newSet;
     });
     
-    // ✅ Validar campo en tiempo real
     validation.validateField(field, value);
     validation.markFieldTouched(field);
   };
 
+  // ✅ Manejar envío del formulario
   const handleSubmit = () => {
-    // ✅ Validar todo el formulario antes de enviar
     const isValid = validation.validateAll(formData);
     if (isValid) {
       onSubmit();
     } else {
-      // Ir al primer tab con errores
       const firstErrorField = validation.validation.errors[0]?.field;
       if (firstErrorField) {
-        // Mapear campo a tab
         const fieldToTab: { [key: string]: string } = {
           'numeroPoliza': 'poliza',
           'asegurado': 'basicos',
           'documento': 'basicos',
           'vigenciaDesde': 'poliza',
           'vigenciaHasta': 'poliza',
-          'prima': 'pago',
+          'prima': 'condiciones',
           'marca': 'vehiculo',
           'modelo': 'vehiculo',
           'matricula': 'vehiculo'
@@ -500,13 +642,31 @@ const getAutoFillStats = (): string => {
     }
   };
 
-  // ✅ Función helper para renderizar inputs
+  // ✅ Renderizar campos de solo lectura
+  const renderReadOnlyField = (label: string, value: string, subtitle?: string) => (
+    <div>
+      <label className={`block text-sm font-bold ${
+        isDarkMode ? 'text-purple-300' : 'text-purple-800'
+      } mb-2`}>
+        {label}
+        {subtitle && <span className="text-xs ml-2 opacity-75">{subtitle}</span>}
+      </label>
+      <div className={`w-full px-4 py-3 border-2 rounded-xl ${
+        isDarkMode 
+          ? 'bg-gray-700/50 border-purple-700/30 text-gray-300' 
+          : 'bg-gray-100 border-purple-200 text-gray-700'
+      } cursor-not-allowed`}>
+        {value}
+      </div>
+    </div>
+  );
+
+  // ✅ Renderizar inputs
   const renderInput = (
     field: keyof PolizaFormData,
     label: string,
     placeholder: string,
     type: string = 'text',
-    icon?: React.ReactNode,
     required: boolean = false,
     tabColor: string = 'blue'
   ) => {
@@ -519,7 +679,6 @@ const getAutoFillStats = (): string => {
         <label className={`block text-sm font-bold ${
           isDarkMode ? `text-${tabColor}-300` : `text-${tabColor}-800`
         } mb-2`}>
-          {icon && <span className="mr-2">{icon}</span>}
           {label}
           {required && <span className="text-red-500 ml-1">*</span>}
           {isAutoFilled && (
@@ -553,7 +712,7 @@ const getAutoFillStats = (): string => {
     );
   };
 
-  // ✅ Función helper para renderizar selects
+  // ✅ Renderizar selects
   const renderSelect = (
     field: keyof PolizaFormData,
     label: string,
@@ -627,95 +786,28 @@ const getAutoFillStats = (): string => {
               </h3>
 
               <div className="space-y-4">
-                {/* Primera fila: Asegurado y Documento */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    'asegurado',
-                    'Asegurado',
-                    'Nombre completo del asegurado',
-                    'text',
-                    <User className="w-4 h-4 inline" />,
-                    true,
-                    'blue'
-                  )}
-                  {renderInput(
-                    'documento',
-                    'Documento',
-                    'CI o RUC',
-                    'text',
-                    undefined,
-                    true,
-                    'blue'
-                  )}
+                  {renderInput('asegurado', 'Asegurado', 'Nombre completo del asegurado', 'text', true, 'blue')}
+                  {renderInput('documento', 'Documento', 'CI o RUC', 'text', true, 'blue')}
                 </div>
 
-                {/* Segunda fila: Tipo y Estado */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderSelect(
-                    'tipo',
-                    'Tipo',
-                    [
-                      { value: 'PERSONA', label: 'Líneas personales' },
-                      { value: 'EMPRESA', label: 'Líneas comerciales' }
-                    ],
-                    false,
-                    'blue'
-                  )}
+                  {renderSelect('tipo', 'Tipo', [
+                    { value: 'PERSONA', label: 'Líneas personales' },
+                    { value: 'EMPRESA', label: 'Líneas comerciales' }
+                  ], false, 'blue')}
                 </div>
 
-                {/* Tercera fila: Dirección completa */}
-                {renderInput(
-                  'direccion',
-                  'Dirección',
-                  'Dirección completa',
-                  'text',
-                  <MapPin className="w-4 h-4 inline" />,
-                  false,
-                  'blue'
-                )}
+                {renderInput('direccion', 'Dirección', 'Dirección completa', 'text', false, 'blue')}
 
-                {/* Cuarta fila: Departamento y Localidad */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    'departamento',
-                    'Departamento',
-                    'Departamento',
-                    'text',
-                    undefined,
-                    false,
-                    'blue'
-                  )}
-                  {renderInput(
-                    'localidad',
-                    'Localidad',
-                    'Localidad',
-                    'text',
-                    undefined,
-                    false,
-                    'blue'
-                  )}
+                  {renderInput('departamento', 'Departamento', 'Departamento', 'text', false, 'blue')}
+                  {renderInput('localidad', 'Localidad', 'Localidad', 'text', false, 'blue')}
                 </div>
 
-                {/* Quinta fila: Teléfono y Email */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    'telefono',
-                    'Teléfono',
-                    'Número de teléfono',
-                    'tel',
-                    <Phone className="w-4 h-4 inline" />,
-                    false,
-                    'blue'
-                  )}
-                  {renderInput(
-                    'email',
-                    'Email',
-                    'Correo electrónico',
-                    'email',
-                    <Mail className="w-4 h-4 inline" />,
-                    false,
-                    'blue'
-                  )}
+                  {renderInput('telefono', 'Teléfono', 'Número de teléfono', 'tel', false, 'blue')}
+                  {renderInput('email', 'Email', 'Correo electrónico', 'email', false, 'blue')}
                 </div>
               </div>
             </div>
@@ -737,78 +829,57 @@ const getAutoFillStats = (): string => {
                 Información de la Póliza
               </h3>
 
-              <div className="space-y-4">
-                {/* Primera fila: Número de Póliza y Prima */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    'numeroPoliza',
-                    'Número de Póliza',
-                    'Número de póliza',
-                    'text',
-                    true
-                  )}
-                  {renderInput(
-                    'prima',
-                    'Prima',
-                    '0.00',
-                    'text',     
-                    true,
-                  )}
+              <div className="space-y-6">
+                {/* DATOS DEL WIZARD - SOLO LECTURA */}
+                <div className="space-y-4">
+                  <h4 className={`text-lg font-semibold ${
+                    isDarkMode ? 'text-purple-200' : 'text-purple-700'
+                  } border-b pb-2`}>
+                    Datos del Wizard
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderReadOnlyField('Cliente', getClienteDisplay(), '(Paso 1)')}
+                    {renderReadOnlyField('Compañía', getCompaniaDisplay(), '(Paso 2)')}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderReadOnlyField('Sección', getSeccionDisplay(), '(Paso 3)')}
+                    {renderReadOnlyField('Tipo de Operación', getOperacionDisplay(), '(Paso 4)')}
+                  </div>
                 </div>
 
-                {/* Segunda fila: Vigencias */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    'vigenciaDesde',
-                    'Vigencia Desde',
-                    'dd/mm/aaaa', // ✅ Placeholder descriptivo
-                    'text',       // ✅ CAMBIADO: de 'date' a 'text'
-                    true,
-                  )}
-                  {renderInput(
-                    'vigenciaHasta',
-                    'Vigencia Hasta',
-                    'dd/mm/aaaa', // ✅ Placeholder descriptivo
-                    'text',       // ✅ CAMBIADO: de 'date' a 'text'
-                    true
-                  )}
-                </div>
+                {/* DATOS EDITABLES DE LA PÓLIZA */}
+                <div className="space-y-4">
+                  <h4 className={`text-lg font-semibold ${
+                    isDarkMode ? 'text-purple-200' : 'text-purple-700'
+                  } border-b pb-2`}>
+                    Datos de la Póliza
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderInput('numeroPoliza', 'Número de Póliza', 'Número de póliza', 'text', true, 'purple')}
+                    {renderInput('certificado', 'Certificado', 'Ej: Nº 1', 'text', false, 'purple')}
+                  </div>
 
-                {/* Tercera fila: Moneda y Premio Total */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderSelect(
-                    'moneda',
-                    'Moneda',
-                    [
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderInput('vigenciaDesde', 'Vigencia Desde', 'dd/mm/aaaa', 'text', true, 'purple')}
+                    {renderInput('vigenciaHasta', 'Vigencia Hasta', 'dd/mm/aaaa', 'text', true, 'purple')}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderInput('cobertura', 'Cobertura', 'Tipo de cobertura', 'text', false, 'purple')}
+                    {renderInput('zonaCirculacion', 'Zona de Circulación', 'Zona donde circula', 'text', false, 'purple')}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {renderSelect('moneda', 'Moneda', [
                       { value: 'UYU', label: 'Pesos Uruguayos (UYU)' },
                       { value: 'USD', label: 'Dólares (USD)' },
                       { value: 'EUR', label: 'Euros (EUR)' }
-                    ],
-                    false,
-                    'purple'
-                  )}
-                  {renderInput(
-                    'premioTotal',
-                    'Premio Total',
-                    '0.00',
-                    'text',      // ✅ CAMBIADO: de 'number' a 'text'
-                    false,
-                  )}
-                </div>
-              </div>
-
-              {/* Nota de auto-completado */}
-              <div className={`mt-4 p-3 rounded-lg ${
-                isDarkMode 
-                  ? 'bg-green-900/30 border border-green-800/50' 
-                  : 'bg-green-100 border border-green-300'
-              }`}>
-                <div className="flex items-center">
-                  <CheckCircle className="w-5 h-5 mr-2 text-green-500" />
-                  <span className={`text-sm ${isDarkMode ? 'text-green-300' : 'text-green-700'}`}>
-                    Campos mapeados automáticamente desde Azure Document Intelligence. 
-                    Puedes modificarlos si es necesario antes de enviar a Velneo.
-                  </span>
+                    ], false, 'purple')}
+                    {renderInput('codigoMoneda', 'Código Moneda', 'Código numérico', 'text', false, 'purple')}
+                  </div>
                 </div>
               </div>
             </div>
@@ -831,112 +902,48 @@ const getAutoFillStats = (): string => {
               </h3>
 
               <div className="space-y-4">
-                {/* Primera fila: Marca y Modelo */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    'marca',
-                    'Marca',
-                    'Marca del vehículo',
-                    'text',
-                    undefined,
-                    false,
-                    'green'
-                  )}
-                  {renderInput(
-                    'modelo',
-                    'Modelo',
-                    'Modelo del vehículo',
-                    'text',
-                    undefined,
-                    false,
-                    'green'
-                  )}
+                  {renderInput('marca', 'Marca', 'Marca del vehículo', 'text', false, 'green')}
+                  {renderInput('modelo', 'Modelo', 'Modelo del vehículo', 'text', false, 'green')}
                 </div>
 
-                {/* Segunda fila: Matrícula y Año */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    'matricula',
-                    'Matrícula',
-                    'Matrícula',
-                    'text',
-                    undefined,
-                    false,
-                    'green'
-                  )}
-                  {renderInput(
-                    'anio',
-                    'Año',
-                    '2024',
-                    'number',
-                    undefined,
-                    false,
-                    'green'
-                  )}
+                  {renderInput('matricula', 'Matrícula', 'Matrícula', 'text', false, 'green')}
+                  {renderInput('anio', 'Año', '2024', 'text', false, 'green')}
                 </div>
 
-                {/* Tercera fila: Motor y Chasis */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderInput(
-                    'motor',
-                    'Motor',
-                    'Número de motor',
-                    'text',
-                    undefined,
-                    false,
-                    'green'
-                  )}
-                  {renderInput(
-                    'chasis',
-                    'Chasis',
-                    'Número de chasis',
-                    'text',
-                    undefined,
-                    false,
-                    'green'
-                  )}
+                  {renderInput('motor', 'Motor', 'Número de motor', 'text', false, 'green')}
+                  {renderInput('chasis', 'Chasis', 'Número de chasis', 'text', false, 'green')}
                 </div>
 
-                {/* Cuarta fila: Tipo y Uso */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderSelect(
-                    'tipoVehiculo',
-                    'Tipo de Vehículo',
-                    [
-                      { value: 'SEDAN', label: 'Sedán' },
-                      { value: 'HATCHBACK', label: 'Hatchback' },
-                      { value: 'SUV', label: 'SUV' },
-                      { value: 'PICKUP', label: 'Pickup' },
-                      { value: 'COUPE', label: 'Coupé' },
-                      { value: 'CONVERTIBLE', label: 'Convertible' },
-                      { value: 'WAGON', label: 'Rural' },
-                      { value: 'VAN', label: 'Van' },
-                      { value: 'MOTOCICLETA', label: 'Motocicleta' }
-                    ],
-                    false,
-                    'green'
-                  )}
+                  {renderSelect('tipoVehiculo', 'Tipo de Vehículo', [
+                    { value: 'SEDAN', label: 'Sedán' },
+                    { value: 'HATCHBACK', label: 'Hatchback' },
+                    { value: 'SUV', label: 'SUV' },
+                    { value: 'PICKUP', label: 'Pickup' },
+                    { value: 'COUPE', label: 'Coupé' },
+                    { value: 'CONVERTIBLE', label: 'Convertible' },
+                    { value: 'WAGON', label: 'Rural' },
+                    { value: 'VAN', label: 'Van' },
+                    { value: 'MOTOCICLETA', label: 'Motocicleta' }
+                  ], false, 'green')}
 
-                  {renderSelect(
-                    'uso',
-                    'Uso',
-                    [
-                      { value: 'FAMILIAR', label: 'Familiar' },
-                      { value: 'TRABAJO', label: 'Trabajo' },
-                      { value: 'COMERCIAL', label: 'Comercial' },
-                      { value: 'PROFESIONAL', label: 'Profesional' },
-                      { value: 'DEPORTIVO', label: 'Deportivo' }
-                    ],
-                    false,
-                    'green'
-                  )}
+                  {renderSelect('uso', 'Uso', [
+                    { value: 'FAMILIAR', label: 'Familiar' },
+                    { value: 'TRABAJO', label: 'Trabajo' },
+                    { value: 'COMERCIAL', label: 'Comercial' },
+                    { value: 'PROFESIONAL', label: 'Profesional' },
+                    { value: 'DEPORTIVO', label: 'Deportivo' }
+                  ], false, 'green')}
                 </div>
               </div>
             </div>
           </div>
         );
 
-      case 'pago':
+      case 'condiciones':
         return (
           <div className="space-y-8">
             <div className={`rounded-2xl p-6 ${
@@ -953,31 +960,46 @@ const getAutoFillStats = (): string => {
 
               <div className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {renderSelect(
-                    'formaPago',
-                    'Forma de Pago',
-                    [
-                      { value: 'CONTADO', label: 'Contado' },
-                      { value: 'FINANCIADO', label: 'Financiado' },
-                      { value: 'DEBITO_AUTOMATICO', label: 'Débito Automático' }
-                    ],
-                    false,
-                    'orange'
-                  )}
-
-                  {renderSelect(
-                    'cantidadCuotas',
-                    'Cuotas',
-                    [
-                      { value: '1', label: '1 cuota' },
-                      { value: '3', label: '3 cuotas' },
-                      { value: '6', label: '6 cuotas' },
-                      { value: '12', label: '12 cuotas' }
-                    ],
-                    false,
-                    'orange'
-                  )}
+                  {renderInput('prima', 'Prima', '0.00', 'text', true, 'orange')}
+                  {renderInput('premioTotal', 'Premio Total', '0.00', 'text', false, 'orange')}
                 </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderSelect('formaPago', 'Forma de Pago', [
+                    { value: 'CONTADO', label: 'Contado' },
+                    { value: 'TARJETA DE CRÉDITO', label: 'Tarjeta de Crédito' },
+                    { value: 'DÉBITO AUTOMÁTICO', label: 'Débito Automático' },
+                    { value: 'FINANCIADO', label: 'Financiado' },
+                    { value: 'TRANSFERENCIA', label: 'Transferencia' }
+                  ], false, 'orange')}
+
+                  {renderInput('cantidadCuotas', 'Cantidad de Cuotas', 'Ej: 1, 3, 6, 12', 'text', false, 'orange')}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderInput('valorCuota', 'Valor por Cuota', '0.00', 'text', false, 'orange')}
+                  {renderInput('primeraCuotaFecha', 'Fecha Primera Cuota', 'dd/mm/aaaa', 'text', false, 'orange')}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {renderInput('primeraCuotaMonto', 'Monto Primera Cuota', '0.00', 'text', false, 'orange')}
+                </div>
+
+                {formData.cantidadCuotas && formData.cantidadCuotas > 1 && (
+                  <div className={`mt-4 p-4 rounded-lg border ${
+                    isDarkMode 
+                      ? 'bg-blue-900/20 border-blue-800 text-blue-300' 
+                      : 'bg-blue-50 border-blue-200 text-blue-800'
+                  }`}>
+                    <div className="flex items-center mb-2">
+                      <Calendar className="w-4 h-4 mr-2" />
+                      <span className="font-semibold">Información de Cuotas</span>
+                    </div>
+                    <p className="text-sm">
+                      Se detectaron {formData.cantidadCuotas} cuotas. El desglose completo con fechas se incluirá automáticamente en las observaciones.
+                    </p>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1014,7 +1036,7 @@ const getAutoFillStats = (): string => {
                         : 'bg-white border-indigo-200 focus:ring-indigo-100'
                     }`}
                     placeholder="Observaciones adicionales sobre la póliza..."
-                    rows={4}
+                    rows={8}
                   />
                 </div>
               </div>
@@ -1068,7 +1090,7 @@ const getAutoFillStats = (): string => {
                   </h3>
                   {!isAutoFilling && (
                     <p className="text-sm text-blue-600/80 dark:text-blue-400/80">
-                      {autoFilledFields.size} campos completados automáticamente desde el PDF
+                      {getAutoFillStats()}
                     </p>
                   )}
                 </div>
@@ -1104,7 +1126,7 @@ const getAutoFillStats = (): string => {
                     'documento': 'basicos',
                     'vigenciaDesde': 'poliza',
                     'vigenciaHasta': 'poliza',
-                    'prima': 'pago',
+                    'prima': 'condiciones',
                     'marca': 'vehiculo',
                     'modelo': 'vehiculo',
                     'matricula': 'vehiculo'

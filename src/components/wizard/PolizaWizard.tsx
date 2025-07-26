@@ -1,6 +1,3 @@
-// src/components/wizard/PolizaWizard.tsx
-// ✅ VERSIÓN CORREGIDA - Propiedades del hook ajustadas
-
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 
