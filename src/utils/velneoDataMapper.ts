@@ -1,5 +1,3 @@
-// src/utils/velneoDataMappers.ts
-
 import { PolizaFormData, PolizaCreateRequest } from '../types/core/poliza';
 import { ValidationError } from '../types/wizard/validation';
 

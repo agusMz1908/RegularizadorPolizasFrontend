@@ -402,7 +402,7 @@ export class AzureMapper {
           fields.push({
             field: fieldName,
             value: value,
-            confidence: azureResult.nivelConfianza || 0.8
+            confidence: azureResult.confidence || 0.8
           });
         }
       }

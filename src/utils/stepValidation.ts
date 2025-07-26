@@ -1,7 +1,9 @@
 // src/utils/stepValidation.ts
+// ✅ VERSIÓN CORREGIDA - ERRORES DE TIPOS SOLUCIONADOS
 
-import { WizardStepId, WizardState } from '../types/wizard';
+import { WizardStep, WizardState } from '../types/ui/wizard';
 import { PolizaFormData } from '../types/core/poliza';
+import { TipoOperacion } from './operationLogic';
 
 export interface StepValidationResult {
   isValid: boolean;
@@ -9,17 +11,27 @@ export interface StepValidationResult {
   warnings?: string[];
 }
 
+// ✅ Helper para acceso seguro a stepData
+const getStepData = (wizardState: WizardState, step: string): any => {
+  return wizardState.stepData?.[step as keyof typeof wizardState.stepData];
+};
+
+// ✅ Helper para conversión segura string -> number
+const toNumber = (value: string | number): number => {
+  if (typeof value === 'number') return value;
+  if (!value || value === '') return 0;
+  const parsed = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+  return isNaN(parsed) ? 0 : parsed;
+};
+
 /**
  * Valida si un paso puede completarse
  */
 export function validateStepCompletion(
-  stepId: WizardStepId,
+  stepId: WizardStep,
   wizardState: WizardState,
   formData?: PolizaFormData
 ): StepValidationResult {
-  const errors: string[] = [];
-  const warnings: string[] = [];
-
   switch (stepId) {
     case 'cliente':
       return validateClienteStep(wizardState, formData);
@@ -36,8 +48,8 @@ export function validateStepCompletion(
     case 'upload':
       return validateUploadStep(wizardState, formData);
     
-    case 'extract':
-      return validateExtractStep(wizardState, formData);
+    case 'processing':
+      return validateProcessingStep(wizardState, formData);
     
     case 'form':
       return validateFormStep(wizardState, formData);
@@ -56,30 +68,29 @@ export function validateStepCompletion(
 
 /**
  * Validación paso Cliente
- * ✅ CORREGIDO: Validar formato del listado, no formato de Velneo
  */
 function validateClienteStep(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
   const errors: string[] = [];
-  const clienteData = wizardState.stepData.cliente;
+  
+  // ✅ Acceso seguro al cliente seleccionado
+  const cliente = wizardState.selectedCliente;
 
-  if (!clienteData) {
+  if (!cliente) {
     errors.push('Debe seleccionar un cliente');
   } else {
-    // ✅ VALIDAR ID (campo común)
-    if (!clienteData.id) {
+    // ✅ Validar ID
+    if (!cliente.id) {
       errors.push('Cliente debe tener un ID válido');
     }
 
-    // ✅ VALIDAR NOMBRE (usar campos del listado, no de Velneo)
-    // El cliente del listado puede tener 'nombre' o 'clinom'
-    const nombreCliente = clienteData.nombre || clienteData.clinom;
+    // ✅ Validar nombre (usar campos reales del Cliente)
+    const nombreCliente = cliente.clinom || cliente.nombre;
     if (!nombreCliente) {
       errors.push('Cliente debe tener un nombre');
     }
 
-    // ✅ VALIDAR DOCUMENTO (usar campos del listado, no de Velneo)
-    // El cliente del listado puede tener 'documento' o los campos específicos de Velneo
-    const documentoCliente = clienteData.documento || clienteData.cliced || clienteData.cliruc;
+    // ✅ Validar documento (usar campos reales del Cliente)
+    const documentoCliente = cliente.cliced || cliente.cliruc || cliente.documento;
     if (!documentoCliente) {
       errors.push('Cliente debe tener un documento (CI o RUC)');
     }
@@ -97,15 +108,18 @@ function validateClienteStep(wizardState: WizardState, formData?: PolizaFormData
  */
 function validateCompanyStep(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
   const errors: string[] = [];
-  const companyData = wizardState.stepData.company;
+  
+  // ✅ Acceso seguro a la compañía seleccionada
+  const company = wizardState.selectedCompany;
 
-  if (!companyData) {
+  if (!company) {
     errors.push('Debe seleccionar una compañía');
   } else {
-    if (!companyData.id) {
+    if (!company.id) {
       errors.push('Compañía debe tener un ID válido');
     }
-    if (!companyData.nombre) {
+    // ✅ Usar campo real 'nombre' de Company
+    if (!company.nombre) {
       errors.push('Compañía debe tener un nombre');
     }
   }
@@ -122,16 +136,19 @@ function validateCompanyStep(wizardState: WizardState, formData?: PolizaFormData
  */
 function validateSeccionStep(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
   const errors: string[] = [];
-  const seccionData = wizardState.stepData.seccion;
+  
+  // ✅ Acceso seguro a la sección seleccionada
+  const seccion = wizardState.selectedSeccion;
 
-  if (!seccionData) {
+  if (!seccion) {
     errors.push('Debe seleccionar una sección');
   } else {
-    if (!seccionData.id) {
+    if (!seccion.id) {
       errors.push('Sección debe tener un ID válido');
     }
-    if (!seccionData.codigo) {
-      errors.push('Sección debe tener un código');
+    // ✅ Usar campo real 'seccion' de Seccion
+    if (!seccion.seccion) {
+      errors.push('Sección debe tener un nombre');
     }
   }
 
@@ -147,13 +164,16 @@ function validateSeccionStep(wizardState: WizardState, formData?: PolizaFormData
  */
 function validateOperacionStep(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
   const errors: string[] = [];
-  const operacionData = wizardState.stepData.operacion;
+  
+  // ✅ Acceso seguro a la operación seleccionada
+  const operacion = wizardState.selectedOperacion;
 
-  if (!operacionData) {
+  if (!operacion) {
     errors.push('Debe seleccionar un tipo de operación');
   } else {
-    const validOperations = ['Nuevo', 'Renovacion', 'Endoso', 'Cancelacion'];
-    if (!validOperations.includes(operacionData.tipo)) {
+    // ✅ Validar usando TipoOperacion enum
+    const validOperations: TipoOperacion[] = ['EMISION', 'RENOVACION', 'ENDOSO'];
+    if (!validOperations.includes(operacion)) {
       errors.push('Tipo de operación no válido');
     }
   }
@@ -171,32 +191,28 @@ function validateOperacionStep(wizardState: WizardState, formData?: PolizaFormDa
 function validateUploadStep(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const uploadData = wizardState.stepData.upload;
+  
+  // ✅ Acceso seguro al archivo subido
+  const uploadedFile = wizardState.uploadedFile;
 
-  if (!uploadData || !uploadData.files || uploadData.files.length === 0) {
-    errors.push('Debe subir al menos un documento');
+  if (!uploadedFile) {
+    errors.push('Debe subir un documento');
   } else {
-    // Validar tipos de archivo
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
-    const invalidFiles = uploadData.files.filter((file: any) => 
-      !allowedTypes.includes(file.type)
-    );
-    
-    if (invalidFiles.length > 0) {
-      errors.push('Solo se permiten archivos PDF, JPG y PNG');
+    // Validar tipo de archivo
+    const allowedTypes = ['application/pdf'];
+    if (!allowedTypes.includes(uploadedFile.type)) {
+      errors.push('Solo se permiten archivos PDF');
     }
 
     // Validar tamaño
     const maxSize = 10 * 1024 * 1024; // 10MB
-    const oversizedFiles = uploadData.files.filter((file: any) => file.size > maxSize);
-    
-    if (oversizedFiles.length > 0) {
-      errors.push('Los archivos no pueden superar los 10MB');
+    if (uploadedFile.size > maxSize) {
+      errors.push('El archivo no puede superar los 10MB');
     }
 
     // Advertencias
-    if (uploadData.files.length > 5) {
-      warnings.push('Muchos archivos subidos, el procesamiento puede tardar más');
+    if (uploadedFile.size > 5 * 1024 * 1024) { // 5MB
+      warnings.push('Archivo grande, el procesamiento puede tardar más');
     }
   }
 
@@ -208,18 +224,24 @@ function validateUploadStep(wizardState: WizardState, formData?: PolizaFormData)
 }
 
 /**
- * Validación paso Extract
+ * Validación paso Processing (antes Extract)
  */
-function validateExtractStep(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
+function validateProcessingStep(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const extractData = wizardState.stepData.extract;
+  
+  // ✅ Acceso seguro a los datos extraídos
+  const extractedData = wizardState.extractedData;
 
   // Este paso puede ser opcional si no se pudo procesar
-  if (!extractData) {
+  if (!extractedData) {
     warnings.push('No se extrajeron datos automáticamente, deberá completar manualmente');
   } else {
-    if (extractData.confidence && extractData.confidence < 0.7) {
+    if (!extractedData.success) {
+      warnings.push('El procesamiento no fue completamente exitoso, verifique los datos');
+    }
+    
+    if (extractedData.confidence && extractedData.confidence < 70) {
       warnings.push('Baja confianza en la extracción, verifique los datos cuidadosamente');
     }
   }
@@ -238,8 +260,8 @@ function validateFormStep(wizardState: WizardState, formData?: PolizaFormData): 
   const errors: string[] = [];
   const warnings: string[] = [];
 
-  // Usar formData si está disponible, sino usar datos del wizard
-  const data = formData || wizardState.stepData.form;
+  // ✅ Usar formData si está disponible
+  const data = formData;
 
   if (!data) {
     errors.push('No hay datos del formulario para validar');
@@ -263,7 +285,9 @@ function validateFormStep(wizardState: WizardState, formData?: PolizaFormData): 
     errors.push('Fecha de fin de vigencia es obligatoria');
   }
 
-  if (!data.prima || data.prima <= 0) {
+  // ✅ Validación corregida para prima como string
+  const primaNum = toNumber(data.prima);
+  if (!data.prima || primaNum <= 0) {
     errors.push('Prima debe ser mayor a cero');
   }
 
@@ -283,8 +307,8 @@ function validateFormStep(wizardState: WizardState, formData?: PolizaFormData): 
   }
 
   // Validaciones específicas por sección
-  const seccionData = wizardState.stepData.seccion;
-  if (seccionData?.codigo === 'AUTO') {
+  const seccion = wizardState.selectedSeccion;
+  if (seccion?.seccion === 'AUTOMOVILES') {
     if (!data.matricula) {
       errors.push('Matrícula es obligatoria para seguros de auto');
     }
@@ -303,9 +327,39 @@ function validateFormStep(wizardState: WizardState, formData?: PolizaFormData): 
 /**
  * Verifica si todos los pasos requeridos están completados
  */
-export function areRequiredStepsCompleted(wizardState: WizardState, steps: any[]): boolean {
-  const requiredSteps = steps.filter(step => step.required);
-  return requiredSteps.every(step => wizardState.completedSteps.has(step.id));
+export function areRequiredStepsCompleted(
+  wizardState: WizardState, 
+  requiredSteps: WizardStep[]
+): boolean {
+  // ✅ Verificar que los campos requeridos estén presentes
+  const hasCliente = !!wizardState.selectedCliente;
+  const hasCompany = !!wizardState.selectedCompany;
+  const hasSeccion = !!wizardState.selectedSeccion;
+  const hasOperacion = !!wizardState.selectedOperacion;
+  const hasFile = !!wizardState.uploadedFile;
+
+  // Verificar según los pasos requeridos
+  for (const step of requiredSteps) {
+    switch (step) {
+      case 'cliente':
+        if (!hasCliente) return false;
+        break;
+      case 'company':
+        if (!hasCompany) return false;
+        break;
+      case 'seccion':
+        if (!hasSeccion) return false;
+        break;
+      case 'operacion':
+        if (!hasOperacion) return false;
+        break;
+      case 'upload':
+        if (!hasFile) return false;
+        break;
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -313,14 +367,70 @@ export function areRequiredStepsCompleted(wizardState: WizardState, steps: any[]
  */
 export function getFirstStepWithErrors(
   wizardState: WizardState,
-  steps: any[],
+  steps: WizardStep[],
   formData?: PolizaFormData
-): WizardStepId | null {
+): WizardStep | null {
   for (const step of steps) {
-    const validation = validateStepCompletion(step.id, wizardState, formData);
+    const validation = validateStepCompletion(step, wizardState, formData);
     if (!validation.isValid) {
-      return step.id;
+      return step;
     }
   }
   return null;
 }
+
+/**
+ * Valida el estado completo del wizard
+ */
+export function validateWizardState(wizardState: WizardState, formData?: PolizaFormData): StepValidationResult {
+  const errors: string[] = [];
+  const warnings: string[] = [];
+
+  // Validar cada paso
+  const steps: WizardStep[] = ['cliente', 'company', 'seccion', 'operacion', 'upload'];
+  
+  for (const step of steps) {
+    const validation = validateStepCompletion(step, wizardState, formData);
+    errors.push(...validation.errors);
+    warnings.push(...(validation.warnings || []));
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+    warnings
+  };
+}
+
+/**
+ * Obtiene el siguiente paso válido
+ */
+export function getNextValidStep(wizardState: WizardState): WizardStep | null {
+  const stepOrder: WizardStep[] = [
+    'cliente', 
+    'company', 
+    'seccion', 
+    'operacion', 
+    'upload', 
+    'processing', 
+    'form', 
+    'success'
+  ];
+
+  for (const step of stepOrder) {
+    const validation = validateStepCompletion(step, wizardState);
+    if (!validation.isValid) {
+      return step;
+    }
+  }
+
+  return null;
+}
+
+export default {
+  validateStepCompletion,
+  areRequiredStepsCompleted,
+  getFirstStepWithErrors,
+  validateWizardState,
+  getNextValidStep
+};

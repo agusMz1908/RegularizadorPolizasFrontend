@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { PolizaFormData } from '../../types/core/poliza';
-import { WizardState, WizardStepId } from '../../types/wizard'; // ✅ CORREGIDO
+import { WizardState, WizardStep } from '../../types/ui/wizard'; // ✅ CORREGIDO
 
 // ============================================================================
 // 🎯 TIPOS DEL HOOK
@@ -23,7 +23,7 @@ export interface PersistenceData {
   
   // Control
   isComplete: boolean;
-  currentStep: WizardStepId;
+  currentStep: WizardStep;
   completedSteps: string[];
 }
 

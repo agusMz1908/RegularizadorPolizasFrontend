@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { WizardStepId } from '../../types/wizard'; 
+import { WizardStep } from '../../types/ui/wizard'; 
 
 export interface TransitionConfig {
   duration?: number; 
@@ -18,8 +18,8 @@ export interface TransitionConfig {
   stagger?: number; // Para elementos múltiples
   
   // Callbacks
-  onTransitionStart?: (from: WizardStepId, to: WizardStepId) => void;
-  onTransitionEnd?: (from: WizardStepId, to: WizardStepId) => void;
+  onTransitionStart?: (from: WizardStep, to: WizardStep) => void;
+  onTransitionEnd?: (from: WizardStep, to: WizardStep) => void;
   onTransitionCancel?: () => void;
 }
 
@@ -36,8 +36,8 @@ export type TransitionState =
 export interface TransitionStatus {
   state: TransitionState;
   progress: number; // 0-1
-  fromStep: WizardStepId | null;
-  toStep: WizardStepId | null;
+  fromStep: WizardStep | null;
+  toStep: WizardStep | null;
   direction: TransitionDirection;
   startTime: number;
   duration: number;
@@ -57,8 +57,8 @@ export interface UseStepTransitionsReturn {
   
   // Control de transición
   startTransition: (
-    fromStep: WizardStepId,
-    toStep: WizardStepId,
+    fromStep: WizardStep,
+    toStep: WizardStep,
     direction?: TransitionDirection
   ) => Promise<void>;
   cancelTransition: () => void;
@@ -67,17 +67,17 @@ export interface UseStepTransitionsReturn {
   updateConfig: (newConfig: Partial<TransitionConfig>) => void;
   
   // Para componentes
-  getStepVariants: (stepId: WizardStepId) => AnimationVariants;
+  getStepVariants: (stepId: WizardStep) => AnimationVariants;
   getContainerProps: () => any;
-  shouldPreloadStep: (stepId: WizardStepId) => boolean;
+  shouldPreloadStep: (stepId: WizardStep) => boolean;
   
   // Estado
   currentStatus: TransitionStatus;
   error: string | null;
   
   // Utilidades
-  getTransitionStyles: (stepId: WizardStepId) => React.CSSProperties;
-  isStepVisible: (stepId: WizardStepId) => boolean;
+  getTransitionStyles: (stepId: WizardStep) => React.CSSProperties;
+  isStepVisible: (stepId: WizardStep) => boolean;
   canTransition: () => boolean;
 }
 
@@ -134,7 +134,7 @@ export const useStepTransitions = (
   const timeoutRef = useRef<number | null>(null); // ✅ CAMBIADO a number
   const startTimeRef = useRef<number>(0);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const preloadedStepsRef = useRef<Set<WizardStepId>>(new Set());
+  const preloadedStepsRef = useRef<Set<WizardStep>>(new Set());
 
   // ============================================================================
   // 🔧 FUNCIONES AUXILIARES - MOVIDAS AL INICIO
@@ -162,8 +162,8 @@ export const useStepTransitions = (
    * Inicia una transición entre pasos
    */
   const startTransition = useCallback(async (
-    fromStep: WizardStepId,
-    toStep: WizardStepId,
+    fromStep: WizardStep,
+    toStep: WizardStep,
     transitionDirection: TransitionDirection = 'forward'
   ): Promise<void> => {
     // Verificar si ya hay una transición en curso
@@ -320,8 +320,8 @@ export const useStepTransitions = (
    * Prepara la transición
    */
   const prepareTransition = useCallback(async (
-    fromStep: WizardStepId,
-    toStep: WizardStepId
+    fromStep: WizardStep,
+    toStep: WizardStep
   ): Promise<void> => {
     // Precargar paso de destino si está habilitado
     if (enablePreload && !preloadedStepsRef.current.has(toStep)) {
@@ -338,7 +338,7 @@ export const useStepTransitions = (
    * Anima la salida del paso actual
    */
   const animateExit = useCallback(async (
-    fromStep: WizardStepId,
+    fromStep: WizardStep,
     direction: TransitionDirection
   ): Promise<void> => {
     return new Promise((resolve) => {
@@ -375,7 +375,7 @@ export const useStepTransitions = (
    * Anima la entrada del nuevo paso
    */
   const animateEnter = useCallback(async (
-    toStep: WizardStepId,
+    toStep: WizardStep,
     direction: TransitionDirection
   ): Promise<void> => {
     return new Promise((resolve) => {
@@ -411,7 +411,7 @@ export const useStepTransitions = (
   /**
    * Precarga un paso
    */
-  const preloadStep = useCallback(async (stepId: WizardStepId): Promise<void> => {
+  const preloadStep = useCallback(async (stepId: WizardStep): Promise<void> => {
     // Marcar como precargado
     preloadedStepsRef.current.add(stepId);
     
@@ -428,7 +428,7 @@ export const useStepTransitions = (
   /**
    * Obtiene las variantes de animación para un paso
    */
-  const getStepVariants = useCallback((stepId: WizardStepId): AnimationVariants => {
+  const getStepVariants = useCallback((stepId: WizardStep): AnimationVariants => {
     const { fromStep, toStep, direction: transitionDirection } = currentStatus;
     const isCurrentStep = stepId === toStep;
     const isPreviousStep = stepId === fromStep;
@@ -583,14 +583,14 @@ export const useStepTransitions = (
   /**
    * Verifica si un paso debe precargarse
    */
-  const shouldPreloadStep = useCallback((stepId: WizardStepId): boolean => {
+  const shouldPreloadStep = useCallback((stepId: WizardStep): boolean => {
     return enablePreload && !preloadedStepsRef.current.has(stepId);
   }, [enablePreload]);
 
   /**
    * Obtiene estilos de transición para un paso
    */
-  const getTransitionStyles = useCallback((stepId: WizardStepId): React.CSSProperties => {
+  const getTransitionStyles = useCallback((stepId: WizardStep): React.CSSProperties => {
     const { fromStep, toStep } = currentStatus;
     const isCurrentStep = stepId === toStep;
     const isPreviousStep = stepId === fromStep;
@@ -622,7 +622,7 @@ export const useStepTransitions = (
   /**
    * Verifica si un paso es visible
    */
-  const isStepVisible = useCallback((stepId: WizardStepId): boolean => {
+  const isStepVisible = useCallback((stepId: WizardStep): boolean => {
     const { fromStep, toStep } = currentStatus;
     return stepId === fromStep || stepId === toStep;
   }, [currentStatus]);

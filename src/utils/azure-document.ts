@@ -146,34 +146,6 @@ export interface MetricasExtraccion {
   camposProblemáticos: string[];
 }
 
-// ================================
-// PARA COMPATIBILIDAD CON WIZARD
-// ================================
-
-export interface DocumentProcessResult {
-  documentId: string;
-  nombreArchivo: string;
-  estadoProcesamiento: string;
-  timestamp?: string;
-  
-  // Datos principales extraídos
-  numeroPoliza?: string;
-  asegurado?: string;
-  vigenciaDesde?: string;
-  vigenciaHasta?: string;
-  prima?: number;
-  
-  // Metadatos
-  nivelConfianza?: number;
-  requiereVerificacion?: boolean;
-  readyForVelneo?: boolean;
-  
-  // ✅ DATOS COMPLETOS DESDE EL BACKEND
-  datosVelneo?: DatosVelneo;  // La estructura completa del backend
-  tiempoProcesamiento?: number;
-  porcentajeCompletitud?: number;
-}
-
 export interface DatosClienteExtraidos {
   nombre?: string;
   documento?: string;

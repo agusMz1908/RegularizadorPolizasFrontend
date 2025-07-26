@@ -1,35 +1,35 @@
 // src/utils/formDataMapper.ts
+// ✅ VERSIÓN CORREGIDA - TIPOS COMPATIBLES
 
-// ✅ Importaciones corregidas - archivo está en src/utils/
 import { PolizaFormData, PolizaCreateRequest } from '../types/core/poliza';
 import { DocumentProcessResult } from '../types/ui/wizard';
 import { ValidationError, ValidationResult } from '../types/wizard/validation';
 
-// ✅ Tipos auxiliares para el mapper
-interface PolizaFormDataTemp {
-  clienteId: number;
-  companiaId: number;
-  seccionId: number;
-  clienteNombre: string;
-  clienteDocumento: string;
-  clienteTelefono: string;
-  clienteEmail: string;
-  clienteDireccion: string;
-  numeroPoliza: string;
-  fechaInicio: Date;
-  fechaVencimiento: Date;
-  sumaAsegurada: number;
-  premio: number;
-  vehiculoMarca: string;
-  vehiculoModelo: string;
-  vehiculoAno: number;
-  vehiculoPatente: string;
-  vehiculoChasis: string;
-  observaciones: string;
-  activa: boolean;
-}
+// ✅ Helpers para conversión de tipos
+const toStringValue = (value: any): string => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  return String(value);
+};
 
-// ✅ Tipos auxiliares para el mapper (por si necesitamos extender)
+const toNumberValue = (value: any): number => {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value.replace(/[^\d.-]/g, ''));
+    return isNaN(parsed) ? 0 : parsed;
+  }
+  return 0;
+};
+
+const toSafeNumber = (value: string | number): number => {
+  if (typeof value === 'number') return value;
+  if (!value || value === '') return 0;
+  const parsed = parseFloat(value.replace(/[^\d.-]/g, ''));
+  return isNaN(parsed) ? 0 : parsed;
+};
+
+// ✅ Tipos auxiliares para el mapper
 interface ExtractedField {
   name: string;
   value: string;
@@ -37,7 +37,6 @@ interface ExtractedField {
   boundingBox?: any;
 }
 
-// ✅ Tipos para las conversiones
 export interface FormDataMappingResult<T> {
   data: T;
   warnings: string[];
@@ -84,7 +83,9 @@ export function mapAzureToFormData(
 
     // Mapear campos básicos del cliente
     if (azureResult.extractedFields) {
-      azureResult.extractedFields.forEach((field: ExtractedField) => {
+      Object.entries(azureResult.extractedFields).forEach(([key, value]) => {
+        const field = { name: key, value: toStringValue(value), confidence: 100 };
+        
         switch (field.name.toLowerCase()) {
           case 'nombre':
           case 'client_name':
@@ -134,13 +135,13 @@ export function mapAzureToFormData(
           case 'suma_asegurada':
           case 'insured_amount':
           case 'capital':
-            mappedData.primaComercial = parseFloat(field.value.replace(/[^\d.-]/g, '')) || 0;
+            mappedData.primaComercial = toStringValue(toNumberValue(field.value));
             break;
           case 'premio':
           case 'premium':
           case 'prima':
-            mappedData.prima = parseFloat(field.value.replace(/[^\d.-]/g, '')) || 0;
-            mappedData.premioTotal = parseFloat(field.value.replace(/[^\d.-]/g, '')) || 0;
+            mappedData.prima = toStringValue(toNumberValue(field.value));
+            mappedData.premioTotal = toStringValue(toNumberValue(field.value));
             break;
           
           // Datos del vehículo (si aplica)
@@ -185,13 +186,14 @@ export function mapAzureToFormData(
       // IDs del contexto
       clienteId: context.clienteId || 0,
       compania: context.companiaId || 0,
+      nombreCompania: '',
       seccionId: context.seccionId || 0,
       
       // Campos requeridos con valores por defecto
       numeroPoliza: mappedData.numeroPoliza || '',
       vigenciaDesde: mappedData.vigenciaDesde || new Date().toISOString().split('T')[0],
       vigenciaHasta: mappedData.vigenciaHasta || new Date(Date.now() + 365*24*60*60*1000).toISOString().split('T')[0],
-      prima: mappedData.prima || 0,
+      prima: mappedData.prima || '0',
       moneda: 'UYU',
       asegurado: mappedData.asegurado || '',
       cobertura: '',
@@ -218,17 +220,17 @@ export function mapAzureToFormData(
       combustible: '',
       color: '',
       
-      // Datos comerciales
-      primaComercial: mappedData.primaComercial || mappedData.prima || 0,
-      premioTotal: mappedData.premioTotal || mappedData.prima || 0,
+      // Datos comerciales - TODOS COMO STRING
+      primaComercial: mappedData.primaComercial || mappedData.prima || '0',
+      premioTotal: mappedData.premioTotal || mappedData.prima || '0',
       cantidadCuotas: 1,
-      valorCuota: 0,
+      valorCuota: '0',
       formaPago: 'Contado',
       primeraCuotaFecha: '',
-      primeraCuotaMonto: 0,
-      impuestoMSP: 0,
-      descuentos: 0,
-      recargos: 0,
+      primeraCuotaMonto: '0',
+      impuestoMSP: '0',
+      descuentos: '0',
+      recargos: '0',
       
       // Clasificaciones
       corredor: '',
@@ -262,7 +264,17 @@ export function mapAzureToFormData(
       tramiteVelneo: 'Nuevo',
       estadoPolizaVelneo: 'VIG',
       formaPagoVelneo: '1',
-      monedaVelneo: 'UYU'
+      monedaVelneo: 'UYU',
+      
+      // Campos adicionales
+      endoso: '',
+      tipoMovimiento: '',
+      zonaCirculacion: '',
+      codigoMoneda: '',
+      totalBonificaciones: '',
+      observacionesGestion: '',
+      informacionAdicional: '',
+      datosVelneo: undefined
     };
 
     const conversionTime = performance.now() - startTime;
@@ -273,7 +285,7 @@ export function mapAzureToFormData(
       errors,
       unmappedFields,
       conversionTime,
-      fieldsProcessed: azureResult.extractedFields?.length || 0
+      fieldsProcessed: Object.keys(azureResult.extractedFields || {}).length
     };
 
   } catch (error) {
@@ -310,7 +322,7 @@ export function mapFormDataToVelneo(
       conpol: formData.numeroPoliza,
       confchdes: formData.vigenciaDesde,
       confchhas: formData.vigenciaHasta,
-      conpremio: formData.prima,
+      conpremio: toSafeNumber(formData.prima), // Convertir string a number
       asegurado: formData.asegurado,
 
       // Datos del cliente
@@ -319,16 +331,16 @@ export function mapFormDataToVelneo(
       
       // Datos del vehículo
       conmaraut: formData.marca,
-      conanioaut: parseInt(formData.anio),
+      conanioaut: parseInt(formData.anio) || new Date().getFullYear(),
       conmataut: formData.matricula,
       conmotor: formData.motor,
       conchasis: formData.chasis,
       
-      // Datos comerciales
-      contot: formData.premioTotal,
+      // Datos comerciales - CONVERTIR STRINGS A NUMBERS
+      contot: toSafeNumber(formData.premioTotal),
       concuo: formData.cantidadCuotas,
       moncod: getMonedaId(formData.moneda),
-      conimp: formData.primaComercial,
+      conimp: toSafeNumber(formData.primaComercial),
       
       // Clasificaciones - convertir null a undefined para compatibilidad
       calidadId: formData.calidadId ?? undefined,
@@ -354,8 +366,8 @@ export function mapFormDataToVelneo(
       matricula: formData.matricula,
       combustible: formData.combustible,
       anio: parseInt(formData.anio) || new Date().getFullYear(),
-      primaComercial: formData.primaComercial,
-      premioTotal: formData.premioTotal,
+      primaComercial: toSafeNumber(formData.primaComercial),
+      premioTotal: toSafeNumber(formData.premioTotal),
       corredor: formData.corredor,
       plan: formData.plan,
       documento: formData.documento,
@@ -375,7 +387,7 @@ export function mapFormDataToVelneo(
       uso: formData.uso,
       formaPago: formData.formaPago,
       cantidadCuotas: formData.cantidadCuotas,
-      valorCuota: formData.valorCuota,
+      valorCuota: toSafeNumber(formData.valorCuota),
       tipo: formData.tipo,
       cobertura: formData.cobertura,
       certificado: formData.certificado,
@@ -441,7 +453,7 @@ export function validateFormData(
     }
   });
 
-  // Validaciones de negocio específicas
+  // Validaciones de negocio específicas - CORREGIDAS PARA STRINGS
   if (formData.vigenciaHasta <= formData.vigenciaDesde) {
     errors.push({
       field: 'vigenciaHasta',
@@ -450,7 +462,8 @@ export function validateFormData(
     });
   }
 
-  if (formData.prima < 0) {
+  const primaValue = toSafeNumber(formData.prima);
+  if (primaValue < 0) {
     errors.push({
       field: 'prima',
       message: 'La prima no puede ser negativa',
@@ -458,7 +471,8 @@ export function validateFormData(
     });
   }
 
-  if (formData.premioTotal < 0) {
+  const premioTotalValue = toSafeNumber(formData.premioTotal);
+  if (premioTotalValue < 0) {
     errors.push({
       field: 'premioTotal',
       message: 'El premio total no puede ser negativo',
@@ -491,8 +505,9 @@ export function validateFormData(
     });
   }
 
-  // Warnings
-  if (formData.primaComercial > 1000000) {
+  // Warnings - CORREGIDOS PARA STRINGS
+  const primaComercialValue = toSafeNumber(formData.primaComercial);
+  if (primaComercialValue > 1000000) {
     warnings.push({
       field: 'primaComercial',
       message: 'Prima muy alta, revisar con supervisor',
@@ -500,7 +515,7 @@ export function validateFormData(
     });
   }
 
-  if (formData.prima > formData.primaComercial * 1.5) {
+  if (primaValue > primaComercialValue * 1.5) {
     warnings.push({
       field: 'prima',
       message: 'Prima excesiva comparada con prima comercial',
@@ -558,10 +573,11 @@ function createEmptyFormData(context: MappingContext): PolizaFormData {
     numeroPoliza: '',
     vigenciaDesde: today,
     vigenciaHasta: nextYear,
-    prima: 0,
+    prima: '0',
     moneda: 'UYU',
     asegurado: '',
     compania: context.companiaId || 0,
+    nombreCompania: '',
     seccionId: context.seccionId || 0,
     clienteId: context.clienteId || 0,
     cobertura: '',
@@ -575,13 +591,13 @@ function createEmptyFormData(context: MappingContext): PolizaFormData {
     motor: '',
     chasis: '',
     anio: new Date().getFullYear().toString(),
-    primaComercial: 0,
-    premioTotal: 0,
+    primaComercial: '0',
+    premioTotal: '0',
     cantidadCuotas: 1,
-    valorCuota: 0,
+    valorCuota: '0',
     formaPago: 'Contado',
     primeraCuotaFecha: '',
-    primeraCuotaMonto: 0,
+    primeraCuotaMonto: '0',
     documento: '',
     email: '',
     telefono: '',
@@ -618,9 +634,9 @@ function createEmptyFormData(context: MappingContext): PolizaFormData {
 
     // Campos adicionales del hook usePolizaForm
     color: '',
-    impuestoMSP: 0,
-    descuentos: 0,
-    recargos: 0,
+    impuestoMSP: '0',
+    descuentos: '0',
+    recargos: '0',
     codigoPostal: '',
 
     // Campos específicos de Velneo
@@ -628,7 +644,17 @@ function createEmptyFormData(context: MappingContext): PolizaFormData {
     estadoPolizaVelneo: 'VIG',
     formaPagoVelneo: '1',
     monedaVelneo: 'UYU',
-    estadoGestionVelneo: '1'
+    estadoGestionVelneo: '1',
+    
+    // Campos adicionales
+    endoso: '',
+    tipoMovimiento: '',
+    zonaCirculacion: '',
+    codigoMoneda: '',
+    totalBonificaciones: '',
+    observacionesGestion: '',
+    informacionAdicional: '',
+    datosVelneo: undefined
   };
 }
 
@@ -642,39 +668,6 @@ function getMonedaId(moneda: string): number {
     case 'UI': return 3;
     default: return 1;
   }
-}
-
-/**
- * Parsea una fecha desde string a formato ISO
- */
-function parseDate(dateString: string): string {
-  // Intentar varios formatos comunes en Uruguay
-  const formats = [
-    /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, // DD/MM/YYYY
-    /^(\d{4})-(\d{1,2})-(\d{1,2})$/, // YYYY-MM-DD
-    /^(\d{1,2})-(\d{1,2})-(\d{4})$/, // DD-MM-YYYY
-  ];
-
-  for (const format of formats) {
-    const match = dateString.match(format);
-    if (match) {
-      let day, month, year;
-      if (format === formats[1]) { // YYYY-MM-DD
-        [, year, month, day] = match;
-      } else { // DD/MM/YYYY or DD-MM-YYYY
-        [, day, month, year] = match;
-      }
-      
-      const date = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
-      if (!isNaN(date.getTime())) {
-        return date.toISOString().split('T')[0];
-      }
-    }
-  }
-
-  // Fallback a Date constructor
-  const date = new Date(dateString);
-  return isNaN(date.getTime()) ? new Date().toISOString().split('T')[0] : date.toISOString().split('T')[0];
 }
 
 /**
@@ -702,7 +695,7 @@ export const defaultPolizaValidationRules: FormDataValidationRule[] = [
   {
     field: 'prima',
     required: true,
-    validator: (value: number) => value > 0,
+    validator: (value: string) => toSafeNumber(value) > 0,
     errorMessage: 'La prima debe ser mayor a 0'
   },
   {

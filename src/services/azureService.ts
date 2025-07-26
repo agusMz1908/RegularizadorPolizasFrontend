@@ -1,6 +1,3 @@
-// src/services/azureService.ts
-// ✅ VERSIÓN COMPLETA - Procesamiento Asíncrono con Polling
-
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
 import type { DocumentProcessResult } from '../types/ui/wizard';
@@ -458,42 +455,28 @@ private mapToWizardFormat(
   console.log('🔄 Mapeando respuesta de Azure a formato del wizard:', azureResponse);
 
   const documentResult: DocumentProcessResult = {
-    // ✅ IDs y metadatos básicos
-    documentId: `azure-${Date.now()}`,
-    nombreArchivo: fileName,
-    estadoProcesamiento: azureResponse.estado || 'completed',
-    timestamp: azureResponse.timestamp || new Date().toISOString(),
-    tiempoProcesamiento: azureResponse.tiempoProcesamiento || 0,
-    
-    // ✅ Estado de procesamiento
-    readyForVelneo: azureResponse.listoParaVelneo || false,
-    porcentajeCompletitud: azureResponse.porcentajeCompletitud || 100,
-    success: true,
-    confidence: azureResponse.porcentajeCompletitud || 0,
+    // ✅ CAMPOS REQUERIDOS DE DocumentProcessResult
+    success: azureResponse.procesamientoExitoso || true,
+    extractedFields: {}, // Se puede mantener vacío ya que los datos están en datosVelneo
+    confidence: azureResponse.porcentajeCompletitud || 100,
     needsReview: (azureResponse.porcentajeCompletitud || 0) < 80,
+    documentId: `azure-${Date.now()}`,
+    estadoProcesamiento: azureResponse.estado || 'PROCESADO',
     
-    // ✅ INCLUIR DATOS VELNEO COMPLETOS (CLAVE PARA FormStep)
+    // ✅ CAMPOS OPCIONALES CON SAFE ACCESS
+    archivo: fileName,
+    estado: azureResponse.estado || 'PROCESADO_CON_SMART_EXTRACTION',
+    listoParaVelneo: azureResponse.listoParaVelneo || false,
+    porcentajeCompletitud: azureResponse.porcentajeCompletitud || 100,
+    procesamientoExitoso: azureResponse.procesamientoExitoso || true,
+    tiempoProcesamiento: azureResponse.tiempoProcesamiento || 0,
+    timestamp: azureResponse.timestamp || new Date().toISOString(),
+    
+    // ✅ DATOS VELNEO COMPLETOS - ESTA ES LA CLAVE
     datosVelneo: azureResponse.datosVelneo,
     
-    // ✅ CAMPOS INDIVIDUALES MAPEADOS DESDE datosVelneo
-    numeroPoliza: azureResponse.datosVelneo?.datosPoliza?.numeroPoliza,
-    asegurado: azureResponse.datosVelneo?.datosBasicos?.asegurado,
-    vigenciaDesde: azureResponse.datosVelneo?.datosPoliza?.desde,
-    vigenciaHasta: azureResponse.datosVelneo?.datosPoliza?.hasta,
-    prima: azureResponse.datosVelneo?.condicionesPago?.prima,
-    documento: azureResponse.datosVelneo?.datosBasicos?.documento,
-    email: azureResponse.datosVelneo?.datosBasicos?.email,
-    telefono: azureResponse.datosVelneo?.datosBasicos?.telefono,
-    direccion: azureResponse.datosVelneo?.datosBasicos?.domicilio,
-    marca: azureResponse.datosVelneo?.datosVehiculo?.marca,
-    modelo: azureResponse.datosVelneo?.datosVehiculo?.modelo,
-    matricula: azureResponse.datosVelneo?.datosVehiculo?.matricula,
-    motor: azureResponse.datosVelneo?.datosVehiculo?.motor,
-    chasis: azureResponse.datosVelneo?.datosVehiculo?.chasis,
-    moneda: azureResponse.datosVelneo?.datosCobertura?.moneda,
-    
-    // ✅ Metadatos adicionales
-    originalResponse: azureResponse
+    // ✅ MAPEO DIRECTO A CAMPOS INDIVIDUALES (OPCIONAL PERO ÚTIL)
+    data: azureResponse // Para mantener compatibilidad
   };
 
   console.log('✅ Resultado mapeado para el wizard:', documentResult);

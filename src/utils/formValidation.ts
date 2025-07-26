@@ -1,5 +1,16 @@
+// src/utils/formValidation.ts
+// ✅ VERSIÓN CORREGIDA - MANEJO CORRECTO DE STRINGS Y NUMBERS
+
 import { PolizaFormData } from '../types/core/poliza';
 import { ValidationError, ValidationResult } from '../types/wizard/validation';
+
+// ✅ Helper para conversión segura string -> number
+const toNumber = (value: string | number): number => {
+  if (typeof value === 'number') return value;
+  if (!value || value === '') return 0;
+  const parsed = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+  return isNaN(parsed) ? 0 : parsed;
+};
 
 export function validateCI(ci: string): { isValid: boolean; error?: string; formatted?: string } {
   if (!ci) {
@@ -265,23 +276,27 @@ export function validateVigencia(desde: string, hasta: string): { isValid: boole
   };
 }
 
-export function validateMontos(prima: number, premioTotal?: number): { isValid: boolean; errors: string[] } {
+// ✅ CORREGIDA: Manejo correcto de prima como string
+export function validateMontos(prima: string | number, premioTotal?: string | number): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
 
-  if (!prima || prima <= 0) {
+  const primaNum = toNumber(prima);
+  const premioTotalNum = premioTotal !== undefined ? toNumber(premioTotal) : undefined;
+
+  if (!primaNum || primaNum <= 0) {
     errors.push('La prima debe ser mayor a 0');
   }
 
-  if (prima > 10000000) {
+  if (primaNum > 10000000) {
     errors.push('La prima parece excesivamente alta, verificar');
   }
 
-  if (premioTotal !== undefined) {
-    if (premioTotal < prima) {
+  if (premioTotalNum !== undefined) {
+    if (premioTotalNum < primaNum) {
       errors.push('El premio total no puede ser menor a la prima');
     }
 
-    if (premioTotal > prima * 2) {
+    if (premioTotalNum > primaNum * 2) {
       errors.push('El premio total parece excesivamente alto comparado con la prima');
     }
   }
@@ -368,6 +383,7 @@ export function validateLength(
   return { isValid: true };
 }
 
+// ✅ CORREGIDA: validatePolizaForm con manejo correcto de tipos
 export function validatePolizaForm(formData: PolizaFormData): ValidationResult {
   const errors: ValidationError[] = [];
   const warnings: ValidationError[] = [];
@@ -412,6 +428,7 @@ export function validatePolizaForm(formData: PolizaFormData): ValidationResult {
     });
   }
 
+  // ✅ CORREGIDA: Pasar prima como string
   const montosValidation = validateMontos(formData.prima, formData.premioTotal);
   if (!montosValidation.isValid) {
     montosValidation.errors.forEach(error => {
@@ -467,7 +484,9 @@ export function validatePolizaForm(formData: PolizaFormData): ValidationResult {
     }
   }
 
-  if (formData.prima > 100000) {
+  // ✅ CORREGIDA: Convertir prima a number antes de comparar
+  const primaNum = toNumber(formData.prima);
+  if (primaNum > 100000) {
     warnings.push({
       field: 'prima',
       message: 'Prima muy alta, revisar con supervisor',
@@ -490,6 +509,7 @@ export function validatePolizaForm(formData: PolizaFormData): ValidationResult {
   };
 }
 
+// ✅ CORREGIDA: validateField con manejo correcto de tipos
 export function validateField(
   fieldName: keyof PolizaFormData, 
   value: any, 
@@ -583,14 +603,16 @@ export function validateField(
       break;
 
     case 'prima':
-      if (value <= 0) {
+      // ✅ CORREGIDA: Convertir a number antes de validar
+      const primaNum = toNumber(value);
+      if (primaNum <= 0) {
         errors.push({
           field: fieldName,
           message: 'La prima debe ser mayor a 0',
           severity: 'error'
         });
       }
-      if (value > 100000) {
+      if (primaNum > 100000) {
         errors.push({
           field: fieldName,
           message: 'Prima muy alta, revisar con supervisor',

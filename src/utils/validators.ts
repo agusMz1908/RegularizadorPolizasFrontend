@@ -1,6 +1,6 @@
 /**
  * src/utils/validators.ts
- * Funciones de validación para formularios y datos
+ * ✅ VERSIÓN CORREGIDA - Manejo correcto de strings y numbers
  */
 
 import type { PolizaCreateRequest, PolizaFormData } from '../types/core/poliza';
@@ -21,6 +21,14 @@ export interface CampoValidacion {
   error?: string;
   valor: any;
 }
+
+// ✅ Helper para conversión segura string -> number
+const toNumber = (value: string | number): number => {
+  if (typeof value === 'number') return value;
+  if (!value || value === '') return 0;
+  const parsed = parseFloat(value.toString().replace(/[^\d.-]/g, ''));
+  return isNaN(parsed) ? 0 : parsed;
+};
 
 // ============================================================================
 // 🛡️ VALIDACIONES PRINCIPALES
@@ -236,7 +244,7 @@ export function validarTelefono(telefono: string): ValidationResult {
 }
 
 // ============================================================================
-// 🎯 VALIDACIONES DE FORMULARIO
+// 🎯 VALIDACIONES DE FORMULARIO - ✅ CORREGIDAS PARA STRINGS
 // ============================================================================
 
 /**
@@ -268,7 +276,9 @@ export function validarFormularioPoliza(data: PolizaFormData): ValidationResult 
     errores.push("Fecha de fin de vigencia es requerida");
   }
 
-  if (!data.prima || data.prima <= 0) {
+  // ✅ CORREGIDA: Convertir prima string a number antes de comparar
+  const primaNum = toNumber(data.prima);
+  if (!data.prima || primaNum <= 0) {
     errores.push("Prima debe ser mayor a 0");
   }
 
@@ -342,6 +352,72 @@ export function validarFecha(fecha: string, nombreCampo: string): ValidationResu
 }
 
 /**
+ * ✅ CORREGIDA: Validar prima (string o number)
+ */
+export function validarPrima(prima: string | number): ValidationResult {
+  const errores: string[] = [];
+  
+  const primaNum = toNumber(prima);
+  
+  if (primaNum <= 0) {
+    errores.push("Prima debe ser mayor a 0");
+  }
+  
+  if (primaNum > 10000000) {
+    errores.push("Prima parece excesivamente alta, verificar");
+  }
+  
+  return {
+    esValido: errores.length === 0,
+    errores
+  };
+}
+
+/**
+ * ✅ CORREGIDA: Validar montos del formulario
+ */
+export function validarMontosFormulario(data: PolizaFormData): ValidationResult {
+  const errores: string[] = [];
+  const warnings: string[] = [];
+
+  // Convertir strings a numbers
+  const primaNum = toNumber(data.prima);
+  const premioTotalNum = toNumber(data.premioTotal);
+  const primaComercialNum = toNumber(data.primaComercial);
+
+  // Validar prima
+  if (primaNum <= 0) {
+    errores.push("Prima debe ser mayor a 0");
+  }
+
+  // Validar premio total vs prima
+  if (premioTotalNum > 0 && premioTotalNum < primaNum) {
+    warnings.push("El premio total es menor que la prima");
+  }
+
+  // Validar prima comercial vs prima
+  if (primaComercialNum > 0 && Math.abs(primaNum - primaComercialNum) > primaNum * 0.5) {
+    warnings.push("Diferencia significativa entre prima y prima comercial");
+  }
+
+  // Validar cuotas
+  if (data.cantidadCuotas && data.cantidadCuotas > 1) {
+    const valorCuotaNum = toNumber(data.valorCuota);
+    const totalEsperado = valorCuotaNum * data.cantidadCuotas;
+    
+    if (Math.abs(totalEsperado - premioTotalNum) > premioTotalNum * 0.1) {
+      warnings.push("El total de cuotas no coincide con el premio total");
+    }
+  }
+
+  return {
+    esValido: errores.length === 0,
+    errores,
+    warnings
+  };
+}
+
+/**
  * Crear resumen de validación para UI
  */
 export function crearResumenValidacion(data: PolizaCreateRequest) {
@@ -374,3 +450,54 @@ export function crearResumenValidacion(data: PolizaCreateRequest) {
     }
   };
 }
+
+/**
+ * ✅ NUEVA: Validar formulario completo con manejo correcto de tipos
+ */
+export function validarFormularioCompleto(data: PolizaFormData): ValidationResult {
+  const errores: string[] = [];
+  const warnings: string[] = [];
+
+  // Validaciones básicas
+  const validacionBasica = validarFormularioPoliza(data);
+  errores.push(...validacionBasica.errores);
+  warnings.push(...(validacionBasica.warnings || []));
+
+  // Validaciones de montos
+  const validacionMontos = validarMontosFormulario(data);
+  errores.push(...validacionMontos.errores);
+  warnings.push(...(validacionMontos.warnings || []));
+
+  // Validaciones de fechas
+  if (data.vigenciaDesde && data.vigenciaHasta) {
+    const fechaDesde = new Date(data.vigenciaDesde);
+    const fechaHasta = new Date(data.vigenciaHasta);
+    
+    if (fechaHasta <= fechaDesde) {
+      errores.push("La fecha de fin debe ser posterior a la fecha de inicio");
+    }
+  }
+
+  return {
+    esValido: errores.length === 0,
+    errores,
+    warnings
+  };
+}
+
+export default {
+  validarCamposRequeridos,
+  validarConsistenciaDatos,
+  validarNumeroPoliza,
+  validarMatricula,
+  validarEmail,
+  validarTelefono,
+  validarFormularioPoliza,
+  validarPrima,
+  validarMontosFormulario,
+  validarFormularioCompleto,
+  limpiarString,
+  validarRango,
+  validarFecha,
+  crearResumenValidacion
+};

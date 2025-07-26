@@ -1,3 +1,6 @@
+// src/hooks/wizard/useDocumentProcessing.ts
+// ✅ VERSIÓN CORREGIDA - Compatible con DocumentProcessResult real
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { DocumentProcessResult } from '../../types/ui/wizard';
 
@@ -103,7 +106,7 @@ export const useDocumentProcessing = (
     enablePreprocessing = true,
     enableValidation = true,
     enableOptimization = true,
-    confidenceThreshold = 0.7,
+    confidenceThreshold = 70, // Cambiado a número entero
     onUploadStart,
     onUploadProgress,
     onUploadComplete,
@@ -135,8 +138,6 @@ export const useDocumentProcessing = (
   const abortControllerRef = useRef<AbortController | null>(null);
   const retryCountRef = useRef(0);
   const startTimeRef = useRef<number>(0);
-  const configRef = useRef(config);
-  configRef.current = config;
 
   // ============================================================================
   // 📁 VALIDACIÓN DE ARCHIVOS
@@ -373,12 +374,12 @@ export const useDocumentProcessing = (
       const finalMetrics = calculateMetrics(extractionResult);
       setMetrics(finalMetrics);
 
-      // Resultado final
+      // ✅ Resultado final usando propiedades reales de DocumentProcessResult
       const finalResult: DocumentProcessResult = {
         ...extractionResult,
         estadoProcesamiento: 'completado',
-        readyForVelneo: true,
-        nivelConfianza: finalMetrics.confidenceScore,
+        listoParaVelneo: true,
+        confidence: finalMetrics.confidenceScore,
         tiempoProcesamiento: finalMetrics.totalTime
       };
 
@@ -609,20 +610,21 @@ export const useDocumentProcessing = (
   }
 
   /**
-   * Valida los datos extraídos
+   * ✅ Valida los datos extraídos usando propiedades reales
    */
   async function validateExtractedData(result: DocumentProcessResult): Promise<Partial<DocumentProcessResult>> {
     // Simular validación
     await simulateProcessingDelay(500);
     
     return {
-      requiereVerificacion: (result.nivelConfianza || 0) < confidenceThreshold,
-      requiereRevision: !result.numeroPoliza || !result.asegurado
+      needsReview: (result.confidence || 0) < confidenceThreshold,
+      // Usar campos que existen en DocumentProcessResult
+      datosVelneo: result.datosVelneo
     };
   }
 
   /**
-   * Optimiza los resultados
+   * ✅ Optimiza los resultados usando propiedades reales
    */
   async function optimizeResults(result: DocumentProcessResult): Promise<Partial<DocumentProcessResult>> {
     // Simular optimización
@@ -630,16 +632,28 @@ export const useDocumentProcessing = (
     
     return {
       porcentajeCompletitud: calculateCompleteness(result),
-      listoParaVelneo: (result.nivelConfianza || 0) >= confidenceThreshold
+      listoParaVelneo: (result.confidence || 0) >= confidenceThreshold
     };
   }
 
   /**
-   * Calcula el porcentaje de completitud
+   * ✅ Calcula el porcentaje de completitud usando campos reales
    */
   function calculateCompleteness(result: DocumentProcessResult): number {
-    const requiredFields = ['numeroPoliza', 'asegurado', 'vigenciaDesde', 'vigenciaHasta'];
-    const presentFields = requiredFields.filter(field => result[field as keyof DocumentProcessResult]);
+    // Usar campos que realmente existen en datosVelneo
+    const datosBasicos = result.datosVelneo?.datosBasicos;
+    const datosPoliza = result.datosVelneo?.datosPoliza;
+    
+    if (!datosBasicos || !datosPoliza) return 0;
+    
+    const requiredFields = [
+      datosPoliza.numeroPoliza,
+      datosBasicos.asegurado,
+      datosPoliza.desde,
+      datosPoliza.hasta
+    ];
+    
+    const presentFields = requiredFields.filter(field => field);
     return Math.round((presentFields.length / requiredFields.length) * 100);
   }
 
@@ -655,8 +669,8 @@ export const useDocumentProcessing = (
       processingTime: totalTime,
       validationTime: 0,
       fileSize: uploadedFile?.size || 0,
-      fieldsExtracted: result.extractedFields?.length || 0,
-      confidenceScore: result.nivelConfianza || 0,
+      fieldsExtracted: Object.keys(result.extractedFields || {}).length,
+      confidenceScore: result.confidence || 0,
       retryCount: retryCountRef.current
     };
   }

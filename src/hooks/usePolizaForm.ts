@@ -1,11 +1,18 @@
-// ✅ src/hooks/usePolizaForm.ts - CORRECCIÓN COMPLETA
+// src/hooks/usePolizaForm.ts
+// ✅ VERSIÓN CORREGIDA - SIN ERRORES DE TYPES
 
 import { useState, useCallback, useEffect } from 'react';
 import { PolizaFormData } from '../types/core/poliza';
-import { ValidationError } from '../utils/processing';
+
+// ✅ TIPO LOCAL para validación - SIN import que causa problemas
+interface ValidationError {
+  field: string;
+  message: string;
+  type?: 'error' | 'warning';
+}
 
 interface UsePolizaFormOptions {
-  initialData?: Partial<PolizaFormData>;  // ✅ PARTIAL para permitir datos incompletos
+  initialData?: Partial<PolizaFormData>;
   ramoCode?: string;
   onValidation?: (isValid: boolean, errors: ValidationError[]) => void;
   onSubmit?: (data: PolizaFormData) => Promise<void> | void;
@@ -22,7 +29,7 @@ interface UsePolizaFormReturn {
     value: PolizaFormData[K]
   ) => void;
   
-  setFormData: React.Dispatch<React.SetStateAction<PolizaFormData>>;  // ✅ AGREGAR SETTER DIRECTO
+  setFormData: React.Dispatch<React.SetStateAction<PolizaFormData>>;
   
   validate: () => boolean;
   submitForm: () => Promise<boolean>;
@@ -35,37 +42,41 @@ interface UsePolizaFormReturn {
 export const usePolizaForm = (options: UsePolizaFormOptions = {}): UsePolizaFormReturn => {
   const { initialData, ramoCode, onValidation, onSubmit } = options;
   
+  // ✅ DEFAULTDATA COMPLETO - TODOS LOS CAMPOS DE PolizaFormData
   const defaultFormData: PolizaFormData = {
+    // ✅ CAMPOS REQUERIDOS
     numeroPoliza: '',
     vigenciaDesde: '',
     vigenciaHasta: '',
-    prima: 0,
-    moneda: 'PES',
+    prima: '',
+    moneda: 'UYU',
     asegurado: '',
     compania: 0,
+    nombreCompania: '',
     seccionId: 0,
     clienteId: 0,
     cobertura: '',
 
+    // ✅ CAMPOS OBLIGATORIOS EN EL TIPO
     nombreAsegurado: '',        
     chapa: '',              
     
+    // ✅ CAMPOS OPCIONALES EXISTENTES
     observaciones: '',
     vehiculo: '',
     marca: '',
     modelo: '',
+    matricula: '',
     motor: '',
     chasis: '',
-    matricula: '',
-    combustible: '',
     anio: '',
-    primaComercial: 0,
-    premioTotal: 0,
-    cantidadCuotas: 0,
-    valorCuota: 0,
+    primaComercial: '',
+    premioTotal: '',
+    cantidadCuotas: 1,
+    valorCuota: '',
     formaPago: '',
     primeraCuotaFecha: '',
-    primeraCuotaMonto: 0,
+    primeraCuotaMonto: '',
     documento: '',
     email: '',
     telefono: '',
@@ -80,32 +91,50 @@ export const usePolizaForm = (options: UsePolizaFormOptions = {}): UsePolizaForm
     tramite: '',
     tipo: '',
     destino: '',
+    combustible: '',
     calidad: '',
     categoria: '',
     tipoVehiculo: '',
     uso: '',
+
+    // ✅ IDs para combos
     combustibleId: null,
     categoriaId: null,
     destinoId: null,
     calidadId: null,
+
+    // ✅ CAMPOS ADICIONALES EXISTENTES
     operacion: null,
     seccion: '',
     color: '',
-    impuestoMSP: 0,
-    descuentos: 0,
-    recargos: 0,
+    impuestoMSP: '',
+    descuentos: '',
+    recargos: '',
     codigoPostal: '',
 
+    // ✅ CAMPOS ESPECÍFICOS DE VELNEO
     tramiteVelneo: undefined,
     estadoPolizaVelneo: undefined,
     formaPagoVelneo: undefined,
     monedaVelneo: undefined,
-    estadoGestionVelneo: ''
+    estadoGestionVelneo: '',
+
+    // ✅ CAMPOS NUEVOS QUE FALTABAN
+    endoso: '',
+    tipoMovimiento: '',
+    zonaCirculacion: '',
+    codigoMoneda: '',
+    totalBonificaciones: '',
+    observacionesGestion: '',
+    informacionAdicional: '',
+
+    // ✅ CAMPOS OPCIONALES ADICIONALES
+    datosVelneo: undefined
   };
 
   const [formData, setFormData] = useState<PolizaFormData>({
     ...defaultFormData,
-    ...initialData  // ✅ SOBRESCRIBIR CON DATOS INICIALES SI EXISTEN
+    ...initialData
   });
   
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
@@ -124,7 +153,7 @@ export const usePolizaForm = (options: UsePolizaFormOptions = {}): UsePolizaForm
     setIsDirty(true);
   }, []);
 
-  // ✅ VALIDACIÓN MEJORADA
+  // ✅ VALIDACIÓN CORREGIDA - trabajando con strings
   const validateForm = useCallback((): ValidationError[] => {
     const errors: ValidationError[] = [];
     
@@ -172,10 +201,14 @@ export const usePolizaForm = (options: UsePolizaFormOptions = {}): UsePolizaForm
       }
     }
     
-    // Validación de prima
-    const primaValue = typeof formData.prima === 'string' ? parseFloat(formData.prima) : formData.prima;
-    if (isNaN(primaValue) || primaValue <= 0) {
-      errors.push({ field: 'prima', message: 'La prima debe ser un número mayor a 0' });
+    // ✅ VALIDACIÓN DE PRIMA CORREGIDA - trabajando con string
+    if (!formData.prima?.trim()) {
+      errors.push({ field: 'prima', message: 'La prima es requerida' });
+    } else {
+      const primaValue = parseFloat(formData.prima);
+      if (isNaN(primaValue) || primaValue <= 0) {
+        errors.push({ field: 'prima', message: 'La prima debe ser un número mayor a 0' });
+      }
     }
     
     return errors;
@@ -242,7 +275,7 @@ export const usePolizaForm = (options: UsePolizaFormOptions = {}): UsePolizaForm
     isSubmitting,
     isDirty,
     updateField,
-    setFormData,  // ✅ EXPORTAR SETTER DIRECTO
+    setFormData,
     validate,
     submitForm,
     reset,

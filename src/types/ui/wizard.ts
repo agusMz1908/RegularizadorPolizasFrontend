@@ -1,256 +1,292 @@
-// src/types/ui/wizard.ts - Interfaz DocumentProcessResult corregida
-// ✅ TIPO CORREGIDO PARA EVITAR ERRORES
-
-import { OPERACIONES_CONFIG, TipoOperacion } from "../../utils/operationLogic";
-import { DatosVelneo } from "../../utils/azure-document";
+import { Company } from "../../services/companyService";
 import { Seccion } from "../core/seccion";
-import { PolizaFormData, PolizaCreateRequest } from "../core/poliza";
-import { Company } from "../../services/companyService"; // ✅ Import corregido
+import { Cliente } from "../core/cliente";
+import { PolizaFormData } from "../core/poliza";
+import { TipoOperacion } from "../../utils/operationLogic";
 
-export interface Cliente {
-  id: number;
-  clinom: string;
-  cliced?: string;
-  cliruc?: string;
-  telefono?: string;
-  cliemail?: string;
-  clidir?: string;
-  activo: boolean;
-  nombre?: string; // Para compatibilidad
-}
-
-// ✅ TIPO CORREGIDO - Con todas las propiedades necesarias del backend
+// ============================================================================
+// 📄 RESULTADO DEL PROCESAMIENTO DE DOCUMENTOS
+// ============================================================================
 export interface DocumentProcessResult {
-  // ✅ Propiedades que usa el código en usePolizaWizard
-  success?: boolean;
-  data?: any;
-  extractedFields?: ExtractedField[] | Record<string, any>;
-  confidence?: number;
-  needsReview?: boolean;
-  error?: string;
-
-  // ✅ Propiedades que vienen del backend DocumentResultDto
-  DocumentoId?: number;
-  NombreArchivo?: string;
-  EstadoProcesamiento?: string;
-  MensajeError?: string;
-  CamposExtraidos?: Record<string, string>;
-  ConfianzaExtraccion?: number;
-  RequiereRevision?: boolean;
-  TiempoProcesamiento?: number;
-  PolizaProcesada?: any;
-
-  // Identificación del documento (frontend)
-  documentId?: string;
-  nombreArchivo?: string;
-  estadoProcesamiento?: string;
-  timestamp?: string;
-  
-  // Datos principales de la póliza
-  numeroPoliza?: string;
-  asegurado?: string;
-  vigenciaDesde?: string;
-  vigenciaHasta?: string;
-  prima?: number;
-
-  // Metadata del procesamiento
-  nivelConfianza?: number;
-  requiereVerificacion?: boolean;
-  requiereRevision?: boolean;
-  readyForVelneo?: boolean;
-  listoParaVelneo?: boolean;
-  tiempoProcesamiento?: number;
-  porcentajeCompletitud?: number; 
-  
-  // Datos adicionales de la póliza
-  anio?: string;
-  plan?: string;
-  ramo?: string;
-  documento?: string;
-  email?: string;
-  telefono?: string;
-  direccion?: string;
-  localidad?: string;
-  departamento?: string;
-  vehiculo?: string;
-  marca?: string;
-  modelo?: string;
-  motor?: string;
-  chasis?: string;
-  matricula?: string;
-  combustible?: string;
-  primaComercial?: number;
-  premioTotal?: number;
-  moneda?: string;
-  corredor?: string;
-  compania?: string;
-  
-  // Datos estructurados
-  datosVelneo?: any;
-  polizaData?: any;
-  originalResponse?: any;
-  errorMessage?: string;
-}
-
-export interface ExtractedField {
-  field: string;
-  value: string;
+  success: boolean;
+  extractedFields: Record<string, any>;
   confidence: number;
   needsReview: boolean;
+  documentId: string;
+  estadoProcesamiento: string;
+  error?: string;
+  data?: any;
+  
+  // ✅ PROPIEDADES PRINCIPALES FALTANTES
+  archivo?: string;                    // Nombre del archivo procesado
+  estado?: string;                     // Estado del procesamiento
+  listoParaVelneo?: boolean;          // Si está listo para enviar a Velneo
+  porcentajeCompletitud?: number;     // Porcentaje de completitud general
+  procesamientoExitoso?: boolean;     // Si el procesamiento fue exitoso
+  tiempoProcesamiento?: number;       // Tiempo de procesamiento en ms
+  timestamp?: string;                 // Timestamp del procesamiento
+  
+  // ✅ DATOS EXTRAÍDOS DE VELNEO
+  datosVelneo?: {
+    // Datos básicos del asegurado
+    datosBasicos?: {
+      asegurado?: string;
+      documento?: string;
+      telefono?: string;
+      email?: string;
+      domicilio?: string;
+      departamento?: string;
+      localidad?: string;
+      codigoPostal?: string;
+      corredor?: string;
+      tipo?: string;
+      tramite?: string;
+      asignado?: string;
+      fecha?: string;
+      estado?: string;
+    };
+    
+    // Datos de la póliza
+    datosPoliza?: {
+      numeroPoliza: string;
+      desde?: string;
+      hasta?: string;
+      ramo?: string;
+      certificado?: string;
+      endoso?: string;
+      tipoMovimiento?: string;
+      compania?: string | number;
+    };
+    
+    // Datos de cobertura
+    datosCobertura?: {
+      cobertura?: string;
+      moneda?: string;
+      zonaCirculacion?: string;
+      codigoMoneda?: number;
+    };
+    
+    // Datos del vehículo
+    datosVehiculo?: {
+      marca?: string;
+      modelo?: string;
+      marcaModelo?: string;
+      matricula?: string;
+      motor?: string;
+      chasis?: string;
+      anio?: string;
+      color?: string;
+      combustible?: string;
+      categoria?: string;
+      destino?: string;
+      uso?: string;
+      calidad?: string;
+      tipoVehiculo?: string;
+    };
+    
+    // Condiciones de pago (ACTUALIZADA CON ESTRUCTURA CORRECTA)
+    condicionesPago?: {
+      premio?: number;
+      total?: number;
+      cuotas?: number;
+      formaPago?: string;
+      valorCuota?: number;
+      moneda?: string;
+      
+      // ✅ ESTRUCTURA CORRECTA PARA DETALLE DE CUOTAS
+      detalleCuotas?: {
+        cantidadTotal?: number;
+        primeraCuota?: {
+          fecha?: string;
+          monto?: number;
+        };
+        montoPromedio?: number;
+        tieneCuotasDetalladas?: boolean;
+        cuotas?: Array<{
+          numero?: number;
+          fecha?: string;           // Cambiado de fechaVencimiento
+          monto?: number;
+        }>;
+      };
+    };
+    
+    // Bonificaciones y descuentos
+    bonificaciones?: {
+      bonificaciones?: any[];         // Array de bonificaciones
+      descuentos?: number;
+      recargos?: number;
+      impuestoMSP?: number;
+      totalBonificaciones?: number;
+    };
+    
+    // ✅ OBSERVACIONES COMPLETAS
+    observaciones?: {
+      observacionesGenerales?: string;
+      observacionesGestion?: string;
+      informacionAdicional?: string;
+      notasEscaneado?: string[];      // Array de notas del escaneo
+    };
+    
+    // ✅ MÉTRICAS COMPLETAS
+    metricas?: {
+      camposCompletos?: number;
+      camposConfianzaBaja?: any[];
+      camposExtraidos?: number;
+      camposFaltantes?: any[];
+      porcentajeCompletitud?: number;
+      tieneDatosMinimos?: boolean;
+    };
+    
+    // ✅ PROPIEDADES ADICIONALES DEL NIVEL RAÍZ
+    camposCompletos?: number;
+    porcentajeCompletitud?: number;
+    tieneDatosMinimos?: boolean;
+  };
 }
 
-export type WizardStep = 'cliente' | 'company' | 'seccion' | 'operacion' | 'upload' | 'processing' | 'extract' | 'form' | 'success';
-
-export interface Ramo {
-  id: string;
-  nombre: string;
-  descripcion: string;
-  icon: string;
-  activo: boolean;
-  companias?: number[]; 
+// ✅ INTERFAZ PARA LAS CUOTAS INDIVIDUALES
+export interface CuotaDetalle {
+  numero: number;
+  fecha: string;
+  monto: number;
 }
 
-export interface WizardStepData {
-  cliente: Cliente | null;
-  company: Company | null;
-  seccion: Seccion | null;
-  operacion: TipoOperacion | null;
-  upload: File | null;
-  extract: DocumentProcessResult | null;
-  form: PolizaFormData | null;
-  success: any;
+// ✅ INTERFAZ PARA EL DETALLE COMPLETO DE CUOTAS
+export interface DetalleCuotas {
+  cantidadTotal: number;
+  primeraCuota: {
+    fecha: string;
+    monto: number;
+  };
+  montoPromedio: number;
+  tieneCuotasDetalladas: boolean;
+  cuotas: CuotaDetalle[];
 }
 
+// ✅ INTERFAZ PARA LAS MÉTRICAS DE PROCESAMIENTO
+export interface MetricasProcesamiento {
+  camposCompletos: number;
+  camposConfianzaBaja: any[];
+  camposExtraidos: number;
+  camposFaltantes: any[];
+  porcentajeCompletitud: number;
+  tieneDatosMinimos: boolean;
+}
+// ============================================================================
+// 🧭 PASOS DEL WIZARD
+// ============================================================================
+export type WizardStep = 
+  | 'cliente'
+  | 'company' 
+  | 'seccion'
+  | 'operacion'
+  | 'upload'
+  | 'processing'
+  | 'extract'
+  | 'form'
+  | 'success';
+
+  interface StepDataStructure {
+  cliente?: Cliente | null;
+  company?: Company | null;
+  seccion?: Seccion | null;
+  operacion?: TipoOperacion | null;
+  upload?: File | null;
+  extract?: DocumentProcessResult | null;
+  form?: PolizaFormData | null;
+  success?: any;
+}
+
+// ============================================================================
+// 🎯 ESTADO DEL WIZARD - SIMPLE Y CLARO
+// ============================================================================
 export interface WizardState {
   currentStep: WizardStep;
-  previousStep: WizardStep | null;
-  completedSteps: Set<WizardStep>;
-  stepData: WizardStepData; // ✅ ESTRUCTURA ORGANIZADA POR PASOS
-  isComplete: boolean;
-  canGoNext: boolean;
-  canGoBack: boolean;
-  isProcessing: boolean;
-  error: string | null;
-  
-  // ✅ CAMPOS LEGACY PARA COMPATIBILIDAD (opcional)
-  selectedCliente?: Cliente | null;
-  selectedCompany?: Company | null;
-  selectedSeccion?: Seccion | null;
-  selectedOperacion?: TipoOperacion | null;
-  uploadedFile?: File | null;
-  extractedData?: DocumentProcessResult | null;
-}
-
-export interface WizardResult {
-  cliente: Cliente;
-  company: Company;
-  file: File;
-  extractedData: DocumentProcessResult;
-  formData: PolizaFormData; 
-  polizaCreated?: any;
-}
-
-export interface WizardError {
-  step: WizardStep;
-  message: string;
-  details?: string;
-  code?: string;
-}
-
-export interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-}
-
-export interface StepProgress {
-  step: WizardStep;
-  completed: boolean;
-  current: boolean;
-  data?: any;
-}
-
-export interface WizardConfig {
-  steps: WizardStep[];
-  allowSkip?: boolean;
-  autoSave?: boolean;
-  validationMode?: 'strict' | 'lenient';
-  maxFileSize?: number;
-  allowedFileTypes?: string[];
-  requireAllSteps?: boolean;
-}
-
-export interface WizardMetrics {
-  totalSteps: number;
-  completedSteps: number;
-  currentStepIndex: number;
-  progressPercentage: number;
-  startTime: Date;
-  estimatedTimeRemaining?: number;
-  averageStepTime?: number;
-}
-
-export interface ClienteStepProps {
-  clienteSearch: string;
-  clienteResults: Cliente[];
-  loadingClientes: boolean;
   selectedCliente: Cliente | null;
-  onSearchChange: (search: string) => void;
-  onClienteSelect: (cliente: Cliente) => void;
-  onNext: () => void;
-  onBack: () => void;
-  isDarkMode: boolean;
-}
-
-export interface CompanyStepProps {
-  companies: Company[];
-  loadingCompanies: boolean;
   selectedCompany: Company | null;
-  onCompanySelect: (company: Company) => void;
-  onLoadCompanies: () => void;
-  onNext: () => void;
-  onBack: () => void;
-  isDarkMode: boolean;
-}
-
-export interface SeccionStepProps {
-  secciones?: Seccion[];
-  selectedSeccion?: Seccion | null;
-  onSeccionSelect?: (seccion: Seccion) => void;
-  onNext: () => Promise<boolean>;
-  onBack: () => void;
-  onComplete: (data: any) => Promise<boolean>;
-  wizardData: any;
-  isTransitioning: boolean;
-}
-
-export interface OperacionStepProps {
+  selectedSeccion: Seccion | null;
   selectedOperacion: TipoOperacion | null;
-  onOperacionSelect: (operacion: TipoOperacion) => void;
-  onNext: () => void;
-  onBack: () => void;
-  isDarkMode: boolean;
+  uploadedFile: File | null;
+  extractedData: DocumentProcessResult | null;
+  isComplete: boolean;
+  stepData?: StepDataStructure;
 }
 
-export interface UploadStepProps {
-  uploadedFile: File | null;
-  processing: boolean;
-  onFileSelect: (file: File | null) => void;
-  onProcess: (file: File) => Promise<void>;
-  onNext: () => void;
-  onBack: () => void;
-  isDarkMode: boolean;
+interface FormError {
+  field: string;
+  message: string;
+  type?: 'error' | 'warning';
 }
 
-export interface ProcessingStepProps {
-  uploadedFile: File | null;
-  progress: number;
-  selectedCliente: Cliente | null;
-  selectedCompany: Company | null;
-  onNext: () => void;
-  onBack: () => void;
-  isDarkMode: boolean;
-  mode: string;
-  status: string;
-  stage: string;
-  onRetry: () => void;
+interface ValidationState {
+  isValid: boolean;
+  errors: FormError[];
+  warnings: FormError[];
+  validation: {
+    errors: FormError[];
+    warnings: FormError[];
+  };
+  validateField: (field: string, value: any) => { isValid: boolean; error: FormError | null };
+  validateAll: (data: any) => { isValid: boolean; errors: FormError[]; warnings: FormError[] };
+  getFieldError: (field: string) => FormError | null;
+  hasFieldError: (field: string) => boolean;
+  hasErrors: boolean;
+  hasWarnings: boolean;
+  clearFieldError: (field: string) => void;
+  clearAllErrors: () => void;
+  markFieldTouched: (field: string) => void;
 }
+
+// ============================================================================
+// 🏭 FACTORY FUNCTIONS PARA CREAR OBJETOS (MEJOR QUE TYPES CONFLICTIVOS)
+// ============================================================================
+export function createValidationState(): ValidationState {
+  return {
+    isValid: true,
+    errors: [],
+    warnings: [],
+    validation: {
+      errors: [],
+      warnings: []
+    },
+    validateField: () => ({ isValid: true, error: null }),
+    validateAll: () => ({ isValid: true, errors: [], warnings: [] }),
+    getFieldError: () => null,
+    hasFieldError: () => false,
+    hasErrors: false,
+    hasWarnings: false,
+    clearFieldError: () => {},
+    clearAllErrors: () => {},
+    markFieldTouched: () => {}
+  };
+}
+
+export function createStepData(
+  selectedCliente: Cliente | null,
+  selectedCompany: Company | null,
+  selectedSeccion: Seccion | null,
+  selectedOperacion: TipoOperacion | null,
+  uploadedFile: File | null,
+  extractedData: DocumentProcessResult | null,
+  formData: PolizaFormData | null
+): StepDataStructure {
+  return {
+    cliente: selectedCliente,
+    company: selectedCompany,
+    seccion: selectedSeccion,
+    operacion: selectedOperacion,
+    upload: uploadedFile,
+    extract: extractedData,
+    form: formData,
+    success: null
+  };
+}
+
+// ============================================================================
+// ✅ EXPORTS LIMPIOS - SOLO LO NECESARIO
+// ============================================================================
+export type {
+  WizardStep as WizardStepType,
+  Cliente as ClienteType,
+  DocumentProcessResult as ProcessResult
+};
