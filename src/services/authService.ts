@@ -7,34 +7,39 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://localhost:7191/api
 class AuthService {
   private readonly baseUrl = `${API_BASE_URL}/auth`;
 
-async login(credentials: LoginDto): Promise<AuthResultDto> {
-  console.log('🔐 AuthService: Iniciando login...');
-  
-  const response = await apiClient.post<AuthResultDto>(ENDPOINTS.AUTH_LOGIN, credentials);
-  
-  if (!response.success) {
-    console.error('❌ Login fallido:', response.error);
+  async login(credentials: LoginDto): Promise<AuthResultDto> {
+    console.log('🔐 AuthService: Iniciando login...');
     
-    // Mapear errores específicos
-    if (response.statusCode === 401) {
-      throw new Error('Credenciales inválidas. Por favor verifica tu usuario y contraseña.');
-    } else if (response.statusCode === 403) {
-      throw new Error('Usuario inactivo. Contacta al administrador.');
-    } else {
-      throw new Error(response.error || 'Error en el servidor. Intenta nuevamente.');
+    const response = await apiClient.post<AuthResultDto>(ENDPOINTS.AUTH_LOGIN, credentials);
+    
+    if (!response.success) {
+      console.error('❌ Login fallido:', response.error);
+      
+      // ✅ CORREGIDO: usar response.status en lugar de statusCode
+      if (response.status === 401) {
+        throw new Error('Credenciales inválidas. Por favor verifica tu usuario y contraseña.');
+      } else if (response.status === 403) {
+        throw new Error('Usuario inactivo. Contacta al administrador.');
+      } else {
+        throw new Error(response.error || 'Error en el servidor. Intenta nuevamente.');
+      }
     }
+    
+    const authResult = response.data!;
+    
+    // ✅ CORREGIDO: Solo usar 'regularizador_token' consistentemente
+    localStorage.setItem('regularizador_token', authResult.token);
+    localStorage.setItem('regularizador_user', JSON.stringify({
+      token: authResult.token,
+      user: authResult, // Datos básicos del resultado
+      expiration: authResult.expiration,
+      savedAt: new Date().toISOString(),
+    }));
+    
+    console.log('✅ Login exitoso:', authResult.nombre);
+    
+    return authResult;
   }
-  
-  const authResult = response.data!;
-  
-  // Guardar en localStorage usando constantes
-  localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, authResult.token);
-  localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(authResult.nombre));
-  
-  console.log('✅ Login exitoso:', authResult.nombre);
-  
-  return authResult;
-}
 
   async getCurrentUser(token: string): Promise<User> {
     const payload = this.decodeJWT(token);
@@ -68,10 +73,10 @@ async login(credentials: LoginDto): Promise<AuthResultDto> {
     }
   }
 
+  // ✅ CORREGIDO: usar consistentemente 'regularizador_token'
   getStoredToken(): string | null {
-  return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    return localStorage.getItem('regularizador_token');
   }
-
 
   saveAuthData(authResult: AuthResultDto, user: User): void {
     const authData = {
@@ -105,15 +110,27 @@ async login(credentials: LoginDto): Promise<AuthResultDto> {
     }
   }
 
-clearAuthData(): void {
-  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
-  localStorage.removeItem(STORAGE_KEYS.USER_DATA);
-  console.log('🧹 Datos de autenticación limpiados');
-}
+  // ✅ CORREGIDO: limpiar TODOS los tokens posibles
+  clearAuthData(): void {
+    // Limpiar todas las posibles keys de tokens
+    const possibleKeys = [
+      'regularizador_token',
+      'regularizador_user',
+      'authToken',
+      STORAGE_KEYS.AUTH_TOKEN,
+      STORAGE_KEYS.USER_DATA
+    ];
 
-isTokenExpired(expiration: number): boolean {
-  return Date.now() > expiration;
-}
+    possibleKeys.forEach(key => {
+      localStorage.removeItem(key);
+    });
+
+    console.log('🧹 Datos de autenticación limpiados completamente');
+  }
+
+  isTokenExpired(expiration: number): boolean {
+    return Date.now() > expiration;
+  }
 
   isValidTokenFormat(token: string): boolean {
     try {
@@ -153,14 +170,18 @@ isTokenExpired(expiration: number): boolean {
     }
   }
   
+  // ✅ CORREGIDO: usar 'regularizador_user' consistentemente
   getStoredUser(): any | null {
-  try {
-    const userData = localStorage.getItem(STORAGE_KEYS.USER_DATA);
-    return userData ? JSON.parse(userData) : null;
-  } catch {
-    return null;
+    try {
+      const userData = localStorage.getItem('regularizador_user');
+      if (!userData) return null;
+      
+      const parsedData = JSON.parse(userData);
+      return parsedData.user;
+    } catch {
+      return null;
+    }
   }
-}
 
   private parseRolesFromToken(payload: any): Role[] {
     const roles: Role[] = [];
@@ -180,6 +201,5 @@ isTokenExpired(expiration: number): boolean {
     return roles;
   }
 }
-
 
 export default new AuthService();

@@ -119,7 +119,7 @@ export interface PolizaFormData {
   numeroPoliza: string;
   vigenciaDesde: string;
   vigenciaHasta: string;
-  prima: number;
+  prima: string;              // ✅ CAMBIADO: number → string (para Velneo)
   moneda: string;
   asegurado: string;
   compania: number;
@@ -136,13 +136,13 @@ export interface PolizaFormData {
   motor: string;
   chasis: string;
   anio: string;
-  primaComercial: number;
-  premioTotal: number;
+  primaComercial: string;     // ✅ CAMBIADO: number → string
+  premioTotal: string;        // ✅ CAMBIADO: number → string
   cantidadCuotas: number;
-  valorCuota: number;
+  valorCuota: string;         // ✅ CAMBIADO: number → string
   formaPago: string;
   primeraCuotaFecha: string;
-  primeraCuotaMonto: number;
+  primeraCuotaMonto: string;  // ✅ CAMBIADO: number → string
   documento: string;
   email: string;
   telefono: string;
@@ -179,9 +179,9 @@ export interface PolizaFormData {
 
   // ✅ CAMPOS ADICIONALES DEL HOOK usePolizaForm
   color: string;
-  impuestoMSP: number;
-  descuentos: number;
-  recargos: number;
+  impuestoMSP: string;        // ✅ CAMBIADO: number → string
+  descuentos: string;         // ✅ CAMBIADO: number → string
+  recargos: string;           // ✅ CAMBIADO: number → string
   codigoPostal: string;
 
   // ✅ CAMPOS ESPECÍFICOS DE VELNEO
@@ -190,7 +190,97 @@ export interface PolizaFormData {
   formaPagoVelneo?: string;
   monedaVelneo?: string;
   estadoGestionVelneo: string;
+
+  // ✅ CAMPOS FALTANTES QUE APARECEN EN EL ERROR
+  endoso: string;                    // ✅ AGREGADO
+  tipoMovimiento: string;           // ✅ AGREGADO
+  zonaCirculacion: string;          // ✅ AGREGADO
+  codigoMoneda: string;             // ✅ AGREGADO
+  totalBonificaciones: string;      // ✅ AGREGADO
+  observacionesGestion: string;     // ✅ AGREGADO
+  informacionAdicional: string;     // ✅ AGREGADO
+
+  datosVelneo?: any;               // Para referencia completa si es necesario
 }
+
+export const createEmptyPolizaFormData = (): PolizaFormData => ({
+  // Campos requeridos
+  numeroPoliza: '',
+  vigenciaDesde: '',
+  vigenciaHasta: '',
+  prima: '0',
+  moneda: 'UYU',
+  asegurado: '',
+  compania: 0,
+  seccionId: 0,
+  clienteId: 0,
+  cobertura: '',
+
+  // Campos opcionales existentes
+  observaciones: '',
+  vehiculo: '',
+  marca: '',
+  modelo: '',
+  matricula: '',
+  motor: '',
+  chasis: '',
+  anio: '',
+  primaComercial: '0',
+  premioTotal: '0',
+  cantidadCuotas: 1,
+  valorCuota: '0',
+  formaPago: '',
+  primeraCuotaFecha: '',
+  primeraCuotaMonto: '0',
+  documento: '',
+  email: '',
+  telefono: '',
+  direccion: '',
+  localidad: '',
+  departamento: '',
+  corredor: '',
+  plan: '',
+  ramo: '',
+  certificado: '',
+  estadoPoliza: '',
+  tramite: '',
+  tipo: '',
+  destino: '',
+  combustible: '',
+  calidad: '',
+  categoria: '',
+  tipoVehiculo: '',
+  uso: '',
+
+  // IDs para combos
+  combustibleId: null,
+  categoriaId: null,
+  destinoId: null,
+  calidadId: null,
+
+  // Campos adicionales
+  operacion: null,
+  seccion: '',
+  nombreAsegurado: '',
+  chapa: '',
+  color: '',
+  impuestoMSP: '0',
+  descuentos: '0',
+  recargos: '0',
+  codigoPostal: '',
+
+  // Campos Velneo
+  estadoGestionVelneo: '',
+
+  // Campos nuevos agregados
+  endoso: '',
+  tipoMovimiento: '',
+  zonaCirculacion: '',
+  codigoMoneda: '',
+  totalBonificaciones: '0',
+  observacionesGestion: '',
+  informacionAdicional: ''
+});
 
 export interface PolizaDto {
   id: number;

@@ -12,7 +12,9 @@ import {
   CreditCard,
   FileCheck,
   CheckCircle,
-  AlertTriangle
+  AlertTriangle,
+  Calendar,
+  DollarSign
 } from 'lucide-react';
 import { PolizaFormData } from '../../../types/core/poliza';
 import { DocumentProcessResult } from '../../../types/ui/wizard';
@@ -46,6 +48,7 @@ export const FormStep: React.FC<FormStepProps> = ({
   // ✅ Estados para auto-completado
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [autoFilledFields, setAutoFilledFields] = useState<Set<string>>(new Set());
+  const [hasAutoFilled, setHasAutoFilled] = useState(false);
 
   const tabs = [
     { id: 'basicos', label: 'Datos Básicos', icon: User, color: 'blue' },
@@ -55,209 +58,393 @@ export const FormStep: React.FC<FormStepProps> = ({
     { id: 'observaciones', label: 'Observaciones', icon: FileCheck, color: 'indigo' }
   ];
 
-  // ✅ Auto-completado automático al recibir extractedData
-  useEffect(() => {
-    if (extractedData && Object.keys(formData).length === 0) {
-      console.log('🤖 FormStep: Auto-completando formulario con datos extraídos...');
-      autoFillForm();
-    }
-  }, [extractedData, formData]);
+useEffect(() => {
+  if (extractedData && 
+      extractedData.datosVelneo && 
+      !hasAutoFilled &&  // ✅ Evitar bucle
+      !isAutoFilling) {   // ✅ Evitar ejecuciones múltiples
+    
+    console.log('🤖 FormStep: Auto-completando formulario con datos extraídos...');
+    console.log('📊 Datos extraídos recibidos:', extractedData);
+    
+    autoFillForm();
+    setHasAutoFilled(true); // ✅ Marcar como completado
+  }
+}, [extractedData?.datosVelneo, hasAutoFilled, isAutoFilling]);
 
   /**
    * ✅ Función de auto-completado
    */
-  const autoFillForm = async () => {
-    if (!extractedData) return;
+// Función autoFillForm corregida para FormStep.tsx
 
-    setIsAutoFilling(true);
-    const filledFields = new Set<string>();
+const autoFillForm = async () => {
+  if (!extractedData || !extractedData.datosVelneo) {
+    console.warn('⚠️ No hay datosVelneo para auto-completar');
+    return;
+  }
 
-    try {
-      const autoFilledData: Partial<PolizaFormData> = {};
+  setIsAutoFilling(true);
+  const filledFields = new Set<string>();
 
-      // ✅ Mapear desde extractedFields (array)
-      if (extractedData.extractedFields && Array.isArray(extractedData.extractedFields)) {
-        extractedData.extractedFields.forEach((field: any) => {
-          const fieldName = field.field || field.name;
-          const fieldValue = field.value;
-          
-          switch (fieldName?.toLowerCase()) {
-            case 'asegurado':
-            case 'nombre':
-            case 'client_name':
-              autoFilledData.asegurado = fieldValue;
-              autoFilledData.nombreAsegurado = fieldValue;
-              filledFields.add('asegurado');
-              filledFields.add('nombreAsegurado');
-              break;
-              
-            case 'documento':
-            case 'ci':
-            case 'cedula':
-            case 'document_number':
-              autoFilledData.documento = fieldValue;
-              filledFields.add('documento');
-              break;
-              
-            case 'email':
-            case 'correo':
-            case 'mail':
-              autoFilledData.email = fieldValue;
-              filledFields.add('email');
-              break;
-              
-            case 'telefono':
-            case 'phone':
-            case 'celular':
-              autoFilledData.telefono = fieldValue;
-              filledFields.add('telefono');
-              break;
-              
-            case 'direccion':
-            case 'domicilio':
-            case 'address':
-              autoFilledData.direccion = fieldValue;
-              filledFields.add('direccion');
-              break;
-              
-            case 'numero_poliza':
-            case 'numeroPoliza':
-            case 'policy_number':
-            case 'poliza':
-              autoFilledData.numeroPoliza = fieldValue;
-              filledFields.add('numeroPoliza');
-              break;
-              
-            case 'vigencia_desde':
-            case 'desde':
-            case 'fecha_desde':
-            case 'start_date':
-              autoFilledData.vigenciaDesde = fieldValue;
-              filledFields.add('vigenciaDesde');
-              break;
-              
-            case 'vigencia_hasta':
-            case 'hasta':
-            case 'fecha_hasta':
-            case 'end_date':
-              autoFilledData.vigenciaHasta = fieldValue;
-              filledFields.add('vigenciaHasta');
-              break;
-              
-            case 'prima':
-            case 'premio':
-            case 'amount':
-            case 'total':
-              const primaValue = typeof fieldValue === 'string' ? parseFloat(fieldValue) : fieldValue;
-              if (!isNaN(primaValue)) {
-                autoFilledData.prima = primaValue;
-                autoFilledData.premioTotal = primaValue;
-                filledFields.add('prima');
-                filledFields.add('premioTotal');
-              }
-              break;
-              
-            case 'marca':
-            case 'brand':
-              autoFilledData.marca = fieldValue;
-              filledFields.add('marca');
-              break;
-              
-            case 'modelo':
-            case 'model':
-              autoFilledData.modelo = fieldValue;
-              filledFields.add('modelo');
-              break;
-              
-            case 'anio':
-            case 'año':
-            case 'year':
-              const anioValue = typeof fieldValue === 'string' ? parseInt(fieldValue) : fieldValue;
-              if (!isNaN(anioValue)) {
-                autoFilledData.anio = anioValue;
-                filledFields.add('anio');
-              }
-              break;
-              
-            case 'matricula':
-            case 'license_plate':
-            case 'placa':
-              autoFilledData.matricula = fieldValue;
-              filledFields.add('matricula');
-              break;
-              
-            case 'motor':
-            case 'engine':
-              autoFilledData.motor = fieldValue;
-              filledFields.add('motor');
-              break;
-              
-            case 'chasis':
-            case 'chassis':
-              autoFilledData.chasis = fieldValue;
-              filledFields.add('chasis');
-              break;
-              
-            case 'moneda':
-            case 'currency':
-              autoFilledData.moneda = fieldValue;
-              filledFields.add('moneda');
-              break;
-          }
-        });
-      }
+  try {
+    const autoFilledData: Partial<PolizaFormData> = {};
+    const { datosVelneo } = extractedData;
 
-      // ✅ Mapear desde campos directos en extractedData
-      const directMappings = [
-        { from: 'asegurado', to: ['asegurado', 'nombreAsegurado'] },
-        { from: 'numeroPoliza', to: ['numeroPoliza'] },
-        { from: 'vigenciaDesde', to: ['vigenciaDesde'] },
-        { from: 'vigenciaHasta', to: ['vigenciaHasta'] },
-        { from: 'prima', to: ['prima', 'premioTotal'] },
-        { from: 'documento', to: ['documento'] },
-        { from: 'email', to: ['email'] },
-        { from: 'telefono', to: ['telefono'] },
-        { from: 'direccion', to: ['direccion'] },
-        { from: 'marca', to: ['marca'] },
-        { from: 'modelo', to: ['modelo'] },
-        { from: 'matricula', to: ['matricula'] },
-        { from: 'motor', to: ['motor'] },
-        { from: 'chasis', to: ['chasis'] },
-        { from: 'moneda', to: ['moneda'] }
-      ];
+    console.log('📋 Mapeando desde datosVelneo:', datosVelneo);
 
-      directMappings.forEach(({ from, to }) => {
-        if (extractedData[from as keyof DocumentProcessResult]) {
-          const value = extractedData[from as keyof DocumentProcessResult];
-          to.forEach(field => {
-            autoFilledData[field as keyof PolizaFormData] = value;
-            filledFields.add(field);
-          });
-        }
-      });
-
-      // Crear descripción del vehículo si tenemos marca y modelo
-      if (extractedData.marca && extractedData.modelo) {
-        autoFilledData.vehiculo = `${extractedData.marca} ${extractedData.modelo}`.trim();
-        filledFields.add('vehiculo');
-        filledFields.add('marcaModelo');
-      }
-
-      // ✅ Aplicar los datos auto-completados
-      const mergedData = { ...formData, ...autoFilledData } as PolizaFormData;
+    // ===================================================================
+    // ✅ DATOS BÁSICOS DEL ASEGURADO
+    // ===================================================================
+    if (datosVelneo.datosBasicos) {
+      const { datosBasicos } = datosVelneo;
       
-      console.log('🤖 FormStep: Datos auto-completados:', autoFilledData);
-      console.log('🤖 FormStep: Campos rellenados:', Array.from(filledFields));
+      if (datosBasicos.asegurado) {
+        autoFilledData.asegurado = datosBasicos.asegurado;
+        autoFilledData.nombreAsegurado = datosBasicos.asegurado;
+        filledFields.add('asegurado');
+        filledFields.add('nombreAsegurado');
+      }
       
-      setAutoFilledFields(filledFields);
-      onFormDataChange(mergedData);
-
-    } catch (error) {
-      console.error('❌ FormStep: Error en auto-completado:', error);
-    } finally {
-      setIsAutoFilling(false);
+      if (datosBasicos.documento) {
+        autoFilledData.documento = datosBasicos.documento;
+        filledFields.add('documento');
+      }
+      
+      if (datosBasicos.telefono) {
+        autoFilledData.telefono = datosBasicos.telefono;
+        filledFields.add('telefono');
+      }
+      
+      if (datosBasicos.email) {
+        autoFilledData.email = datosBasicos.email;
+        filledFields.add('email');
+      }
+      
+      if (datosBasicos.domicilio) {
+        autoFilledData.direccion = datosBasicos.domicilio;
+        filledFields.add('direccion');
+      }
+      
+      if (datosBasicos.departamento) {
+        autoFilledData.departamento = datosBasicos.departamento;
+        filledFields.add('departamento');
+      }
+      
+      if (datosBasicos.localidad) {
+        autoFilledData.localidad = datosBasicos.localidad;
+        filledFields.add('localidad');
+      }
+      
+      if (datosBasicos.codigoPostal) {
+        autoFilledData.codigoPostal = datosBasicos.codigoPostal;
+        filledFields.add('codigoPostal');
+      }
+      
+      if (datosBasicos.corredor) {
+        autoFilledData.corredor = datosBasicos.corredor;
+        filledFields.add('corredor');
+      }
+      
+      if (datosBasicos.tipo) {
+        autoFilledData.tipo = datosBasicos.tipo;
+        filledFields.add('tipo');
+      }
+      
+      if (datosBasicos.tramite) {
+        autoFilledData.tramite = datosBasicos.tramite;
+        filledFields.add('tramite');
+      }
     }
-  };
+
+    // ===================================================================
+    // ✅ DATOS DE LA PÓLIZA
+    // ===================================================================
+    if (datosVelneo.datosPoliza) {
+      const { datosPoliza } = datosVelneo;
+      
+      if (datosPoliza.numeroPoliza) {
+        autoFilledData.numeroPoliza = datosPoliza.numeroPoliza;
+        filledFields.add('numeroPoliza');
+      }
+      
+      // ✅ FECHAS - Convertir de ISO a formato uruguayo dd/mm/yyyy
+      if (datosPoliza.desde) {
+        autoFilledData.vigenciaDesde = formatDateToUruguayan(datosPoliza.desde);
+        filledFields.add('vigenciaDesde');
+      }
+      
+      if (datosPoliza.hasta) {
+        autoFilledData.vigenciaHasta = formatDateToUruguayan(datosPoliza.hasta);
+        filledFields.add('vigenciaHasta');
+      }
+      
+      if (datosPoliza.ramo) {
+        autoFilledData.ramo = datosPoliza.ramo;
+        filledFields.add('ramo');
+      }
+      
+      if (datosPoliza.endoso) {
+        autoFilledData.endoso = datosPoliza.endoso;
+        filledFields.add('endoso');
+      }
+      
+      if (datosPoliza.certificado) {
+        autoFilledData.certificado = datosPoliza.certificado;
+        filledFields.add('certificado');
+      }
+      
+      if (datosPoliza.tipoMovimiento) {
+        autoFilledData.tipoMovimiento = datosPoliza.tipoMovimiento;
+        filledFields.add('tipoMovimiento');
+      }
+    }
+
+    // ===================================================================
+    // ✅ DATOS DEL VEHÍCULO
+    // ===================================================================
+    if (datosVelneo.datosVehiculo) {
+      const { datosVehiculo } = datosVelneo;
+      
+      if (datosVehiculo.marca) {
+        autoFilledData.marca = datosVehiculo.marca;
+        filledFields.add('marca');
+      }
+      
+      if (datosVehiculo.modelo) {
+        autoFilledData.modelo = datosVehiculo.modelo;
+        filledFields.add('modelo');
+      }
+      
+      if (datosVehiculo.marcaModelo) {
+        autoFilledData.vehiculo = datosVehiculo.marcaModelo;
+        filledFields.add('vehiculo');
+      }
+      
+      if (datosVehiculo.matricula) {
+        autoFilledData.matricula = datosVehiculo.matricula;
+        // Si no hay matricula, usar chapa si existe
+        autoFilledData.chapa = datosVehiculo.matricula;
+        filledFields.add('matricula');
+        filledFields.add('chapa');
+      }
+      
+      if (datosVehiculo.motor) {
+        autoFilledData.motor = datosVehiculo.motor;
+        filledFields.add('motor');
+      }
+      
+      if (datosVehiculo.chasis) {
+        autoFilledData.chasis = datosVehiculo.chasis;
+        filledFields.add('chasis');
+      }
+      
+      if (datosVehiculo.anio) {
+        autoFilledData.anio = datosVehiculo.anio;
+        filledFields.add('anio');
+      }
+      
+      if (datosVehiculo.color) {
+        autoFilledData.color = datosVehiculo.color;
+        filledFields.add('color');
+      }
+      
+      if (datosVehiculo.combustible) {
+        autoFilledData.combustible = datosVehiculo.combustible;
+        filledFields.add('combustible');
+      }
+      
+      if (datosVehiculo.categoria) {
+        autoFilledData.categoria = datosVehiculo.categoria;
+        filledFields.add('categoria');
+      }
+      
+      if (datosVehiculo.destino) {
+        autoFilledData.destino = datosVehiculo.destino;
+        filledFields.add('destino');
+      }
+      
+      if (datosVehiculo.uso) {
+        autoFilledData.uso = datosVehiculo.uso;
+        filledFields.add('uso');
+      }
+      
+      if (datosVehiculo.calidad) {
+        autoFilledData.calidad = datosVehiculo.calidad;
+        filledFields.add('calidad');
+      }
+      
+      if (datosVehiculo.tipoVehiculo) {
+        autoFilledData.tipoVehiculo = datosVehiculo.tipoVehiculo;
+        filledFields.add('tipoVehiculo');
+      }
+    }
+
+    // ===================================================================
+    // ✅ CONDICIONES DE PAGO - TODOS COMO STRING
+    // ===================================================================
+    if (datosVelneo.condicionesPago) {
+      const { condicionesPago } = datosVelneo;
+      
+      if (condicionesPago.premio) {
+        autoFilledData.prima = condicionesPago.premio.toString();
+        filledFields.add('prima');
+      }
+      
+      if (condicionesPago.total) {
+        autoFilledData.premioTotal = condicionesPago.total.toString();
+        filledFields.add('premioTotal');
+      }
+      
+      if (condicionesPago.cuotas) {
+        autoFilledData.cantidadCuotas = condicionesPago.cuotas;
+        filledFields.add('cantidadCuotas');
+      }
+      
+      if (condicionesPago.formaPago) {
+        autoFilledData.formaPago = condicionesPago.formaPago;
+        filledFields.add('formaPago');
+      }
+      
+      if (condicionesPago.valorCuota) {
+        autoFilledData.valorCuota = condicionesPago.valorCuota.toString();
+        filledFields.add('valorCuota');
+      }
+      
+      // Detalles de cuotas
+      if (condicionesPago.detalleCuotas) {
+        const { detalleCuotas } = condicionesPago;
+        
+        if (detalleCuotas.primerVencimiento) {
+          autoFilledData.primeraCuotaFecha = formatDateToUruguayan(detalleCuotas.primerVencimiento);
+          filledFields.add('primeraCuotaFecha');
+        }
+        
+        if (detalleCuotas.primaCuota) {
+          autoFilledData.primeraCuotaMonto = detalleCuotas.primaCuota.toString();
+          filledFields.add('primeraCuotaMonto');
+        }
+      }
+    }
+
+    // ===================================================================
+    // ✅ DATOS DE COBERTURA
+    // ===================================================================
+    if (datosVelneo.datosCobertura) {
+      const { datosCobertura } = datosVelneo;
+      
+      if (datosCobertura.cobertura) {
+        autoFilledData.cobertura = datosCobertura.cobertura;
+        filledFields.add('cobertura');
+      }
+      
+      if (datosCobertura.moneda) {
+        autoFilledData.moneda = datosCobertura.moneda;
+        filledFields.add('moneda');
+      }
+      
+      if (datosCobertura.zonaCirculacion) {
+        autoFilledData.zonaCirculacion = datosCobertura.zonaCirculacion;
+        filledFields.add('zonaCirculacion');
+      }
+      
+      if (datosCobertura.codigoMoneda) {
+        autoFilledData.codigoMoneda = datosCobertura.codigoMoneda.toString();
+        filledFields.add('codigoMoneda');
+      }
+    }
+
+    // ===================================================================
+    // ✅ BONIFICACIONES
+    // ===================================================================
+    if (datosVelneo.bonificaciones) {
+      const { bonificaciones } = datosVelneo;
+      
+      if (bonificaciones.descuentos !== undefined) {
+        autoFilledData.descuentos = bonificaciones.descuentos.toString();
+        filledFields.add('descuentos');
+      }
+      
+      if (bonificaciones.recargos !== undefined) {
+        autoFilledData.recargos = bonificaciones.recargos.toString();
+        filledFields.add('recargos');
+      }
+      
+      if (bonificaciones.impuestoMSP !== undefined) {
+        autoFilledData.impuestoMSP = bonificaciones.impuestoMSP.toString();
+        filledFields.add('impuestoMSP');
+      }
+      
+      if (bonificaciones.totalBonificaciones !== undefined) {
+        autoFilledData.totalBonificaciones = bonificaciones.totalBonificaciones.toString();
+        filledFields.add('totalBonificaciones');
+      }
+    }
+
+    // ===================================================================
+    // ✅ OBSERVACIONES
+    // ===================================================================
+    if (datosVelneo.observaciones) {
+      const { observaciones } = datosVelneo;
+      
+      if (observaciones.observacionesGenerales) {
+        autoFilledData.observaciones = observaciones.observacionesGenerales;
+        filledFields.add('observaciones');
+      }
+      
+      if (observaciones.observacionesGestion) {
+        autoFilledData.observacionesGestion = observaciones.observacionesGestion;
+        filledFields.add('observacionesGestion');
+      }
+      
+      if (observaciones.informacionAdicional) {
+        autoFilledData.informacionAdicional = observaciones.informacionAdicional;
+        filledFields.add('informacionAdicional');
+      }
+    }
+
+    // ✅ Aplicar los datos auto-completados
+    console.log('🤖 FormStep: Datos auto-completados:', autoFilledData);
+    console.log('🤖 FormStep: Campos rellenados:', Array.from(filledFields));
+    console.log(`📊 Total campos auto-completados: ${filledFields.size}`);
+    
+    setAutoFilledFields(filledFields);
+    
+    // ✅ MERGE CON DATOS EXISTENTES SIN SOBRESCRIBIR
+    const mergedData = { ...formData, ...autoFilledData } as PolizaFormData;
+    onFormDataChange(mergedData);
+
+  } catch (error) {
+    console.error('❌ FormStep: Error en auto-completado:', error);
+  } finally {
+    setIsAutoFilling(false);
+  }
+};
+
+const formatDateToUruguayan = (isoDate: string): string => {
+  try {
+    if (!isoDate) return '';
+    
+    const date = new Date(isoDate);
+    if (isNaN(date.getTime())) return isoDate;
+    
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    
+    return `${day}/${month}/${year}`;
+  } catch (error) {
+    console.error('Error formateando fecha:', error);
+    return isoDate;
+  }
+};
+
+const getAutoFillStats = (): string => {
+  const totalFields = autoFilledFields.size;
+  const completeness = datosVelneo?.porcentajeCompletitud || 0;
+  const fieldsExtracted = datosVelneo?.metricas?.camposExtraidos || 0;
+  
+  return `${totalFields} campos auto-completados • ${completeness}% completitud • ${fieldsExtracted} campos extraídos`;
+};
 
   /**
    * ✅ Re-aplica el auto-completado
@@ -558,18 +745,14 @@ export const FormStep: React.FC<FormStepProps> = ({
                     'Número de Póliza',
                     'Número de póliza',
                     'text',
-                    undefined,
-                    true,
-                    'purple'
+                    true
                   )}
                   {renderInput(
                     'prima',
                     'Prima',
                     '0.00',
-                    'number',
-                    undefined,
+                    'text',     
                     true,
-                    'purple'
                   )}
                 </div>
 
@@ -578,20 +761,16 @@ export const FormStep: React.FC<FormStepProps> = ({
                   {renderInput(
                     'vigenciaDesde',
                     'Vigencia Desde',
-                    '',
-                    'date',
-                    undefined,
+                    'dd/mm/aaaa', // ✅ Placeholder descriptivo
+                    'text',       // ✅ CAMBIADO: de 'date' a 'text'
                     true,
-                    'purple'
                   )}
                   {renderInput(
                     'vigenciaHasta',
                     'Vigencia Hasta',
-                    '',
-                    'date',
-                    undefined,
-                    true,
-                    'purple'
+                    'dd/mm/aaaa', // ✅ Placeholder descriptivo
+                    'text',       // ✅ CAMBIADO: de 'date' a 'text'
+                    true
                   )}
                 </div>
 
@@ -612,10 +791,8 @@ export const FormStep: React.FC<FormStepProps> = ({
                     'premioTotal',
                     'Premio Total',
                     '0.00',
-                    'number',
-                    undefined,
+                    'text',      // ✅ CAMBIADO: de 'number' a 'text'
                     false,
-                    'purple'
                   )}
                 </div>
               </div>

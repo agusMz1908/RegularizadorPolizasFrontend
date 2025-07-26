@@ -451,44 +451,54 @@ file: File, token: string, onProgress?: (progress: number, status: string, mode?
     }
   }
 
-  private mapToWizardFormat(
-    azureResponse: AzureProcessResponse, 
-    fileName: string
-  ): DocumentProcessResult {
-    return {
-      documentId: `azure-${Date.now()}`,
-      nombreArchivo: fileName,
-      estadoProcesamiento: azureResponse.estado || 'completed',
-      timestamp: azureResponse.timestamp || new Date().toISOString(),
-      tiempoProcesamiento: azureResponse.tiempoProcesamiento || 0,
-      readyForVelneo: azureResponse.listoParaVelneo || false,
-      porcentajeCompletitud: azureResponse.porcentajeCompletitud || 100,
-      
-      // Mapear datos extraídos
-      extractedFields: azureResponse.datosVelneo?.extractedFields || [],
-      
-      // Campos comunes de pólizas
-      numeroPoliza: azureResponse.datosVelneo?.numeroPoliza,
-      asegurado: azureResponse.datosVelneo?.asegurado,
-      vigenciaDesde: azureResponse.datosVelneo?.vigenciaDesde,
-      vigenciaHasta: azureResponse.datosVelneo?.vigenciaHasta,
-      prima: azureResponse.datosVelneo?.prima,
-      documento: azureResponse.datosVelneo?.documento,
-      email: azureResponse.datosVelneo?.email,
-      telefono: azureResponse.datosVelneo?.telefono,
-      direccion: azureResponse.datosVelneo?.direccion,
-      marca: azureResponse.datosVelneo?.marca,
-      modelo: azureResponse.datosVelneo?.modelo,
-      matricula: azureResponse.datosVelneo?.matricula,
-      motor: azureResponse.datosVelneo?.motor,
-      chasis: azureResponse.datosVelneo?.chasis,
-      moneda: azureResponse.datosVelneo?.moneda,
-      
-      // Metadatos adicionales
-      datosVelneo: azureResponse.datosVelneo,
-      originalResponse: azureResponse
-    };
-  }
+private mapToWizardFormat(
+  azureResponse: AzureProcessResponse, 
+  fileName: string
+): DocumentProcessResult {
+  console.log('🔄 Mapeando respuesta de Azure a formato del wizard:', azureResponse);
+
+  const documentResult: DocumentProcessResult = {
+    // ✅ IDs y metadatos básicos
+    documentId: `azure-${Date.now()}`,
+    nombreArchivo: fileName,
+    estadoProcesamiento: azureResponse.estado || 'completed',
+    timestamp: azureResponse.timestamp || new Date().toISOString(),
+    tiempoProcesamiento: azureResponse.tiempoProcesamiento || 0,
+    
+    // ✅ Estado de procesamiento
+    readyForVelneo: azureResponse.listoParaVelneo || false,
+    porcentajeCompletitud: azureResponse.porcentajeCompletitud || 100,
+    success: true,
+    confidence: azureResponse.porcentajeCompletitud || 0,
+    needsReview: (azureResponse.porcentajeCompletitud || 0) < 80,
+    
+    // ✅ INCLUIR DATOS VELNEO COMPLETOS (CLAVE PARA FormStep)
+    datosVelneo: azureResponse.datosVelneo,
+    
+    // ✅ CAMPOS INDIVIDUALES MAPEADOS DESDE datosVelneo
+    numeroPoliza: azureResponse.datosVelneo?.datosPoliza?.numeroPoliza,
+    asegurado: azureResponse.datosVelneo?.datosBasicos?.asegurado,
+    vigenciaDesde: azureResponse.datosVelneo?.datosPoliza?.desde,
+    vigenciaHasta: azureResponse.datosVelneo?.datosPoliza?.hasta,
+    prima: azureResponse.datosVelneo?.condicionesPago?.prima,
+    documento: azureResponse.datosVelneo?.datosBasicos?.documento,
+    email: azureResponse.datosVelneo?.datosBasicos?.email,
+    telefono: azureResponse.datosVelneo?.datosBasicos?.telefono,
+    direccion: azureResponse.datosVelneo?.datosBasicos?.domicilio,
+    marca: azureResponse.datosVelneo?.datosVehiculo?.marca,
+    modelo: azureResponse.datosVelneo?.datosVehiculo?.modelo,
+    matricula: azureResponse.datosVelneo?.datosVehiculo?.matricula,
+    motor: azureResponse.datosVelneo?.datosVehiculo?.motor,
+    chasis: azureResponse.datosVelneo?.datosVehiculo?.chasis,
+    moneda: azureResponse.datosVelneo?.datosCobertura?.moneda,
+    
+    // ✅ Metadatos adicionales
+    originalResponse: azureResponse
+  };
+
+  console.log('✅ Resultado mapeado para el wizard:', documentResult);
+  return documentResult;
+}
 
   private handleProcessingError(error: any): Error {
     if (error.name === 'AbortError') {

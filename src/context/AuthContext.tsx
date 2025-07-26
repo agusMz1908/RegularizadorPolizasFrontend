@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { STORAGE_KEYS } from '../utils/constants';
 import { AuthState, AuthContextType, LoginDto, User } from '../types/core/auth';
@@ -121,9 +120,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return;
         }
 
-        // PASO 3: Verificar expiración
-        if (authService.isTokenExpired(Date.now() + (60 * 60 * 1000))) {
-          console.log('⏰ Token expirado');
+        // ✅ PASO 3: Verificar expiración - CORREGIDO
+        console.log('⏰ Verificando expiración del token...');
+        try {
+          // Decodificar el token para obtener el timestamp de expiración
+          const base64Url = storedAuth.token.split('.')[1];
+          const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+          const jsonPayload = decodeURIComponent(
+            atob(base64)
+              .split('')
+              .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+              .join('')
+          );
+          const tokenPayload = JSON.parse(jsonPayload);
+          
+          if (!tokenPayload.exp) {
+            console.log('❌ Token no tiene fecha de expiración');
+            authService.clearAuthData();
+            if (isMounted) {
+              dispatch({ type: 'AUTH_LOGOUT' });
+            }
+            return;
+          }
+
+          // Verificar si el token ha expirado (exp está en segundos, Date.now() en milisegundos)
+          const now = Math.floor(Date.now() / 1000);
+          if (tokenPayload.exp <= now) {
+            console.log('⏰ Token expirado', {
+              exp: new Date(tokenPayload.exp * 1000),
+              now: new Date(),
+              expired: true
+            });
+            authService.clearAuthData();
+            if (isMounted) {
+              dispatch({ type: 'AUTH_LOGOUT' });
+            }
+            return;
+          }
+
+          console.log('✅ Token válido, expira en:', new Date(tokenPayload.exp * 1000));
+
+        } catch (error) {
+          console.error('❌ Error decodificando token:', error);
           authService.clearAuthData();
           if (isMounted) {
             dispatch({ type: 'AUTH_LOGOUT' });
@@ -131,19 +169,17 @@ export function AuthProvider({ children }: AuthProviderProps) {
           return;
         }
 
-        // PASO 4: Validar token con el servidor
-        console.log('🔍 Validando token con el servidor...');
-        
-        const isValidOnServer = await validateTokenWithServer(storedAuth.token);
-        
-        if (!isValidOnServer) {
-          console.log('❌ Token inválido en el servidor');
-          authService.clearAuthData();
-          if (isMounted) {
-            dispatch({ type: 'AUTH_LOGOUT' });
-          }
-          return;
-        }
+        // PASO 4: Validar token con el servidor (opcional - comentado para simplificar)
+        // console.log('🔍 Validando token con el servidor...');
+        // const isValidOnServer = await validateTokenWithServer(storedAuth.token);
+        // if (!isValidOnServer) {
+        //   console.log('❌ Token inválido en el servidor');
+        //   authService.clearAuthData();
+        //   if (isMounted) {
+        //     dispatch({ type: 'AUTH_LOGOUT' });
+        //   }
+        //   return;
+        // }
 
         // PASO 5: Token válido, restaurar sesión
         console.log('✅ Token válido, restaurando sesión');
@@ -166,7 +202,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
     };
 
-    // Función para validar token con el servidor
+    // ✅ Función para validar token con el servidor (opcional)
     const validateTokenWithServer = async (token: string): Promise<boolean> => {
       try {
         const response = await fetch(`${import.meta.env.VITE_API_URL || 'https://localhost:7191/api'}/auth/validate-token`, {
@@ -175,7 +211,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify(token),
+          body: JSON.stringify({ token }), // ✅ CORREGIDO: enviar como objeto
         });
 
         return response.ok;

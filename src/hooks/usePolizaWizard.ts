@@ -126,31 +126,28 @@ export const usePolizaWizard = () => {
     }
   }, [state.selectedCompany, state.currentStep, loadSecciones]);
 
-  // ✅ Función searchClientes memoizada
-  const searchClientes = useCallback(async (term: string) => {
-    if (!term.trim() || term.length < 2) {
-      setClienteResults([]);
-      return;
-    }
+const searchClientes = useCallback(async (term: string) => {
+  if (!term.trim() || term.length < 2) {
+    setClienteResults([]);
+    return;
+  }
 
-    const token = getAuthToken();
-    if (!token) return;
-
-    try {
-      setLoadingClientes(true);
-      console.log('🔍 Buscando clientes:', term);
-      
-      const results = await clienteService.searchClientes(token, term);
-      console.log('✅ Clientes encontrados:', results.length);
-      setClienteResults(results);
-      
-    } catch (error: any) {
-      console.error('❌ Error buscando clientes:', error);
-      setError(`Error buscando clientes: ${error.message}`);
-    } finally {
-      setLoadingClientes(false);
-    }
-  }, [getAuthToken]);
+  try {
+    setLoadingClientes(true);
+    console.log('🔍 Buscando clientes:', term);
+    
+    // ✅ CORREGIDO: Sin token manual, igual que companyService
+    const results = await clienteService.searchClientes(term);
+    console.log('✅ Clientes encontrados:', results.length);
+    setClienteResults(results);
+    
+  } catch (error: any) {
+    console.error('❌ Error buscando clientes:', error);
+    setError(`Error buscando clientes: ${error.message}`);
+  } finally {
+    setLoadingClientes(false);
+  }
+}, []);
 
   // ✅ Función loadCompanies corregida sin token
   const loadCompanies = useCallback(async () => {
