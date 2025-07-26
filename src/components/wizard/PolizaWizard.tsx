@@ -1,12 +1,14 @@
-// src/components/wizard/PolizaWizard.tsx - CON FUNCIÓN SELECTCLIENTE CORREGIDA
+// src/components/wizard/PolizaWizard.tsx
+// ✅ VERSIÓN CORREGIDA - Sin bucles infinitos y búsqueda de clientes funcional
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useTheme } from '../../hooks/useTheme';
 
-// Hook principal del wizard
+// ✅ Hook principal del wizard
 import { usePolizaWizard } from '../../hooks/usePolizaWizard';
+import { useFormValidation } from '../../hooks/wizard/useFormValidation';
 
-// Componentes de pasos
+// ✅ Componentes de pasos
 import { ClienteStep } from './steps/ClienteStep';
 import { CompanyStep } from './steps/CompanyStep';
 import { SeccionStep } from './steps/SeccionStep';
@@ -16,26 +18,33 @@ import { ProcessingStep } from './steps/ProcessingStep';
 import { FormStep } from './steps/FormStep';
 import { SuccessStep } from './steps/SuccessStep';
 
-// Types necesarios
+// ✅ Componente de header
+import FloatingWizardHeader from './FloatingWizardHeader';
+
+// ✅ Types
 import { PolizaFormData } from '../../types/core/poliza';
 import { DocumentProcessResult } from '../../types/ui/wizard';
 
-// Icons
-import { 
-  AlertTriangle,
-  Save,
-  RotateCcw
-} from 'lucide-react';
+// ✅ Icons
+import { AlertTriangle, RotateCcw } from 'lucide-react';
 
 // ============================================================================
-// 🎯 COMPONENTE PRINCIPAL
+// 🎯 COMPONENTE PRINCIPAL CORREGIDO
 // ============================================================================
 
 export const PolizaWizard: React.FC = () => {
   const { effectiveTheme } = useTheme();
   const isDarkMode = effectiveTheme === 'dark';
 
-  // ✅ USAR EL HOOK PRINCIPAL QUE YA TIENE TODO IMPLEMENTADO
+  // ✅ Estados locales
+  const [formData, setFormData] = useState<PolizaFormData>({} as PolizaFormData);
+  const [saving, setSaving] = useState(false);
+
+  // ✅ Refs para manejar timeouts y evitar bucles
+  const searchTimeoutRef = useRef<number | null>(null);
+  const isInitializedRef = useRef(false);
+
+  // ✅ Hook principal del wizard
   const {
     // Estado del wizard
     selectedCliente,
@@ -70,8 +79,8 @@ export const PolizaWizard: React.FC = () => {
     loadSecciones,
     loadingSecciones,
     
-    // Funciones principales - ✅ ESTAS SON LAS CORRECTAS
-    selectCliente,        // ← Esta es la función correcta
+    // Funciones principales
+    selectCliente,
     selectCompany,
     selectSeccion,
     selectOperacion,
@@ -81,7 +90,6 @@ export const PolizaWizard: React.FC = () => {
     retryProcessing,
     
     // Navegación
-    goToStep,
     goBack,
     reset,
     
@@ -91,31 +99,76 @@ export const PolizaWizard: React.FC = () => {
     getAuthToken
   } = usePolizaWizard();
 
-  // Estados locales adicionales para el componente principal
-  const [formData, setFormData] = useState<PolizaFormData>({} as PolizaFormData);
-  const [saving, setSaving] = useState(false);
+  // ✅ Hook de validación
+  const formValidation = useFormValidation();
 
-  // ============================================================================
-  // 🎬 EFECTOS
-  // ============================================================================
+  // ✅ BÚSQUEDA DE CLIENTES CON DEBOUNCE MEJORADO
+  const handleClienteSearch = useCallback((searchTerm: string) => {
+    console.log('🔍 Manejando búsqueda de cliente:', searchTerm);
+    
+    // Limpiar timeout anterior
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
 
-  // Cargar compañías al montar el componente
+    // Actualizar estado inmediatamente
+    setClienteSearch(searchTerm);
+
+    // Si el término está vacío, limpiar resultados
+    if (!searchTerm.trim()) {
+      return;
+    }
+
+    // Debounce la búsqueda
+    searchTimeoutRef.current = window.setTimeout(() => {
+      console.log('🔍 Ejecutando búsqueda debounced:', searchTerm);
+      searchClientes(searchTerm);
+    }, 500); // Aumentamos a 500ms para evitar demasiadas llamadas
+
+  }, [setClienteSearch, searchClientes]);
+
+  // ✅ CARGAR COMPAÑÍAS SOLO UNA VEZ
   useEffect(() => {
-    loadCompanies();
+    if (!isInitializedRef.current) {
+      console.log('🚀 Inicializando PolizaWizard - Cargando compañías...');
+      loadCompanies();
+      isInitializedRef.current = true;
+    }
   }, []);
 
-  // Cargar secciones cuando se selecciona una compañía
+  // ✅ CARGAR SECCIONES CUANDO SE SELECCIONA COMPAÑÍA
   useEffect(() => {
     if (selectedCompany && currentStep === 'seccion') {
-      console.log('🔍 Compañía seleccionada, cargando secciones...');
+      console.log('🔍 Compañía seleccionada, cargando secciones para:', selectedCompany.comnom);
       loadSecciones();
     }
-  }, [selectedCompany, currentStep]);
+  }, [selectedCompany?.id, currentStep]);
 
-  // ============================================================================
-  // 🎭 RENDERIZADO DE PASOS
-  // ============================================================================
+  // ✅ CLEANUP DE TIMEOUTS
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, []);
 
+  // ✅ Función para manejar envío final de póliza
+  const handlePolizaSubmit = async (finalFormData: PolizaFormData) => {
+    setSaving(true);
+    
+    try {
+      console.log('📝 Enviando póliza a Velneo:', finalFormData);
+      await createPoliza(finalFormData);
+      console.log('✅ Póliza creada exitosamente');
+    } catch (error) {
+      console.error('❌ Error creando póliza:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // ✅ Renderizado condicional de pasos
   const renderCurrentStep = () => {
     switch (currentStep) {
       case 'cliente':
@@ -126,32 +179,20 @@ export const PolizaWizard: React.FC = () => {
             loadingClientes={loadingClientes}
             selectedCliente={selectedCliente}
             
-            onSearchChange={(search) => {
-              setClienteSearch(search);
-              
-              // Debounce la búsqueda para evitar demasiadas llamadas
-              const timeoutId = setTimeout(() => {
-                searchClientes(search);
-              }, 300);
-
-              // Cleanup del timeout anterior
-              return () => clearTimeout(timeoutId);
-            }}
+            // ✅ BÚSQUEDA MEJORADA - Sin timeouts conflictivos
+            onSearchChange={handleClienteSearch}
             
-            // ✅ CORREGIDO: Usar la función correcta del hook
             onClienteSelect={(cliente) => {
-              console.log('🎯 Cliente seleccionado en PolizaWizard:', cliente);
-              selectCliente(cliente);  // ← Esta es la función correcta del hook
+              console.log('🎯 Cliente seleccionado:', cliente);
+              selectCliente(cliente);
             }}
             
             onNext={() => {
-              if (selectedCliente) {
-                goToStep('company');
-              } else {
+              if (!selectedCliente) {
                 setError('Debe seleccionar un cliente');
               }
             }}
-            onBack={() => goBack()}
+            onBack={goBack}
             isDarkMode={isDarkMode}
           />
         );
@@ -164,19 +205,18 @@ export const PolizaWizard: React.FC = () => {
             selectedCompany={selectedCompany}
             
             onCompanySelect={(company) => {
-              console.log('🏢 Compañía seleccionada en PolizaWizard:', company);
-              selectCompany(company);  // ← Función correcta del hook
+              console.log('🏢 Compañía seleccionada:', company);
+              selectCompany(company);
             }}
             
+            // ✅ Función estable - ya memoizada en el hook
             onLoadCompanies={loadCompanies}
             onNext={() => {
-              if (selectedCompany) {
-                goToStep('seccion');
-              } else {
+              if (!selectedCompany) {
                 setError('Debe seleccionar una compañía');
               }
             }}
-            onBack={() => goBack()}
+            onBack={goBack}
             isDarkMode={isDarkMode}
           />
         );
@@ -185,18 +225,17 @@ export const PolizaWizard: React.FC = () => {
         return (
           <SeccionStep
             onNext={async () => {
-              if (selectedSeccion) {
-                goToStep('operacion');
-                return true;
-              } else {
+              if (!selectedSeccion) {
                 setError('Debe seleccionar una sección');
                 return false;
               }
+              return Promise.resolve(true);
             }}
-            onBack={() => goBack()}
+            onBack={goBack}
             onComplete={async (data) => {
-              // Marcar paso como completado
-              console.log('🎯 Sección completada:', data);
+              if (data?.seccion) {
+                selectSeccion(data.seccion);
+              }
               return true;
             }}
             wizardData={{ seccion: selectedSeccion }}
@@ -210,18 +249,16 @@ export const PolizaWizard: React.FC = () => {
             selectedOperacion={selectedOperacion}
             
             onOperacionSelect={(operacion) => {
-              console.log('⚙️ Operación seleccionada en PolizaWizard:', operacion);
-              selectOperacion(operacion);  // ← Función correcta del hook
+              console.log('⚙️ Operación seleccionada:', operacion);
+              selectOperacion(operacion);
             }}
             
             onNext={() => {
-              if (selectedOperacion) {
-                goToStep('upload');
-              } else {
+              if (!selectedOperacion) {
                 setError('Debe seleccionar un tipo de operación');
               }
             }}
-            onBack={() => goBack()}
+            onBack={goBack}
             isDarkMode={isDarkMode}
           />
         );
@@ -233,15 +270,14 @@ export const PolizaWizard: React.FC = () => {
             processing={processing}
             
             onFileSelect={(file) => {
-              console.log('📄 Archivo seleccionado en PolizaWizard:', file?.name);
-              setUploadedFile(file);  // ← Función correcta del hook
+              console.log('📄 Archivo seleccionado:', file?.name);
+              setUploadedFile(file);
             }}
             
             onProcess={async (file) => {
               if (file) {
                 try {
                   await processDocument(file);
-                  goToStep('extract');
                 } catch (error) {
                   console.error('Error procesando documento:', error);
                   setError('Error procesando el documento');
@@ -250,13 +286,11 @@ export const PolizaWizard: React.FC = () => {
             }}
             
             onNext={() => {
-              if (uploadedFile) {
-                goToStep('extract');
-              } else {
+              if (!uploadedFile) {
                 setError('Debe subir un documento');
               }
             }}
-            onBack={() => goBack()}
+            onBack={goBack}
             isDarkMode={isDarkMode}
           />
         );
@@ -269,9 +303,9 @@ export const PolizaWizard: React.FC = () => {
             selectedCliente={selectedCliente}
             selectedCompany={selectedCompany}
             onNext={() => {
-              goToStep('form');
+              console.log('Continuando al formulario...');
             }}
-            onBack={() => goBack()}
+            onBack={goBack}
             isDarkMode={isDarkMode}
           />
         );
@@ -286,7 +320,7 @@ export const PolizaWizard: React.FC = () => {
                 isValid: true, 
                 errors: [], 
                 warnings: [],
-                touchedFields: new Set()
+                touchedFields: new Set<string>()
               },
               validateField: () => {},
               validateAll: () => true,
@@ -296,24 +330,15 @@ export const PolizaWizard: React.FC = () => {
               hasFieldError: () => false,
               isFieldTouched: () => false
             }}
-            onFormDataChange={(data) => setFormData(data)}
-            onSubmit={async () => {
-              setSaving(true);
-              try {
-                await createPoliza(formData);
-              } finally {
-                setSaving(false);
-              }
-            }}
+            onFormDataChange={setFormData}
+            onSubmit={() => handlePolizaSubmit(formData)}
             saving={saving}
             onNext={() => {
-              if (formData && Object.keys(formData).length > 0) {
-                goToStep('success');
-              } else {
+              if (!formData || Object.keys(formData).length === 0) {
                 setError('Debe completar el formulario');
               }
             }}
-            onBack={() => goBack()}
+            onBack={goBack}
             isDarkMode={isDarkMode}
           />
         );
@@ -325,7 +350,7 @@ export const PolizaWizard: React.FC = () => {
               reset();
               return true;
             }}
-            onBack={() => goBack()}
+            onBack={goBack}
             onComplete={async (data) => {
               console.log('🎉 Proceso completado:', data);
               return true;
@@ -343,108 +368,76 @@ export const PolizaWizard: React.FC = () => {
 
       default:
         return (
-          <div className="p-8 text-center">
-            <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-              Paso no encontrado
-            </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
-              El paso "{currentStep}" no existe o no está implementado.
-            </p>
-            <button
-              onClick={reset}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4 mr-2 inline" />
-              Reiniciar Wizard
-            </button>
+          <div className="flex items-center justify-center min-h-96">
+            <div className="text-center">
+              <AlertTriangle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                Paso no encontrado
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                El paso "{currentStep}" no está implementado.
+              </p>
+              <button
+                onClick={reset}
+                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <RotateCcw className="w-4 h-4 mr-2 inline" />
+                Reiniciar Wizard
+              </button>
+            </div>
           </div>
         );
     }
   };
 
-  // ============================================================================
-  // 🎨 RENDER PRINCIPAL
-  // ============================================================================
-
+  // ✅ Render principal
   return (
-    <div className={`min-h-screen ${isDarkMode ? 'bg-gray-900' : 'bg-gray-50'}`}>
-      <div className="max-w-7xl mx-auto">
+    <div className={`min-h-screen transition-colors duration-300 ${
+      isDarkMode ? 'bg-gray-900' : 'bg-gray-50'
+    }`}>
+      
+      {/* ✅ Header flotante */}
+      <FloatingWizardHeader
+        currentStep={currentStep}
+        isDarkMode={isDarkMode}
+        onCancel={reset}
+      />
+
+      {/* ✅ Contenedor principal */}
+      <div className="pt-8">
         
-        {/* Header del Wizard */}
-        <div className={`sticky top-0 z-10 border-b ${
-          isDarkMode ? 'bg-gray-900 border-gray-700' : 'bg-white border-gray-200'
-        }`}>
-          <div className="px-6 py-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className={`text-2xl font-bold ${
-                  isDarkMode ? 'text-white' : 'text-gray-900'
-                }`}>
-                  Regularizador de Pólizas
-                </h1>
-                <p className={`text-sm ${
-                  isDarkMode ? 'text-gray-400' : 'text-gray-600'
-                }`}>
-                  Paso {currentStep} • {isComplete ? 'Completado' : 'En progreso'}
-                </p>
-              </div>
-              
-              {/* Botones de acción */}
-              <div className="flex items-center space-x-3">
-                {error && (
-                  <button
-                    onClick={() => setError(null)}
-                    className="text-red-600 hover:text-red-800 text-sm"
-                  >
-                    Limpiar error
-                  </button>
-                )}
-                
+        {/* Error Global */}
+        {error && (
+          <div className="max-w-7xl mx-auto px-6 mb-6">
+            <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+              <div className="flex items-start space-x-3">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-red-800 dark:text-red-200 font-medium">
+                    Error en el proceso
+                  </p>
+                  <p className="text-red-700 dark:text-red-300 text-sm mt-1">
+                    {error}
+                  </p>
+                </div>
                 <button
-                  onClick={reset}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isDarkMode
-                      ? 'text-gray-400 hover:text-white hover:bg-gray-700'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
+                  onClick={() => setError(null)}
+                  className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
                 >
-                  <RotateCcw className="w-4 h-4 mr-2 inline" />
-                  Reiniciar
+                  ×
                 </button>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Error Global */}
-        {error && (
-          <div className="mx-6 mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
-            <div className="flex items-start space-x-3">
-              <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
-              <div className="flex-1">
-                <p className="text-red-800 dark:text-red-200 font-medium">
-                  Error en el proceso
-                </p>
-                <p className="text-red-700 dark:text-red-300 text-sm mt-1">
-                  {error}
-                </p>
-              </div>
-              <button
-                onClick={() => setError(null)}
-                className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200"
-              >
-                ×
-              </button>
-            </div>
-          </div>
         )}
-
-        {/* Contenido del Paso Actual */}
-        <div className="px-6 py-6">
+        
+        {/* ✅ Contenido del paso actual */}
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {renderCurrentStep()}
         </div>
+        
       </div>
+      
     </div>
   );
 };

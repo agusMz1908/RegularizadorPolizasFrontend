@@ -1,295 +1,432 @@
-import { STORAGE_KEYS, API_CONFIG } from '../utils/constants';
+// src/services/ApiClient.ts
+// ✅ APICLIENT MEJORADO - Con soporte para timeouts extendidos
 
-export interface ApiClientOptions {
-  timeout?: number;
-  retries?: number;
-  baseURL?: string;
-}
-
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T> {
   success: boolean;
   data?: T;
   error?: string;
-  message?: string;
-  statusCode: number;
+  status: number;
+  metadata?: {
+    timestamp: string;
+    duration: number;
+    endpoint: string;
+  };
+}
+
+export interface RequestConfig {
+  timeout?: number;
+  retries?: number;
+  retryDelay?: number;
+  signal?: AbortSignal;
+  headers?: Record<string, string>;
 }
 
 class ApiClient {
   private baseURL: string;
-  private timeout: number;
-  private retries: number;
+  private defaultTimeout: number;
+  private defaultHeaders: Record<string, string>;
 
-  constructor(options: ApiClientOptions = {}) {
-    this.baseURL = options.baseURL || API_CONFIG.BASE_URL;
-    this.timeout = options.timeout || API_CONFIG.TIMEOUT;
-    this.retries = options.retries || API_CONFIG.RETRIES;
+  constructor() {
+    this.baseURL = import.meta.env.VITE_API_URL || 'https://localhost:7191/api';
+    this.defaultTimeout = parseInt(import.meta.env.VITE_API_TIMEOUT) || 30000;
+    this.defaultHeaders = {
+      'Content-Type': 'application/json',
+    };
+  }
+
+  /**
+   * ✅ UPLOAD CON TIMEOUT EXTENDIDO Y PROGRESO
+   */
+  async uploadFileWithExtendedTimeout<T>(
+    endpoint: string,
+    file: File,
+    timeout: number = 300000, // 5 minutos por defecto
+    onProgress?: (progress: number) => void
+  ): Promise<ApiResponse<T>> {
     
-    console.log('🔧 ApiClient initialized:', {
-      baseURL: this.baseURL,
-      timeout: this.timeout,
-      retries: this.retries
+    const startTime = Date.now();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    console.log(`📤 ApiClient: Upload con timeout extendido:`, {
+      endpoint,
+      fileName: file.name,
+      fileSize: `${(file.size / 1024 / 1024).toFixed(2)}MB`,
+      timeout: `${timeout / 1000}s`
+    });
+
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      let timeoutId: NodeJS.Timeout;
+
+      // ✅ Configurar timeout manual
+      timeoutId = setTimeout(() => {
+        xhr.abort();
+        resolve({
+          success: false,
+          error: `Timeout después de ${timeout / 1000} segundos. El procesamiento puede continuar en segundo plano.`,
+          status: 408,
+          metadata: {
+            timestamp: new Date().toISOString(),
+            duration: Date.now() - startTime,
+            endpoint
+          }
+        });
+      }, timeout);
+
+      // ✅ Progreso de upload
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (event) => {
+          if (event.lengthComputable) {
+            const progress = Math.round((event.loaded / event.total) * 100);
+            onProgress(Math.min(progress, 95)); // Máximo 95% para el upload
+          }
+        });
+      }
+
+      // ✅ Manejo de respuesta
+      xhr.addEventListener('load', () => {
+        clearTimeout(timeoutId);
+        
+        const duration = Date.now() - startTime;
+        console.log(`✅ Upload completado en ${duration}ms`);
+
+        try {
+          const response = JSON.parse(xhr.responseText);
+          resolve({
+            success: xhr.status >= 200 && xhr.status < 300,
+            data: response,
+            error: xhr.status >= 400 ? response.message || `HTTP ${xhr.status}` : undefined,
+            status: xhr.status,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              duration,
+              endpoint
+            }
+          });
+        } catch (parseError) {
+          resolve({
+            success: false,
+            error: 'Error parseando respuesta del servidor',
+            status: xhr.status,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              duration,
+              endpoint
+            }
+          });
+        }
+      });
+
+      // ✅ Manejo de errores
+      xhr.addEventListener('error', () => {
+        clearTimeout(timeoutId);
+        const duration = Date.now() - startTime;
+        
+        console.error('❌ Error en upload:', xhr.statusText);
+        resolve({
+          success: false,
+          error: `Error de red: ${xhr.statusText || 'Conexión fallida'}`,
+          status: xhr.status || 0,
+          metadata: {
+            timestamp: new Date().toISOString(),
+            duration,
+            endpoint
+          }
+        });
+      });
+
+      // ✅ Manejo de abort
+      xhr.addEventListener('abort', () => {
+        clearTimeout(timeoutId);
+        const duration = Date.now() - startTime;
+        
+        console.log('🛑 Upload cancelado');
+        resolve({
+          success: false,
+          error: 'Upload cancelado',
+          status: 0,
+          metadata: {
+            timestamp: new Date().toISOString(),
+            duration,
+            endpoint
+          }
+        });
+      });
+
+      // ✅ Configurar y enviar request
+      xhr.open('POST', `${this.baseURL}${endpoint}`);
+      
+      // Headers de autenticación
+      const authHeaders = this.getAuthHeaders();
+      Object.entries(authHeaders).forEach(([key, value]) => {
+        if (key !== 'Content-Type') { // No incluir Content-Type para FormData
+          xhr.setRequestHeader(key, value);
+        }
+      });
+
+      xhr.send(formData);
     });
   }
 
-  public getToken(): string | null {
-  return this.getStoredToken();
-    }
-
-  public getStoredToken(): string | null {
-    return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
-  }
-
-  private getAuthHeaders(): Record<string, string> {
-    const token = this.getStoredToken();
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-    };
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-      console.log('🔑 Token agregado a headers');
-    } else {
-      console.warn('⚠️ No hay token disponible');
-    }
-    
-    return headers;
-  }
-
-  private async handleError(response: Response): Promise<never> {
-    let errorMessage = `Error HTTP ${response.status}`;
-    
-    try {
-      const errorData = await response.json();
-      errorMessage = errorData.message || errorData.error || errorMessage;
-    } catch {
-      errorMessage = `${errorMessage}: ${response.statusText}`;
-    }
-
-    // Manejo específico de errores
-    if (response.status === 401) {
-      console.error('🚫 Sesión expirada');
-      // Disparar evento para logout automático
-      window.dispatchEvent(new CustomEvent('auth:session-expired'));
-    }
-
-    const error = new Error(errorMessage);
-    (error as any).statusCode = response.status;
-    throw error;
-  }
-
-  private async executeRequest<T>(
+  /**
+   * ✅ GET CON CONFIGURACIÓN FLEXIBLE Y QUERY PARAMETERS
+   */
+  async get<T>(
     endpoint: string, 
-    options: RequestInit = {},
-    attempt = 1
+    timeoutOrParams?: number | Record<string, any>,
+    config?: RequestConfig
   ): Promise<ApiResponse<T>> {
-    try {
-      const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
-      
-      console.log(`📡 [${options.method || 'GET'}] ${url} (intento ${attempt})`);
-
-      const config: RequestInit = {
-        ...options,
-        headers: {
-          ...this.getAuthHeaders(),
-          ...options.headers,
-        },
-        signal: AbortSignal.timeout(this.timeout),
-      };
-
-      const response = await fetch(url, config);
-
-      if (!response.ok) {
-        // Si es 401 o 403, no reintentamos
-        if (response.status === 401 || response.status === 403) {
-          await this.handleError(response);
-        }
-        
-        // Para otros errores, reintentamos si es posible
-        if (attempt < this.retries && response.status >= 500) {
-          console.warn(`⚠️ Error ${response.status}, reintentando... (${attempt}/${this.retries})`);
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-          return this.executeRequest(endpoint, options, attempt + 1);
-        }
-        
-        await this.handleError(response);
-      }
-
-      const data = await response.json();
-      
-      console.log(`✅ Request exitoso: ${response.status}`);
-      
-      return {
-        success: true,
-        data,
-        statusCode: response.status
-      };
-
-    } catch (error: any) {
-      console.error(`❌ Request falló:`, error);
-      
-      // Reintentamos solo para errores de red
-      if (attempt < this.retries && (error.name === 'AbortError' || error.message.includes('fetch'))) {
-        console.warn(`⚠️ Error de red, reintentando... (${attempt}/${this.retries})`);
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-        return this.executeRequest(endpoint, options, attempt + 1);
-      }
-
-      return {
-        success: false,
-        error: error.message || 'Error desconocido',
-        statusCode: error.statusCode || 0
-      };
+    
+    let timeout = this.defaultTimeout;
+    let queryParams: Record<string, any> = {};
+    
+    // ✅ Manejar parámetros flexibles
+    if (typeof timeoutOrParams === 'number') {
+      timeout = timeoutOrParams;
+    } else if (typeof timeoutOrParams === 'object' && timeoutOrParams !== null) {
+      queryParams = timeoutOrParams;
     }
-  }
-
-  // Métodos públicos
-  async get<T = any>(endpoint: string, params?: Record<string, any>): Promise<ApiResponse<T>> {
-    let url = endpoint;
-    if (params) {
+    
+    // ✅ Construir URL con query parameters si no están ya en el endpoint
+    let fullEndpoint = endpoint;
+    if (Object.keys(queryParams).length > 0 && !endpoint.includes('?')) {
       const searchParams = new URLSearchParams();
-      Object.entries(params).forEach(([key, value]) => {
+      Object.entries(queryParams).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
           searchParams.append(key, String(value));
         }
       });
-      url += `?${searchParams.toString()}`;
-    }
-    
-    return this.executeRequest<T>(url, { method: 'GET' });
-  }
-
-  async post<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.executeRequest<T>(endpoint, {
-      method: 'POST',
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async put<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-    return this.executeRequest<T>(endpoint, {
-      method: 'PUT',
-      body: data ? JSON.stringify(data) : undefined,
-    });
-  }
-
-  async delete<T = any>(endpoint: string): Promise<ApiResponse<T>> {
-    return this.executeRequest<T>(endpoint, { method: 'DELETE' });
-  }
-
-async uploadFile<T = any>(endpoint: string, file: File, additionalData?: Record<string, any>): Promise<ApiResponse<T>> {
-  try {
-    console.log('📤 ApiClient.uploadFile: Preparando upload...', {
-      endpoint,
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-      additionalData
-    });
-
-    const formData = new FormData();
-    
-    formData.append('file', file, file.name);
-    
-    if (additionalData) {
-      Object.entries(additionalData).forEach(([key, value]) => {
-        formData.append(key, String(value));
-      });
-    }
-
-    console.log('📋 FormData contents:');
-    for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        console.log(`  ${key}: File(${value.name}, ${value.size} bytes, ${value.type})`);
-      } else {
-        console.log(`  ${key}: ${value}`);
-      }
-    }
-
-    const token = this.getStoredToken();
-    const headers: Record<string, string> = {};
-    
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    console.log('🔑 Headers para upload:', headers);
-
-    const url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
-    console.log('🌐 URL del upload:', url);
-
-    console.log('🚀 Iniciando upload...');
-    
-    const response = await fetch(url, {
-      method: 'POST',
-      headers, 
-      body: formData,
-      signal: AbortSignal.timeout(this.timeout),
-    });
-
-    console.log('📡 Respuesta del servidor:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      headers: Object.fromEntries(response.headers.entries())
-    });
-
-    if (!response.ok) {
-      let errorMessage = `Error HTTP ${response.status}: ${response.statusText}`;
       
+      if (searchParams.toString()) {
+        fullEndpoint = `${endpoint}?${searchParams.toString()}`;
+      }
+    }
+    
+    return this.request<T>('GET', fullEndpoint, undefined, {
+      timeout,
+      ...config
+    });
+  }
+
+  /**
+   * ✅ POST CON CONFIGURACIÓN FLEXIBLE
+   */
+  async post<T>(
+    endpoint: string, 
+    data?: any,
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
+    
+    return this.request<T>('POST', endpoint, data, config);
+  }
+
+  /**
+   * ✅ REQUEST GENÉRICO CON REINTENTOS Y TIMEOUTS
+   */
+  private async request<T>(
+    method: string,
+    endpoint: string,
+    data?: any,
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
+    
+    const {
+      timeout = this.defaultTimeout,
+      retries = 0,
+      retryDelay = 1000,
+      signal,
+      headers = {}
+    } = config || {};
+
+    const startTime = Date.now();
+    let lastError: Error | null = null;
+
+    // ✅ Intentos con reintentos
+    for (let attempt = 0; attempt <= retries; attempt++) {
       try {
-        const errorText = await response.text();
-        console.error('❌ Error response body:', errorText);
+        console.log(`🌐 ApiClient: ${method} ${endpoint} (intento ${attempt + 1}/${retries + 1})`);
 
-        const errorData = JSON.parse(errorText);
-        errorMessage = errorData.message || errorData.error || errorMessage;
-      } catch (parseError) {
-        console.error('❌ No se pudo parsear error response:', parseError);
-        errorMessage = `${errorMessage}`;
+        // ✅ Crear AbortController con timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+        // ✅ Combinar signals si se proporciona uno externo
+        if (signal) {
+          signal.addEventListener('abort', () => controller.abort());
+        }
+
+        try {
+          const response = await fetch(`${this.baseURL}${endpoint}`, {
+            method,
+            headers: {
+              ...this.defaultHeaders,
+              ...this.getAuthHeaders(),
+              ...headers
+            },
+            body: data ? JSON.stringify(data) : undefined,
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+          
+          const duration = Date.now() - startTime;
+          console.log(`✅ Request completado: ${method} ${endpoint} (${duration}ms)`);
+
+          return await this.handleResponse<T>(response, {
+            timestamp: new Date().toISOString(),
+            duration,
+            endpoint
+          });
+
+        } finally {
+          clearTimeout(timeoutId);
+        }
+
+      } catch (error: any) {
+        lastError = error;
+        const duration = Date.now() - startTime;
+
+        if (error.name === 'AbortError') {
+          console.error(`⏰ Timeout después de ${timeout}ms: ${method} ${endpoint}`);
+          return {
+            success: false,
+            error: `Timeout después de ${timeout / 1000} segundos`,
+            status: 408,
+            metadata: {
+              timestamp: new Date().toISOString(),
+              duration,
+              endpoint
+            }
+          };
+        }
+
+        console.error(`❌ Error en intento ${attempt + 1}:`, error.message);
+
+        // ✅ Si no quedan reintentos, fallar
+        if (attempt >= retries) {
+          break;
+        }
+
+        // ✅ Esperar antes del siguiente intento
+        if (retryDelay > 0) {
+          console.log(`⏳ Esperando ${retryDelay}ms antes del siguiente intento...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        }
       }
-
-      if (response.status === 415) {
-        errorMessage = 'El servidor no puede procesar el tipo de archivo enviado. Verifica que sea un PDF válido.';
-      } else if (response.status === 413) {
-        errorMessage = 'El archivo es demasiado grande para el servidor.';
-      } else if (response.status === 401) {
-        errorMessage = 'Sesión expirada. Por favor, inicia sesión nuevamente.';
-      } else if (response.status === 400) {
-        errorMessage = 'Archivo inválido o datos incorrectos.';
-      }
-
-      const error = new Error(errorMessage);
-      (error as any).statusCode = response.status;
-      throw error;
     }
 
-    const responseData = await response.json();
-    
-    console.log('✅ Upload exitoso. Datos recibidos:', responseData);
-    
-    return {
-      success: true,
-      data: responseData,
-      statusCode: response.status
-    };
-
-  } catch (error: any) {
-    console.error('❌ Error en uploadFile:', error);
-    
+    // ✅ Falló todos los intentos
+    const duration = Date.now() - startTime;
     return {
       success: false,
-      error: error.message || 'Error desconocido en upload',
-      statusCode: error.statusCode || 0
+      error: lastError?.message || 'Error desconocido',
+      status: 0,
+      metadata: {
+        timestamp: new Date().toISOString(),
+        duration,
+        endpoint
+      }
     };
   }
-}
 
-  async healthCheck(): Promise<boolean> {
+  /**
+   * ✅ MANEJO MEJORADO DE RESPUESTAS
+   */
+  private async handleResponse<T>(
+    response: Response, 
+    metadata: { timestamp: string; duration: number; endpoint: string }
+  ): Promise<ApiResponse<T>> {
+    
     try {
-      const response = await this.get('/health');
-      return response.success;
-    } catch {
-      return false;
+      const responseText = await response.text();
+      let data: any;
+
+      // ✅ Intentar parsear JSON
+      try {
+        data = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        // Si no es JSON válido, usar el texto como está
+        data = responseText;
+      }
+
+      const success = response.ok;
+
+      if (!success) {
+        console.error(`❌ HTTP ${response.status}:`, {
+          endpoint: metadata.endpoint,
+          status: response.status,
+          statusText: response.statusText,
+          data
+        });
+      }
+
+      return {
+        success,
+        data: success ? data : undefined,
+        error: !success ? (data?.message || data?.error || `HTTP ${response.status}: ${response.statusText}`) : undefined,
+        status: response.status,
+        metadata
+      };
+
+    } catch (error: any) {
+      console.error('❌ Error procesando respuesta:', error);
+      return {
+        success: false,
+        error: `Error procesando respuesta: ${error.message}`,
+        status: response.status,
+        metadata
+      };
     }
+  }
+
+  /**
+   * ✅ HEADERS DE AUTENTICACIÓN
+   */
+  private getAuthHeaders(): Record<string, string> {
+    const token = this.getStoredToken();
+    return token ? { 'Authorization': `Bearer ${token}` } : {};
+  }
+
+  private getStoredToken(): string | null {
+    const storageKey = import.meta.env.VITE_JWT_STORAGE_KEY || 'regularizador_token';
+    return localStorage.getItem(storageKey);
+  }
+
+  /**
+   * ✅ MÉTODOS DE UTILIDAD
+   */
+  
+  setBaseURL(url: string): void {
+    this.baseURL = url;
+  }
+
+  setDefaultTimeout(timeout: number): void {
+    this.defaultTimeout = timeout;
+  }
+
+  setDefaultHeaders(headers: Record<string, string>): void {
+    this.defaultHeaders = { ...this.defaultHeaders, ...headers };
+  }
+
+  /**
+   * ✅ CREAR ABORT CONTROLLER PARA CANCELACIONES
+   */
+  createAbortController(timeout?: number): AbortController {
+    const controller = new AbortController();
+    
+    if (timeout) {
+      setTimeout(() => controller.abort(), timeout);
+    }
+    
+    return controller;
+  }
+
+  /**
+   * ✅ LEGACY METHODS (mantener compatibilidad)
+   */
+  async uploadFile<T>(endpoint: string, file: File): Promise<ApiResponse<T>> {
+    return this.uploadFileWithExtendedTimeout<T>(endpoint, file, this.defaultTimeout);
   }
 }
 
