@@ -20,7 +20,7 @@ import {
   Pause,
   Square
 } from 'lucide-react';
-import { Company } from '../../../services/companyService';
+import { Company } from '../../../types/core/company';
 import { Cliente } from '../../../types/ui/wizard';
 
 interface ProcessingStepProps {

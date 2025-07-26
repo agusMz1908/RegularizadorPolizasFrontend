@@ -33,7 +33,7 @@ class ClienteService {
   /**
    * ✅ BÚSQUEDA CORREGIDA - Con query parameters correctos
    */
-  async searchClientes(searchTerm: string): Promise<Cliente[]> {
+  async searchClientes(searchTerm: string, term: string): Promise<Cliente[]> {
     console.log('🔍 ClienteService: Buscando clientes:', searchTerm);
     
     if (!searchTerm.trim()) {

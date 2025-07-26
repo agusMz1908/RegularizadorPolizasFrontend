@@ -125,56 +125,59 @@ export const UploadStep: React.FC<UploadStepProps> = ({
     }
   }, [onFileSelect]);
 
-  // ✅ Procesamiento mejorado con Azure Service
-  const handleProcessDocument = useCallback(async () => {
-    if (!uploadedFile) {
-      setError('No hay archivo para procesar');
-      return;
-    }
+const handleProcessDocument = useCallback(async () => {
+  if (!uploadedFile) {
+    setError('No hay archivo para procesar');
+    return;
+  }
 
-    console.log('🚀 Iniciando procesamiento mejorado...');
+  console.log('🚀 Iniciando procesamiento mejorado...');
+  
+  setIsProcessing(true);
+  setError(null);
+  setProcessingProgress(0);
+  setProcessingStatus('Iniciando...');
+  
+  // Crear AbortController para cancelación
+  abortControllerRef.current = new AbortController();
+
+  try {
+    // ✅ Obtener token si es necesario
+    const token = localStorage.getItem('authToken') || '';
     
-    setIsProcessing(true);
-    setError(null);
+    const result = await azureService.processDocument(
+      uploadedFile,
+      token, // ✅ Agregar token como segundo parámetro
+      (progress: number, status: string, mode?: 'sync' | 'async') => { // ✅ Tipos explícitos
+        setProcessingProgress(progress);
+        setProcessingStatus(status);
+        if (mode) setProcessingMode(mode);
+        
+        console.log(`📊 Progreso: ${progress}% - ${status} (${mode || 'unknown'})`);
+      }
+    );
+
+    console.log('✅ Procesamiento completado:', result);
+    
+    setProcessedResult(result);
+    setProcessingProgress(100);
+    setProcessingStatus('Procesamiento completado exitosamente');
+    
+    // Llamar al callback original para mantener compatibilidad
+    await onProcess(uploadedFile);
+
+  } catch (error: any) {
+    console.error('❌ Error en procesamiento:', error);
+    
+    setError(error.message || 'Error procesando el documento');
     setProcessingProgress(0);
-    setProcessingStatus('Iniciando...');
+    setProcessingStatus('Error en procesamiento');
     
-    // Crear AbortController para cancelación
-    abortControllerRef.current = new AbortController();
-
-    try {
-      const result = await azureService.processDocument(
-        uploadedFile,
-        (progress, status, mode) => {
-          setProcessingProgress(progress);
-          setProcessingStatus(status);
-          if (mode) setProcessingMode(mode);
-          
-          console.log(`📊 Progreso: ${progress}% - ${status} (${mode})`);
-        }
-      );
-
-      console.log('✅ Procesamiento completado:', result);
-      
-      setProcessedResult(result);
-      setProcessingProgress(100);
-      setProcessingStatus('Procesamiento completado exitosamente');
-      
-      // Llamar al callback original para mantener compatibilidad
-      await onProcess(uploadedFile);
-
-    } catch (error: any) {
-      console.error('❌ Error en procesamiento:', error);
-      
-      setError(error.message || 'Error procesando el documento');
-      setProcessingProgress(0);
-      setProcessingStatus('Error en procesamiento');
-      
-    } finally {
-      setIsProcessing(false);
-      abortControllerRef.current = null;
-    }
-  }, [uploadedFile, onProcess]);
+  } finally {
+    setIsProcessing(false);
+    abortControllerRef.current = null;
+  }
+}, [uploadedFile, onProcess, setProcessingMode]);
 
   // ✅ Cancelar procesamiento
   const handleCancelProcessing = useCallback(() => {

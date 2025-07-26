@@ -72,9 +72,7 @@ class AzureService {
    * ✅ MÉTODO PRINCIPAL - Decide automáticamente el modo de procesamiento
    */
   async processDocument(
-    file: File,
-    onProgress?: (progress: number, status: string, mode?: 'sync' | 'async') => void
-  ): Promise<DocumentProcessResult> {
+file: File, token: string, onProgress?: (progress: number, status: string, mode?: 'sync' | 'async') => void  ): Promise<DocumentProcessResult> {
     
     console.log('📄 AzureService: Iniciando procesamiento inteligente:', {
       fileName: file.name,

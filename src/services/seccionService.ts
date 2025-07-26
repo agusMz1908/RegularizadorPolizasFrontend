@@ -1,3 +1,6 @@
+// src/services/seccionService.ts
+// ✅ SERVICIO CORREGIDO CON TODOS LOS MÉTODOS NECESARIOS
+
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
 import { Seccion } from '../types/core/seccion';
@@ -6,6 +9,8 @@ export interface SeccionLookup {
   id: number;
   seccion: string;
   descripcion: string;
+  icono?: string;
+  activo: boolean;
 }
 
 class SeccionService {
@@ -32,6 +37,39 @@ class SeccionService {
     
     if (!response.success) {
       throw new Error(response.error || 'Error obteniendo secciones para lookup');
+    }
+    
+    return response.data || [];
+  }
+
+  // ✅ MÉTODOS AGREGADOS QUE FALTAN
+  async getSecciones(token: string, companyId: number): Promise<Seccion[]> {
+    console.log('🔍 SeccionService: Obteniendo secciones por compañía (con token):', companyId);
+    
+    const response = await apiClient.get<Seccion[]>(`${this.endpoint}/company/${companyId}`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Error obteniendo secciones por compañía');
+    }
+    
+    return response.data || [];
+  }
+
+  async getSeccionesLookup(token: string, companyId: number): Promise<SeccionLookup[]> {
+    console.log('🔍 SeccionService: Obteniendo secciones lookup por compañía (con token):', companyId);
+    
+    const response = await apiClient.get<SeccionLookup[]>(`${this.endpoint}/company/${companyId}/lookup`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    if (!response.success) {
+      throw new Error(response.error || 'Error obteniendo secciones lookup por compañía');
     }
     
     return response.data || [];

@@ -1,8 +1,11 @@
+// src/types/ui/wizard.ts - Interfaz DocumentProcessResult corregida
+// ✅ TIPO CORREGIDO PARA EVITAR ERRORES
+
 import { OPERACIONES_CONFIG, TipoOperacion } from "../../utils/operationLogic";
 import { DatosVelneo } from "../../utils/azure-document";
 import { Seccion } from "../core/seccion";
 import { PolizaFormData, PolizaCreateRequest } from "../core/poliza";
-import { Company } from "../../services/companyService";
+import { Company } from "../../services/companyService"; // ✅ Import corregido
 
 export interface Cliente {
   id: number;
@@ -13,21 +16,44 @@ export interface Cliente {
   cliemail?: string;
   clidir?: string;
   activo: boolean;
+  nombre?: string; // Para compatibilidad
 }
 
-
+// ✅ TIPO CORREGIDO - Con todas las propiedades necesarias del backend
 export interface DocumentProcessResult {
-  documentId: string;
+  // ✅ Propiedades que usa el código en usePolizaWizard
+  success?: boolean;
+  data?: any;
+  extractedFields?: ExtractedField[] | Record<string, any>;
+  confidence?: number;
+  needsReview?: boolean;
+  error?: string;
+
+  // ✅ Propiedades que vienen del backend DocumentResultDto
+  DocumentoId?: number;
+  NombreArchivo?: string;
+  EstadoProcesamiento?: string;
+  MensajeError?: string;
+  CamposExtraidos?: Record<string, string>;
+  ConfianzaExtraccion?: number;
+  RequiereRevision?: boolean;
+  TiempoProcesamiento?: number;
+  PolizaProcesada?: any;
+
+  // Identificación del documento (frontend)
+  documentId?: string;
   nombreArchivo?: string;
-  estadoProcesamiento: string;
+  estadoProcesamiento?: string;
   timestamp?: string;
   
+  // Datos principales de la póliza
   numeroPoliza?: string;
   asegurado?: string;
   vigenciaDesde?: string;
   vigenciaHasta?: string;
   prima?: number;
 
+  // Metadata del procesamiento
   nivelConfianza?: number;
   requiereVerificacion?: boolean;
   requiereRevision?: boolean;
@@ -36,6 +62,7 @@ export interface DocumentProcessResult {
   tiempoProcesamiento?: number;
   porcentajeCompletitud?: number; 
   
+  // Datos adicionales de la póliza
   anio?: string;
   plan?: string;
   ramo?: string;
@@ -58,9 +85,9 @@ export interface DocumentProcessResult {
   corredor?: string;
   compania?: string;
   
+  // Datos estructurados
   datosVelneo?: any;
   polizaData?: any;
-  extractedFields?: ExtractedField[] | Record<string, any>;
   originalResponse?: any;
   errorMessage?: string;
 }
@@ -72,7 +99,7 @@ export interface ExtractedField {
   needsReview: boolean;
 }
 
-export type WizardStep = 'cliente' | 'company' | 'seccion' | 'operacion' | 'upload' | 'extract' | 'form' | 'success';
+export type WizardStep = 'cliente' | 'company' | 'seccion' | 'operacion' | 'upload' | 'processing' | 'extract' | 'form' | 'success';
 
 export interface Ramo {
   id: string;
@@ -135,11 +162,9 @@ export interface WizardConfig {
 export interface WizardMetrics {
   totalSteps: number;
   completedSteps: number;
-  progress: number; // 0-100
-  estimatedTimeRemaining?: number; // en segundos
+  currentStepIndex: number;
+  progressPercentage: number;
+  startTime: Date;
+  estimatedTimeRemaining?: number;
   averageStepTime?: number;
-  errorCount: number;
-  retryCount: number;
-  startTime?: Date;
-  endTime?: Date;
 }

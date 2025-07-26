@@ -1,35 +1,6 @@
 import { apiClient } from './ApiClient';
 import { ENDPOINTS } from '../utils/constants';
-
-export interface Company {
-  id: number;
-  comnom: string;
-  comalias: string;
-  cod_srvcompanias: string;
-  activo: boolean;
-  
-  nombre: string;
-  alias: string;
-  codigo: string;
-  
-  comrazsoc?: string;
-  comruc?: string;
-  comdom?: string;
-  comtel?: string;
-  totalPolizas?: number;
-  puedeEliminar?: boolean;
-}
-
-export interface CompanyLookup {
-  id: number;
-  comnom: string;
-  comalias: string;
-  cod_srvcompanias: string;
-  
-  nombre: string;
-  alias: string;
-  codigo: string;
-}
+import { Company, CompanyLookup } from '../types/core/company';
 
 class CompanyService {
   private readonly endpoint = ENDPOINTS.COMPANIES; 
@@ -86,3 +57,5 @@ class CompanyService {
 }
 
 export const companyService = new CompanyService();
+
+export { Company };
