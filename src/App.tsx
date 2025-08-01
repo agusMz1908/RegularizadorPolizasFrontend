@@ -1,4 +1,4 @@
-// src/App.tsx - Con autenticación
+// src/App.tsx - Con autenticación Y CompanySectionSelector Y DocumentScanner
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -6,10 +6,41 @@ import { AuthProvider, useAuth } from '../src/context/AuthContext';
 import LoginForm from '@/components/auth/LoginForm';
 import OperationSelector from './components/wizard/OperationSelector';
 import ClientSelector from './components/wizard/ClientSelector';
+import CompanySectionSelector from './components/wizard/CompanySectionSelector';
+import DocumentScanner from './components/wizard/DocumentScanner';
+import PolicyForm from './components/wizard/PolicyForm';
 import { Button } from '@/components/ui/button';
 import { LogOut, User } from 'lucide-react';
 import type { OperationType } from './components/wizard/OperationSelector';
 import type { ClientDto } from '../src/types/cliente';
+import type { CompanyDto, SeccionDto } from '../src/types/maestros';
+import type { AzureProcessResponse } from '../src/types/azureDocumentResult';
+
+interface PolicyFormData {
+  corredor: string;
+  asegurado: string;
+  domicilio: string;
+  telefono: string;
+  email: string;
+  documento: string;
+  numeroPoliza: string;
+  desde: string;
+  hasta: string;
+  endoso: string;
+  marca: string;
+  modelo: string;
+  anio: string;
+  combustible: string;
+  categoria: string;
+  chasis: string;
+  matricula: string;
+  cobertura: string;
+  premio: number;
+  total: number;
+  formaPago: string;
+  cuotas: number;
+  observaciones: string;
+}
 import './App.css';
 
 // Crear el QueryClient
@@ -30,6 +61,9 @@ const AuthenticatedApp: React.FC = () => {
   const [currentStep, setCurrentStep] = useState<WizardStep>('operation');
   const [selectedOperation, setSelectedOperation] = useState<OperationType | undefined>();
   const [selectedClient, setSelectedClient] = useState<ClientDto | undefined>();
+  const [selectedCompany, setSelectedCompany] = useState<CompanyDto | undefined>();
+  const [selectedSection, setSelectedSection] = useState<SeccionDto | undefined>();
+  const [scannedDocument, setScannedDocument] = useState<AzureProcessResponse | undefined>();
 
   if (isLoading) {
     return (
@@ -48,18 +82,66 @@ const AuthenticatedApp: React.FC = () => {
     setCurrentStep('client');
   };
 
-const handleClientSelect = (client: ClientDto) => {
-  setSelectedClient(client);
-  console.log('Cliente seleccionado:', client);
-  setCurrentStep('company-section'); // 🚀 Esta línea faltaba
-};
+  const handleClientSelect = (client: ClientDto) => {
+    setSelectedClient(client);
+    console.log('Cliente seleccionado:', client);
+    setCurrentStep('company-section');
+  };
+
+  const handleCompanySectionSelect = (company: CompanyDto, section: SeccionDto) => {
+    setSelectedCompany(company);
+    setSelectedSection(section);
+    console.log('Compañía seleccionada:', company);
+    console.log('Sección seleccionada:', section);
+    setCurrentStep('document-scan');
+  };
+
+  const handleDocumentProcessed = (scannedData: AzureProcessResponse) => {
+    setScannedDocument(scannedData);
+    console.log('Documento escaneado:', scannedData);
+    setCurrentStep('form');
+  };
+
+  const handleFormSubmit = async (formData: PolicyFormData) => {
+    console.log('📋 Datos del formulario:', formData);
+    console.log('🏢 Compañía:', selectedCompany);
+    console.log('🚗 Sección:', selectedSection);
+    console.log('📄 Documento escaneado:', scannedDocument);
+    
+    try {
+      // Aquí irías al API de Velneo para crear la póliza
+      // Por ahora solo logueamos los datos
+      alert('✅ Póliza enviada exitosamente a Velneo!\n\nEsta funcionalidad se completará en la siguiente iteración.');
+      
+      // Resetear el wizard para una nueva póliza
+      setCurrentStep('operation');
+      setSelectedOperation(undefined);
+      setSelectedClient(undefined);
+      setSelectedCompany(undefined);
+      setSelectedSection(undefined);
+      setScannedDocument(undefined);
+      
+    } catch (error) {
+      console.error('❌ Error enviando a Velneo:', error);
+      alert('❌ Error enviando la póliza a Velneo. Por favor intenta nuevamente.');
+    }
+  };
 
   const handleBack = () => {
     if (currentStep === 'client') {
       setCurrentStep('operation');
       setSelectedClient(undefined);
+    } else if (currentStep === 'company-section') {
+      setCurrentStep('client');
+      setSelectedCompany(undefined);
+      setSelectedSection(undefined);
+    } else if (currentStep === 'document-scan') {
+      setCurrentStep('company-section');
+      setScannedDocument(undefined);
+    } else if (currentStep === 'form') {
+      setCurrentStep('document-scan');
+      // No limpiar scannedDocument para mantener los datos
     }
-    // Agregar más casos cuando tengamos más pasos
   };
 
   const handleLogout = () => {
@@ -67,6 +149,9 @@ const handleClientSelect = (client: ClientDto) => {
     setCurrentStep('operation');
     setSelectedOperation(undefined);
     setSelectedClient(undefined);
+    setSelectedCompany(undefined);
+    setSelectedSection(undefined);
+    setScannedDocument(undefined);
   };
 
   const renderCurrentStep = () => {
@@ -86,6 +171,39 @@ const handleClientSelect = (client: ClientDto) => {
             selected={selectedClient}
             onBack={handleBack}
           />
+        );
+
+      case 'company-section':
+        return (
+          <CompanySectionSelector
+            onSelect={handleCompanySectionSelect}
+            selectedCompany={selectedCompany}
+            selectedSection={selectedSection}
+            onBack={handleBack}
+          />
+        );
+
+      case 'document-scan':
+        return (
+          <DocumentScanner
+            onDocumentProcessed={handleDocumentProcessed}
+            onBack={handleBack}
+          />
+        );
+
+      case 'form':
+        return (
+          scannedDocument && selectedCompany && selectedSection ? (
+            <PolicyForm
+              scannedData={scannedDocument}
+              selectedCompany={selectedCompany}
+              selectedSection={selectedSection}
+              onSubmit={handleFormSubmit}
+              onBack={handleBack}
+            />
+          ) : (
+            <div>Error: Datos faltantes para el formulario</div>
+          )
         );
         
       default:
@@ -146,9 +264,22 @@ const handleClientSelect = (client: ClientDto) => {
             {selectedClient && (
               <p>Cliente: <strong>{selectedClient.clinom}</strong></p>
             )}
+            {selectedCompany && (
+              <p>Compañía: <strong>{selectedCompany.alias}</strong></p>
+            )}
+            {selectedSection && (
+              <p>Sección: <strong>{selectedSection.seccion}</strong></p>
+            )}
+            {scannedDocument && (
+              <p>Documento: <strong>{scannedDocument.archivo}</strong> ({scannedDocument.porcentajeCompletitud}%)</p>
+            )}
           </div>
           <p className="text-xs text-gray-500 mt-2">
-            Siguiente: Implementar paso {currentStep === 'operation' ? 'Client' : 'Company+Section'}
+            Siguiente: {
+              currentStep === 'form' ? 'Envío a Velneo' : 
+              currentStep === 'document-scan' ? 'Formulario de datos' : 
+              'Completar wizard'
+            }
           </p>
         </div>
       </main>
