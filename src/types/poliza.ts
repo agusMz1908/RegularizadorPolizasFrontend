@@ -17,3 +17,38 @@ export interface PolizaDto {
   comAlias?: string;     // Alias de compañía para display
   seccionNombre?: string; // Nombre de sección para display
 }
+
+export interface PolicyFormData {
+  // Datos básicos
+  corredor: string;
+  asegurado: string;
+  domicilio: string;
+  telefono: string;
+  email: string;
+  documento: string;
+  
+  // Datos póliza
+  numeroPoliza: string;
+  desde: string;
+  hasta: string;
+  endoso: string;
+  
+  // Datos vehículo
+  marca: string;
+  modelo: string;
+  anio: string;
+  combustible: string;
+  categoria: string;
+  chasis: string;
+  matricula: string;
+  
+  // Datos cobertura
+  cobertura: string;
+  premio: number;
+  total: number;
+  formaPago: string;
+  cuotas: number;
+  
+  // Observaciones
+  observaciones: string;
+}

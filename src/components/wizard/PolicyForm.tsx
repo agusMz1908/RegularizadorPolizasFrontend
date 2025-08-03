@@ -11,7 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { 
   Car, 
   User, 
-  FileText,  
+  FileText, 
   Shield, 
   CheckCircle, 
   ChevronRight,
@@ -21,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { apiService } from '@/services/apiService';
 import type { AzureProcessResponse } from '@/types/azureDocumentResult';
 import type { CompanyDto, SeccionDto } from '@/types/maestros';
+import type { PolicyFormData } from '@/types/poliza';
 
 interface PolicyFormProps {
   scannedData: AzureProcessResponse;
@@ -30,40 +31,6 @@ interface PolicyFormProps {
   onBack: () => void;
 }
 
-interface PolicyFormData {
-  // Datos básicos
-  corredor: string;
-  asegurado: string;
-  domicilio: string;
-  telefono: string;
-  email: string;
-  documento: string;
-  
-  // Datos póliza
-  numeroPoliza: string;
-  desde: string;
-  hasta: string;
-  endoso: string;
-  
-  // Datos vehículo
-  marca: string;
-  modelo: string;
-  anio: string;
-  combustible: string;
-  categoria: string;
-  chasis: string;
-  matricula: string;
-  
-  // Datos cobertura
-  cobertura: string;
-  premio: number;
-  total: number;
-  formaPago: string;
-  cuotas: number;
-  
-  // Observaciones
-  observaciones: string;
-}
 
 const PolicyForm: React.FC<PolicyFormProps> = ({
   scannedData,

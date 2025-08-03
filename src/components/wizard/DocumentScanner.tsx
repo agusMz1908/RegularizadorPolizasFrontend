@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { apiService } from '@/services/apiService';
 import type { AzureProcessResponse } from '@/types/azureDocumentResult';
 
-interface DocumentScannerProps {
+export interface DocumentScannerProps {
   onDocumentProcessed: (scannedData: AzureProcessResponse) => void;
   onBack: () => void;
 }
