@@ -8,15 +8,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
 import { 
   Car, 
   User, 
-  FileText, 
-  DollarSign, 
+  FileText,  
   Shield, 
   CheckCircle, 
-  AlertTriangle,
   ChevronRight,
   Eye
 } from 'lucide-react';
