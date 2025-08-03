@@ -1,12 +1,12 @@
-/* src/index.css - ACTUALIZADO CON TEMAS MEJORADOS */
+/* src/index.css - CORREGIDO COMPLETAMENTE */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  /* ==================== ROOT VARIABLES ==================== */
+  /* ==================== ROOT VARIABLES LIGHT THEME ==================== */
   :root {
-    /* 🎨 Enhanced Color System */
+    /* Background System */
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;
     --card: 0 0% 100%;
@@ -14,141 +14,83 @@
     --popover: 0 0% 100%;
     --popover-foreground: 240 10% 3.9%;
 
-    /* 🔥 Primary - Blue to Purple Gradient */
-    --primary: 217 91% 60%; /* Blue-500 */
+    /* Primary Colors */
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 98%;
-    --primary-gradient: linear-gradient(
-      135deg,
-      hsl(217 91% 60%) 0%,
-      hsl(262 83% 58%) 100%
-    );
 
-    /* 🌟 Secondary - Emerald to Teal */
-    --secondary: 142 76% 36%; /* Emerald-600 */
-    --secondary-foreground: 0 0% 98%;
-    --secondary-gradient: linear-gradient(
-      135deg,
-      hsl(142 76% 36%) 0%,
-      hsl(173 80% 40%) 100%
-    );
+    /* Secondary Colors */
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
 
-    /* ⚡ Accent - Orange to Pink */
-    --accent: 32 95% 44%; /* Orange-500 */
-    --accent-foreground: 0 0% 98%;
-    --accent-gradient: linear-gradient(
-      135deg,
-      hsl(32 95% 44%) 0%,
-      hsl(330 81% 60%) 100%
-    );
-
-    /* 🔄 Muted & Neutral */
+    /* Muted Colors */
     --muted: 240 4.8% 95.9%;
     --muted-foreground: 240 3.8% 46.1%;
+
+    /* Accent Colors */
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+
+    /* Status Colors */
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Border & Input */
     --border: 240 5.9% 90%;
     --input: 240 5.9% 90%;
     --ring: 217 91% 60%;
 
-    /* ✅ Status Colors */
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --success: 142 76% 36%;
-    --success-foreground: 0 0% 98%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 98%;
-    --info: 199 89% 48%;
-    --info-foreground: 0 0% 98%;
+    /* Chart Colors */
+    --chart-1: 217 91% 60%;
+    --chart-2: 142 76% 36%;
+    --chart-3: 32 95% 44%;
+    --chart-4: 262 83% 58%;
+    --chart-5: 330 81% 60%;
 
-    /* 📊 Chart Colors */
-    --chart-1: 217 91% 60%; /* Blue */
-    --chart-2: 142 76% 36%; /* Emerald */
-    --chart-3: 32 95% 44%; /* Orange */
-    --chart-4: 262 83% 58%; /* Purple */
-    --chart-5: 330 81% 60%; /* Pink */
-
-    /* 🎭 Layout */
+    /* Radius */
     --radius: 0.75rem;
-    --sidebar-width: 320px;
-
-    /* ✨ Enhanced Properties */
-    --shadow-color: 240 5% 15%;
-    --shadow-strength: 0.1;
-    --transition-speed: 300ms;
-    --gradient-bg: linear-gradient(
-      135deg,
-      hsl(240 4.8% 95.9%) 0%,
-      hsl(240 5.9% 90%) 100%
-    );
   }
 
   /* ==================== DARK THEME ==================== */
   .dark {
-    /* 🌙 Dark Background System */
-    --background: 240 10% 3.9%; /* slate-900 */
-    --foreground: 0 0% 98%; /* white */
-    --card: 240 8% 6%; /* slate-800 */
+    /* Background System */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 8% 6%;
     --card-foreground: 0 0% 98%;
     --popover: 240 8% 6%;
     --popover-foreground: 0 0% 98%;
 
-    /* 🔥 Primary - Lighter in Dark Mode */
-    --primary: 217 91% 70%; /* Lighter blue */
+    /* Primary Colors */
+    --primary: 217 91% 70%;
     --primary-foreground: 240 10% 3.9%;
-    --primary-gradient: linear-gradient(
-      135deg,
-      hsl(217 91% 70%) 0%,
-      hsl(262 83% 68%) 100%
-    );
 
-    /* 🌟 Secondary - Adjusted for Dark */
-    --secondary: 142 76% 46%; /* Lighter emerald */
-    --secondary-foreground: 240 10% 3.9%;
-    --secondary-gradient: linear-gradient(
-      135deg,
-      hsl(142 76% 46%) 0%,
-      hsl(173 80% 50%) 100%
-    );
+    /* Secondary Colors */
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
 
-    /* ⚡ Accent - Vibrant in Dark */
-    --accent: 32 95% 54%; /* Lighter orange */
-    --accent-foreground: 240 10% 3.9%;
-    --accent-gradient: linear-gradient(
-      135deg,
-      hsl(32 95% 54%) 0%,
-      hsl(330 81% 70%) 100%
-    );
-
-    /* 🔄 Dark Muted System */
-    --muted: 240 3.7% 15.9%; /* Dark muted */
+    /* Muted Colors */
+    --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
+
+    /* Accent Colors */
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+
+    /* Status Colors */
+    --destructive: 0 75% 65%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Border & Input */
     --border: 240 3.7% 15.9%;
     --input: 240 3.7% 15.9%;
     --ring: 217 91% 70%;
 
-    /* ✅ Dark Status Colors */
-    --destructive: 0 75% 65%; /* Softer red */
-    --destructive-foreground: 0 0% 98%;
-    --success: 142 76% 46%; /* Adjusted green */
-    --success-foreground: 0 0% 98%;
-    --warning: 38 92% 60%; /* Softer yellow */
-    --warning-foreground: 240 10% 3.9%;
-    --info: 199 89% 58%; /* Lighter blue */
-    --info-foreground: 0 0% 98%;
-
-    /* 📊 Dark Chart Colors */
+    /* Chart Colors - Adjusted for dark */
     --chart-1: 217 91% 70%;
     --chart-2: 142 76% 46%;
     --chart-3: 32 95% 54%;
     --chart-4: 262 83% 68%;
     --chart-5: 330 81% 70%;
-
-    /* ✨ Dark Enhanced Properties */
-    --shadow-color: 240 10% 2%;
-    --shadow-strength: 0.3;
-    --gradient-bg: linear-gradient(
-      135deg,
-      hsl(240 8% 6%) 0%,
-      hsl(240 10% 3.9%) 100%
-    );
   }
 
   /* ==================== BASE STYLES ==================== */
@@ -159,118 +101,131 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
-    transition: background-color var(--transition-speed) ease,
-      color var(--transition-speed) ease;
+    font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100vh;
+    min-width: 100vw;
+    min-height: 100vh;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* ==================== CUSTOM UTILITIES ==================== */
+  html {
+    width: 100%;
+    height: 100%;
+  }
+
+  #root {
+    width: 100%;
+    height: 100vh;
+    min-height: 100vh;
+  }
+}
+
+/* ==================== CUSTOM UTILITIES ==================== */
+@layer utilities {
+  /* Gradient Utilities */
   .gradient-primary {
-    background: var(--primary-gradient);
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(262 83% 58%) 100%
+    );
   }
 
   .gradient-secondary {
-    background: var(--secondary-gradient);
-  }
-
-  .gradient-accent {
-    background: var(--accent-gradient);
+    background: linear-gradient(
+      135deg,
+      hsl(142 76% 36%) 0%,
+      hsl(173 80% 40%) 100%
+    );
   }
 
   .gradient-bg {
-    background: var(--gradient-bg);
+    background: linear-gradient(
+      135deg,
+      hsl(var(--background)) 0%,
+      hsl(var(--muted)) 100%
+    );
   }
 
-  /* 🌈 Text Gradients */
+  /* Text Gradients */
   .text-gradient-primary {
-    background: var(--primary-gradient);
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary)) 0%,
+      hsl(262 83% 58%) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
   .text-gradient-secondary {
-    background: var(--secondary-gradient);
+    background: linear-gradient(
+      135deg,
+      hsl(142 76% 36%) 0%,
+      hsl(173 80% 40%) 100%
+    );
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
 
-  /* ✨ Enhanced Shadows */
+  /* Enhanced Shadows */
   .shadow-soft {
-    box-shadow: 0 2px 8px
-      hsla(var(--shadow-color), calc(var(--shadow-strength) * 0.5));
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   }
 
   .shadow-medium {
-    box-shadow: 0 4px 16px hsla(var(--shadow-color), var(--shadow-strength));
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   }
 
   .shadow-strong {
-    box-shadow: 0 8px 32px
-      hsla(var(--shadow-color), calc(var(--shadow-strength) * 1.5));
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
   }
 
-  /* 🎨 Hover Effects */
+  /* Dark mode adjustments */
+  .dark .shadow-soft {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  }
+
+  .dark .shadow-medium {
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  }
+
+  .dark .shadow-strong {
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Enhanced Card */
+  .card-enhanced {
+    @apply bg-card text-card-foreground rounded-xl border shadow-soft;
+    transition: all 300ms ease;
+  }
+
+  .card-enhanced:hover {
+    @apply shadow-medium;
+  }
+
+  /* Container Responsive */
+  .container-responsive {
+    @apply mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Hover Effects */
   .hover-lift {
-    transition: transform var(--transition-speed) ease,
-      box-shadow var(--transition-speed) ease;
+    transition: transform 300ms ease, box-shadow 300ms ease;
   }
 
   .hover-lift:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 24px
-      hsla(var(--shadow-color), calc(var(--shadow-strength) * 1.2));
-  }
-
-  /* 📱 Responsive Utilities */
-  .container-responsive {
-    @apply mx-auto px-4 sm:px-6 lg:px-8;
-  }
-}
-
-/* ==================== COMPONENT SPECIFIC ==================== */
-@layer components {
-  /* 🎯 Enhanced Button Variants */
-  .btn-gradient-primary {
-    @apply bg-transparent text-white border-0 shadow-lg hover:shadow-xl;
-    background: var(--primary-gradient);
-    transition: all var(--transition-speed) ease;
-  }
-
-  .btn-gradient-primary:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.1);
-  }
-
-  .btn-gradient-secondary {
-    @apply bg-transparent text-white border-0 shadow-lg hover:shadow-xl;
-    background: var(--secondary-gradient);
-    transition: all var(--transition-speed) ease;
-  }
-
-  .btn-gradient-secondary:hover {
-    transform: translateY(-1px);
-    filter: brightness(1.1);
-  }
-
-  /* 🏷️ Enhanced Cards */
-  .card-enhanced {
-    @apply bg-card text-card-foreground rounded-xl border shadow-soft hover-lift;
-    transition: all var(--transition-speed) ease;
-  }
-
-  .card-enhanced:hover {
-    @apply shadow-medium border-primary/20;
-  }
-
-  /* 📝 Form Improvements */
-  .input-enhanced {
-    @apply bg-background border-border;
-    transition: all var(--transition-speed) ease;
-  }
-
-  .input-enhanced:focus {
-    @apply ring-2 ring-primary/50 border-primary;
-    box-shadow: 0 0 0 2px hsla(var(--primary), 0.1);
+    @apply shadow-medium;
   }
 }

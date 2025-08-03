@@ -1,4 +1,4 @@
-// src/components/wizard/CompanySectionSelector.tsx - Con API real
+// src/components/wizard/CompanySectionSelector.tsx - ADAPTADO AL SISTEMA DE TEMAS
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,11 +28,16 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
   } = useAvailableCompanies();
 
   const {
-    data: sections = [],
+    data: sectionsRaw = [],
     isLoading: loadingSections,
     isError: errorSections,
     error: sectionsError
   } = useAvailableSections();
+
+  // ✅ FILTRAR AUTO + CASA según el informe
+  const sections = sectionsRaw.filter(section => 
+    section.seccion !== 'AUTO + CASA'
+  );
 
   const [tempCompany, setTempCompany] = useState<CompanyDto | undefined>(selectedCompany);
   const [tempSection, setTempSection] = useState<SeccionDto | undefined>(selectedSection);
@@ -65,14 +70,14 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
     return (
       <div className="w-full max-w-4xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold text-gray-900">Compañía y Sección</h2>
-          <p className="text-lg text-gray-600">Cargando opciones disponibles...</p>
+          <h2 className="text-2xl font-bold text-foreground">Compañía y Sección</h2>
+          <p className="text-lg text-muted-foreground">Cargando opciones disponibles...</p>
         </div>
         
         <div className="flex justify-center py-12">
           <div className="text-center">
-            <Loader2 className="mx-auto h-12 w-12 text-gray-400 animate-spin mb-4" />
-            <p className="text-gray-600">Obteniendo compañías y secciones...</p>
+            <Loader2 className="mx-auto h-12 w-12 text-muted-foreground animate-spin mb-4" />
+            <p className="text-muted-foreground">Obteniendo compañías y secciones...</p>
           </div>
         </div>
       </div>
@@ -84,15 +89,15 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
     return (
       <div className="w-full max-w-4xl mx-auto space-y-6">
         <div className="text-center space-y-2">
-          <h2 className="text-2xl font-bold text-gray-900">Compañía y Sección</h2>
+          <h2 className="text-2xl font-bold text-foreground">Compañía y Sección</h2>
         </div>
         
         <div className="text-center py-12">
-          <AlertCircle className="mx-auto h-12 w-12 text-red-400 mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+          <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
+          <h3 className="text-lg font-medium text-foreground mb-2">
             Error al cargar opciones
           </h3>
-          <p className="text-red-600 mb-4">
+          <p className="text-destructive mb-4">
             {companiesError?.message || sectionsError?.message || 'No se pudieron cargar las compañías y secciones'}
           </p>
           <div className="space-x-4">
@@ -115,10 +120,10 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
     <div className="w-full max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-gray-900">
+        <h2 className="text-2xl font-bold text-foreground">
           Compañía y Sección
         </h2>
-        <p className="text-lg text-gray-600">
+        <p className="text-lg text-muted-foreground">
           Confirma la compañía de seguros y sección
         </p>
       </div>
@@ -126,8 +131,8 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
         {/* Selección de Compañía */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Building2 className="h-5 w-5 mr-2 text-blue-600" />
+          <h3 className="text-lg font-semibold text-foreground flex items-center">
+            <Building2 className="h-5 w-5 mr-2 text-blue-600 dark:text-blue-400" />
             Compañía de Seguros
           </h3>
           
@@ -138,20 +143,20 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
                 company={company}
                 isSelected={tempCompany?.id === company.id}
                 onClick={() => setTempCompany(company)}
-                isDefaultOption={companies.length === 1} // Si solo hay una, es por defecto
+                isDefaultOption={companies.length === 1}
               />
             ))}
             
             {companies.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <p>No hay compañías disponibles</p>
               </div>
             )}
           </div>
           
           {/* Info sobre alcance inicial */}
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p className="text-sm text-blue-800">
+          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800/30 rounded-lg p-3">
+            <p className="text-sm text-blue-800 dark:text-blue-300">
               <strong>Alcance inicial:</strong> Solo BSE disponible. 
               Próximamente se agregarán más compañías.
             </p>
@@ -160,8 +165,8 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
 
         {/* Selección de Sección */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <Car className="h-5 w-5 mr-2 text-green-600" />
+          <h3 className="text-lg font-semibold text-foreground flex items-center">
+            <Car className="h-5 w-5 mr-2 text-emerald-600 dark:text-emerald-400" />
             Sección
           </h3>
           
@@ -172,20 +177,20 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
                 section={section}
                 isSelected={tempSection?.id === section.id}
                 onClick={() => setTempSection(section)}
-                isDefaultOption={sections.length === 1} // Si solo hay una, es por defecto
+                isDefaultOption={sections.length === 1}
               />
             ))}
             
             {sections.length === 0 && (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 <p>No hay secciones disponibles</p>
               </div>
             )}
           </div>
           
           {/* Info sobre alcance inicial */}
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-            <p className="text-sm text-green-800">
+          <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800/30 rounded-lg p-3">
+            <p className="text-sm text-emerald-800 dark:text-emerald-300">
               <strong>Alcance inicial:</strong> Solo AUTOMÓVILES disponible. 
               Se expandirá a otras secciones próximamente.
             </p>
@@ -196,18 +201,18 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
       {/* Resumen de Selección */}
       {tempCompany && tempSection && (
         <div className="max-w-2xl mx-auto">
-          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-            <h4 className="font-medium text-gray-900 mb-3">Configuración Seleccionada:</h4>
+          <div className="bg-muted/50 border border-border rounded-lg p-4">
+            <h4 className="font-medium text-foreground mb-3">Configuración Seleccionada:</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
               <div className="flex items-center space-x-2">
-                <Building2 className="h-4 w-4 text-blue-600" />
-                <span className="text-gray-600">Compañía:</span>
-                <span className="font-medium">{tempCompany.alias}</span>
+                <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-muted-foreground">Compañía:</span>
+                <span className="font-medium text-foreground">{tempCompany.alias}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="text-xl">{tempSection.icono}</span>
-                <span className="text-gray-600">Sección:</span>
-                <span className="font-medium">{tempSection.seccion}</span>
+                <span className="text-muted-foreground">Sección:</span>
+                <span className="font-medium text-foreground">{tempSection.seccion}</span>
               </div>
             </div>
           </div>
@@ -256,21 +261,23 @@ const CompanyCard: React.FC<CompanyCardProps> = ({
     <Card
       className={cn(
         "cursor-pointer transition-all duration-200 hover:shadow-md",
-        isSelected ? "ring-2 ring-blue-500 bg-blue-50 border-blue-300" : "hover:border-blue-200"
+        isSelected 
+          ? "ring-2 ring-blue-500 dark:ring-blue-400 bg-blue-50 dark:bg-blue-950/20 border-blue-300 dark:border-blue-700" 
+          : "hover:border-blue-200 dark:hover:border-blue-800"
       )}
       onClick={onClick}
     >
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Building2 className="h-5 w-5 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <Building2 className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900">{company.alias}</h4>
-              <p className="text-sm text-gray-600">{company.nombre}</p>
+              <h4 className="font-semibold text-foreground">{company.alias}</h4>
+              <p className="text-sm text-muted-foreground">{company.nombre}</p>
               {isDefaultOption && (
-                <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                <span className="inline-block mt-1 px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
                   Selección inicial
                 </span>
               )}
@@ -278,7 +285,7 @@ const CompanyCard: React.FC<CompanyCardProps> = ({
           </div>
           
           {isSelected && (
-            <div className="flex items-center justify-center w-6 h-6 bg-blue-600 rounded-full">
+            <div className="flex items-center justify-center w-6 h-6 bg-blue-600 dark:bg-blue-500 rounded-full">
               <Check className="h-4 w-4 text-white" />
             </div>
           )}
@@ -306,21 +313,23 @@ const SectionCard: React.FC<SectionCardProps> = ({
     <Card
       className={cn(
         "cursor-pointer transition-all duration-200 hover:shadow-md",
-        isSelected ? "ring-2 ring-green-500 bg-green-50 border-green-300" : "hover:border-green-200"
+        isSelected 
+          ? "ring-2 ring-emerald-500 dark:ring-emerald-400 bg-emerald-50 dark:bg-emerald-950/20 border-emerald-300 dark:border-emerald-700" 
+          : "hover:border-emerald-200 dark:hover:border-emerald-800"
       )}
       onClick={onClick}
     >
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 rounded-lg text-xl">
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg text-xl">
               {section.icono}
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900">{section.seccion}</h4>
-              <p className="text-sm text-gray-600">ID: {section.id}</p>
+              <h4 className="font-semibold text-foreground">{section.seccion}</h4>
+              <p className="text-sm text-muted-foreground">ID: {section.id}</p>
               {isDefaultOption && (
-                <span className="inline-block mt-1 px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                <span className="inline-block mt-1 px-2 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 text-xs rounded-full">
                   Selección inicial
                 </span>
               )}
@@ -328,7 +337,7 @@ const SectionCard: React.FC<SectionCardProps> = ({
           </div>
           
           {isSelected && (
-            <div className="flex items-center justify-center w-6 h-6 bg-green-600 rounded-full">
+            <div className="flex items-center justify-center w-6 h-6 bg-emerald-600 dark:bg-emerald-500 rounded-full">
               <Check className="h-4 w-4 text-white" />
             </div>
           )}
