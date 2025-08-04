@@ -15,7 +15,7 @@ interface OperationSelectorProps {
 const operations = [
   {
     type: 'EMISION' as OperationType,
-    title: 'Nueva Emisión',
+    title: 'Nueva Poliza',
     description: 'Crear una nueva póliza desde cero',
     icon: FileText,
     color: 'blue',
