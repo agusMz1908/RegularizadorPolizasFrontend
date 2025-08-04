@@ -1,3 +1,4 @@
+// src/components/wizard/ClientSelector.tsx - ACTUALIZADO CON ANIMACIONES SUAVES
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,7 +15,9 @@ import {
   Loader2, 
   AlertCircle,
   IdCard,
-  Building2
+  Building2,
+  Users,
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ClientDto } from '../../types/cliente';
@@ -29,6 +32,7 @@ interface ClientSelectorProps {
 const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onBack }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
 
   // Debounce del término de búsqueda
   useEffect(() => {
@@ -61,9 +65,12 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
 
   return (
     <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="text-center space-y-2">
-        <h2 className="text-2xl font-bold text-foreground">
+      {/* ✅ HEADER CON ANIMACIÓN SUAVE */}
+      <div className="text-center space-y-4 animate-in fade-in-0 duration-500">
+        <div className="relative inline-block">
+          <Users className="h-12 w-12 text-primary mx-auto mb-2" />
+        </div>
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
           Seleccionar Cliente
         </h2>
         <p className="text-lg text-muted-foreground">
@@ -71,13 +78,17 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
         </p>
       </div>
 
-      {/* Enhanced Search Input */}
-      <div className="relative max-w-2xl mx-auto">
-        <div className="relative">
+      {/* ✅ ENHANCED SEARCH INPUT CON ANIMACIONES MEJORADAS */}
+      <div className="relative max-w-2xl mx-auto animate-in slide-in-from-top-4 duration-500 delay-200">
+        <div className={cn(
+          "relative transition-all duration-300",
+          isSearchFocused && "scale-[1.02] drop-shadow-lg"
+        )}>
           <div className="absolute inset-y-0 left-0 flex items-center pl-4">
             <Search className={cn(
-              "h-5 w-5 transition-colors",
-              showLoading ? "text-primary animate-pulse" : "text-muted-foreground"
+              "h-5 w-5 transition-all duration-300",
+              showLoading ? "text-primary animate-pulse scale-110" : 
+              isSearchFocused ? "text-primary scale-110" : "text-muted-foreground"
             )} />
           </div>
           <Input
@@ -85,31 +96,40 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
             placeholder="Buscar cliente por nombre, documento o email..."
             value={searchTerm}
             onChange={(e) => handleSearch(e.target.value)}
-            className="pl-12 pr-20 h-12 text-lg border-2 focus:border-primary transition-all"
+            onFocus={() => setIsSearchFocused(true)}
+            onBlur={() => setIsSearchFocused(false)}
+            className={cn(
+              "pl-12 pr-20 h-12 text-lg border-2 transition-all duration-300",
+              "focus:border-primary focus:ring-4 focus:ring-primary/20",
+              isSearchFocused && "bg-primary/5"
+            )}
             autoFocus
           />
           <div className="absolute inset-y-0 right-0 flex items-center pr-4">
             {showLoading ? (
               <Loader2 className="h-5 w-5 text-primary animate-spin" />
             ) : (
-              <Badge variant="secondary" className="text-xs">
+              <Badge variant="secondary" className="text-xs transition-all duration-300">
                 {showResults ? `${clients.length} resultados` : 'Escribe para buscar'}
               </Badge>
             )}
           </div>
         </div>
         
-        {/* Enhanced Search hint */}
-        <div className="flex items-center justify-center mt-3 space-x-4 text-xs text-muted-foreground">
-          <span>✨ Busca por nombre, CI, RUT o email</span>
+        {/* ✅ ENHANCED SEARCH HINT CON ANIMACIÓN */}
+        <div className="flex items-center justify-center mt-3 space-x-4 text-xs text-muted-foreground animate-in fade-in-0 duration-500 delay-400">
+          <span className="flex items-center space-x-1">
+            <Sparkles className="h-3 w-3" />
+            <span>Busca por nombre, CI, RUT o email</span>
+          </span>
           <span>•</span>
           <span>📧 Mínimo 2 caracteres</span>
         </div>
       </div>
 
-      {/* Selected Client Display */}
+      {/* ✅ SELECTED CLIENT DISPLAY CON ANIMACIÓN */}
       {selected && (
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-2xl mx-auto animate-in fade-in-0 slide-in-from-bottom-4 duration-400">
           <div className="mb-4">
             <h3 className="text-sm font-medium text-foreground mb-2 flex items-center">
               <User className="h-4 w-4 mr-2 text-primary" />
@@ -125,10 +145,10 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
         </div>
       )}
 
-      {/* Error State */}
+      {/* ✅ ERROR STATE CON ANIMACIÓN */}
       {isError && showResults && (
-        <div className="text-center py-12">
-          <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4" />
+        <div className="text-center py-12 animate-in fade-in-0 duration-400">
+          <AlertCircle className="mx-auto h-12 w-12 text-destructive mb-4 animate-pulse" />
           <h3 className="text-lg font-medium text-foreground mb-2">
             Error al buscar clientes
           </h3>
@@ -138,16 +158,16 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
           <Button 
             variant="outline" 
             onClick={() => setSearchTerm('')}
-            className="mx-auto"
+            className="mx-auto transition-all duration-300 hover:scale-105"
           >
             Reintentar Búsqueda
           </Button>
         </div>
       )}
 
-      {/* Enhanced Loading State */}
+      {/* ✅ ENHANCED LOADING STATE CON ANIMACIÓN MEJORADA */}
       {showLoading && !isError && (
-        <div className="text-center py-12">
+        <div className="text-center py-12 animate-in fade-in-0 duration-400">
           <div className="relative w-16 h-16 mx-auto mb-4">
             <div className="absolute inset-0 border-4 border-primary/20 rounded-full"></div>
             <div className="absolute inset-0 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
@@ -162,10 +182,10 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
         </div>
       )}
 
-      {/* Search Results with Virtual Scrolling */}
+      {/* ✅ SEARCH RESULTS CON ANIMACIONES ESCALONADAS SUAVES */}
       {showResults && !showLoading && !isError && (
         <div className="space-y-4">
-          <div className="text-center">
+          <div className="text-center animate-in fade-in-0 duration-400 delay-100">
             <p className="text-sm text-muted-foreground flex items-center justify-center space-x-2">
               {clients.length === 0 ? (
                 <>
@@ -184,24 +204,29 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
           </div>
           
           {clients.length > 0 && (
-            <div className="h-96 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent">
+            <div className="h-96 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-primary/20 scrollbar-track-transparent animate-in fade-in-0 duration-500 delay-200">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-4xl mx-auto">
-                {clients.map((client: ClientDto) => (
-                  <EnhancedClientCard
+                {clients.map((client: ClientDto, index) => (
+                  <div
                     key={client.id}
-                    client={client}
-                    isSelected={selected?.id === client.id}
-                    onClick={() => handleClientSelect(client)}
-                    showSelectButton={true}
-                  />
+                    className="animate-in fade-in-0 slide-in-from-bottom-2 duration-400"
+                    style={{ animationDelay: `${(index * 50) + 300}ms` }}
+                  >
+                    <EnhancedClientCard
+                      client={client}
+                      isSelected={selected?.id === client.id}
+                      onClick={() => handleClientSelect(client)}
+                      showSelectButton={true}
+                    />
+                  </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* No Results State */}
+          {/* ✅ NO RESULTS STATE CON ANIMACIÓN */}
           {clients.length === 0 && (
-            <div className="text-center py-8">
+            <div className="text-center py-8 animate-in fade-in-0 duration-400">
               <div className="bg-muted/50 rounded-lg p-6 max-w-md mx-auto">
                 <User className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
                 <h3 className="font-medium text-foreground mb-2">Sin resultados</h3>
@@ -214,9 +239,9 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
         </div>
       )}
 
-      {/* Enhanced Empty State */}
+      {/* ✅ ENHANCED EMPTY STATE CON ANIMACIÓN */}
       {!showResults && searchTerm.length === 0 && (
-        <div className="text-center py-16">
+        <div className="text-center py-16 animate-in fade-in-0 duration-500 delay-300">
           <div className="bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl p-8 max-w-md mx-auto">
             <Search className="mx-auto h-16 w-16 text-primary mb-4" />
             <h3 className="text-xl font-semibold text-foreground mb-3">
@@ -251,12 +276,12 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
         </div>
       )}
 
-      {/* Navigation Buttons */}
-      <div className="flex justify-between pt-6">
+      {/* ✅ NAVIGATION BUTTONS CON ANIMACIÓN */}
+      <div className="flex justify-between pt-6 animate-in fade-in-0 duration-400 delay-500">
         <Button
           variant="outline"
           onClick={onBack}
-          className="min-w-[120px]"
+          className="min-w-[120px] transition-all duration-300 hover:scale-105"
         >
           Volver
         </Button>
@@ -269,7 +294,10 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
               onSelect(selected);
             }
           }}
-          className="min-w-[200px]"
+          className={cn(
+            "min-w-[200px] transition-all duration-300",
+            selected && "bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 hover:scale-105"
+          )}
         >
           Continuar
           <ChevronRight className="ml-2 h-4 w-4" />
@@ -289,7 +317,7 @@ const getInitials = (name: string): string => {
     .toUpperCase();
 };
 
-// Enhanced Client Card basado en tu código actual pero mejorado
+// ✅ ENHANCED CLIENT CARD CON ANIMACIONES MEJORADAS
 interface EnhancedClientCardProps {
   client: ClientDto;
   isSelected: boolean;
@@ -309,26 +337,27 @@ const EnhancedClientCard: React.FC<EnhancedClientCardProps> = ({
   return (
     <Card
       className={cn(
+        // ✅ ANIMACIONES SUAVES DE HOVER
         "cursor-pointer transition-all duration-300 hover:shadow-xl group relative overflow-hidden",
         "hover:scale-[1.02] hover:border-primary/30 active:scale-[0.98]",
         isSelected && "ring-2 ring-primary bg-primary/5 shadow-lg scale-[1.02]"
       )}
       onClick={onClick}
     >
-      {/* Gradient overlay on hover */}
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      {/* ✅ GRADIENT OVERLAY MÁS SUTIL */}
+      <div className="absolute inset-0 bg-gradient-to-br from-primary/3 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
       
       <CardHeader className="pb-3 relative">
         <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
-            {/* Enhanced Avatar */}
-            <Avatar className="h-10 w-10 group-hover:scale-110 transition-transform duration-300">
+            {/* ✅ ENHANCED AVATAR CON ANIMACIÓN SUAVE */}
+            <Avatar className="h-10 w-10 group-hover:scale-110 transition-transform duration-300 ring-2 ring-border group-hover:ring-primary/50">
               <AvatarFallback className={cn(
                 "font-semibold text-white transition-all duration-300",
                 isCompany 
                   ? "bg-gradient-to-br from-purple-500 to-pink-500" 
                   : "bg-gradient-to-br from-blue-500 to-primary",
-                isSelected && "from-primary to-primary"
+                isSelected && "from-primary to-primary scale-110"
               )}>
                 {getInitials(client.clinom)}
               </AvatarFallback>
@@ -345,7 +374,7 @@ const EnhancedClientCard: React.FC<EnhancedClientCardProps> = ({
               <div className="flex items-center space-x-2">
                 <Badge 
                   variant={isCompany ? "secondary" : "outline"}
-                  className="text-xs"
+                  className="text-xs transition-all duration-300"
                 >
                   {isCompany ? (
                     <>
@@ -365,7 +394,7 @@ const EnhancedClientCard: React.FC<EnhancedClientCardProps> = ({
           </div>
           
           {isSelected && (
-            <div className="flex items-center text-primary animate-in fade-in slide-in-from-right-2">
+            <div className="flex items-center text-primary animate-in fade-in-0 slide-in-from-right-2 duration-300">
               <span className="text-sm font-medium">Seleccionado</span>
             </div>
           )}
@@ -374,7 +403,7 @@ const EnhancedClientCard: React.FC<EnhancedClientCardProps> = ({
       
       <CardContent className="pt-0 relative">
         <div className="space-y-3">
-          {/* Documento con iconos mejorados */}
+          {/* ✅ DOCUMENTO CON ICONOS MEJORADOS */}
           <div className="flex items-center space-x-3 text-sm">
             <IdCard className="h-4 w-4 text-muted-foreground" />
             <span className="font-medium text-muted-foreground min-w-0 flex-shrink-0">
@@ -423,7 +452,7 @@ const EnhancedClientCard: React.FC<EnhancedClientCardProps> = ({
               size="sm"
               className={cn(
                 "w-full transition-all duration-300",
-                "group-hover:bg-primary group-hover:text-primary-foreground",
+                "group-hover:bg-primary group-hover:text-primary-foreground hover:scale-[1.02]",
                 isSelected && "bg-primary text-primary-foreground"
               )}
               onClick={(e) => {

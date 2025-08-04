@@ -1,11 +1,11 @@
-// src/components/wizard/OperationSelector.tsx - CON MICRO-INTERACCIONES
+// src/components/wizard/OperationSelector.tsx - ANIMACIONES SUAVES Y CÓMODAS
 import React from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { FileText, RotateCcw, Edit3, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ChevronRight, FileText, RotateCcw, Edit3 } from 'lucide-react';
-import { EnhancedCard, EnhancedButton, StaggeredList } from '@/components/enhanced/MicroInteractions';
 
-export type OperationType = 'emision' | 'renovacion' | 'cambio';
+export type OperationType = 'EMISION' | 'RENOVACION' | 'CAMBIO';
 
 interface OperationSelectorProps {
   onSelect: (operation: OperationType) => void;
@@ -14,142 +14,145 @@ interface OperationSelectorProps {
 
 const operations = [
   {
-    id: 'emision' as OperationType,
+    type: 'EMISION' as OperationType,
     title: 'Nueva Emisión',
-    description: 'Crear una póliza completamente nueva',
-    detailedDescription: 'Proceso completo de emisión desde cero. Incluye alta de cliente, vehículo y configuración de cobertura.',
+    description: 'Crear una nueva póliza desde cero',
     icon: FileText,
-    color: 'text-emerald-600 dark:text-emerald-400',
-    bgColor: 'bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/30 dark:hover:bg-emerald-950/50',
-    borderColor: 'border-emerald-200 hover:border-emerald-300 dark:border-emerald-800 dark:hover:border-emerald-700',
-    selectedBorderColor: 'border-emerald-500 dark:border-emerald-400'
+    color: 'blue',
+    gradient: 'from-blue-500 to-blue-600',
+    bgColor: 'bg-blue-50 dark:bg-blue-950/20',
+    borderColor: 'border-blue-200 dark:border-blue-800',
+    hoverBorderColor: 'hover:border-blue-300 dark:hover:border-blue-700',
+    selectedBorderColor: 'border-blue-500 dark:border-blue-400',
+    badge: 'Nuevo',
+    badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
   },
   {
-    id: 'renovacion' as OperationType,
+    type: 'RENOVACION' as OperationType,
     title: 'Renovación',
     description: 'Renovar una póliza existente',
-    detailedDescription: 'Proceso optimizado para renovar pólizas vencidas o próximas a vencer. Carga datos previos automáticamente.',
     icon: RotateCcw,
-    color: 'text-blue-600 dark:text-blue-400',
-    bgColor: 'bg-blue-50 hover:bg-blue-100 dark:bg-blue-950/30 dark:hover:bg-blue-950/50',
-    borderColor: 'border-blue-200 hover:border-blue-300 dark:border-blue-800 dark:hover:border-blue-700',
-    selectedBorderColor: 'border-blue-500 dark:border-blue-400'
+    color: 'green',
+    gradient: 'from-green-500 to-green-600',
+    bgColor: 'bg-green-50 dark:bg-green-950/20',
+    borderColor: 'border-green-200 dark:border-green-800',
+    hoverBorderColor: 'hover:border-green-300 dark:hover:border-green-700',
+    selectedBorderColor: 'border-green-500 dark:border-green-400',
+    badge: 'Optimizado',
+    badgeColor: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
   },
   {
-    id: 'cambio' as OperationType,
-    title: 'Cambio de Póliza',
+    type: 'CAMBIO' as OperationType,
+    title: 'Cambio/Modificación',
     description: 'Modificar una póliza vigente',
-    detailedDescription: 'Permite cambios de vehículo, cobertura u otros aspectos de la póliza actual.',
     icon: Edit3,
-    color: 'text-orange-600 dark:text-orange-400',
-    bgColor: 'bg-orange-50 hover:bg-orange-100 dark:bg-orange-950/30 dark:hover:bg-orange-950/50',
-    borderColor: 'border-orange-200 hover:border-orange-300 dark:border-orange-800 dark:hover:border-orange-700',
-    selectedBorderColor: 'border-orange-500 dark:border-orange-400'
+    color: 'purple',
+    gradient: 'from-purple-500 to-purple-600',
+    bgColor: 'bg-purple-50 dark:bg-purple-950/20',
+    borderColor: 'border-purple-200 dark:border-purple-800',
+    hoverBorderColor: 'hover:border-purple-300 dark:hover:border-purple-700',
+    selectedBorderColor: 'border-purple-500 dark:border-purple-400',
+    badge: 'Flexible',
+    badgeColor: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300'
   }
 ];
 
 const OperationSelector: React.FC<OperationSelectorProps> = ({ onSelect, selected }) => {
-  const operationCards = operations.map((operation) => {
-    const Icon = operation.icon;
-    const isSelected = selected === operation.id;
-    
-    return (
-      <EnhancedCard
-        key={operation.id}
-        variant="interactive"
-        hoverEffect="lift"
-        clickEffect="ripple"
-        onClick={() => onSelect(operation.id)}
-        className={cn(
-          "border-2 bg-card",
-          isSelected 
-            ? operation.selectedBorderColor 
-            : operation.borderColor,
-          operation.bgColor
-        )}
-      >
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <div className={cn("p-3 rounded-lg transition-transform duration-300 hover:scale-110", operation.bgColor)}>
-              <Icon className={cn("h-6 w-6", operation.color)} />
-            </div>
-            {isSelected && (
-              <div className="flex items-center text-primary animate-in fade-in-0 slide-in-from-right-2">
-                <span className="text-sm font-medium">Seleccionado</span>
-              </div>
-            )}
-          </div>
-          <CardTitle className={cn("text-xl transition-colors", operation.color)}>
-            {operation.title}
-          </CardTitle>
-          <CardDescription className="text-base text-muted-foreground">
-            {operation.description}
-          </CardDescription>
-        </CardHeader>
-        
-        <CardContent className="pt-0">
-          <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-            {operation.detailedDescription}
-          </p>
-          
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-              <span className="px-2 py-1 bg-primary/10 text-primary rounded-full text-xs font-medium">
-                BSE • AUTOMÓVILES
-              </span>
-            </div>
-            <ChevronRight className={cn(
-              "h-4 w-4 transition-transform duration-300",
-              operation.color,
-              isSelected && "transform rotate-90"
-            )} />
-          </div>
-        </CardContent>
-      </EnhancedCard>
-    );
-  });
-
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
-      {/* Header with enhanced animation */}
-      <div className="text-center space-y-3 animate-in fade-in-0 slide-in-from-top-4 duration-700">
+    <div className="w-full max-w-6xl mx-auto space-y-8">
+      {/* ✅ HEADER SIMPLE SIN ANIMACIONES COMPLEJAS */}
+      <div className="text-center space-y-4 animate-in fade-in-0 duration-500">
+        <div className="relative inline-block">
+          <Sparkles className="h-12 w-12 text-primary mx-auto mb-4" />
+        </div>
         <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-          RegularizadorPolizas V2
+          Selecciona el Tipo de Operación
         </h1>
-        <p className="text-lg text-muted-foreground">
-          ¿Qué operación deseas realizar?
-        </p>
-        <p className="text-sm text-muted-foreground max-w-md mx-auto">
-          Selecciona el tipo de operación para continuar con el proceso automatizado
+        <p className="text-muted-foreground text-lg">
+          Elige qué tipo de gestión deseas realizar con la póliza
         </p>
       </div>
 
-      {/* Operation Cards con Staggered Animation */}
-      <StaggeredList
-        direction="up"
-        staggerDelay={0.15}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6"
-      >
-        {operationCards}
-      </StaggeredList>
-
-      {/* Enhanced Action Button */}
-      <div className="flex justify-center pt-6">
-        <EnhancedButton
-          variant="gradient"
-          size="lg"
-          disabled={!selected}
-          onClick={() => selected && onSelect(selected)}
-          className="min-w-[200px]"
-          icon={<ChevronRight className="h-4 w-4" />}
-        >
-          Continuar
-        </EnhancedButton>
+      {/* ✅ CARDS CON ANIMACIÓN MÁS SUAVE - FADE EN LUGAR DE STAGGERED */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700 delay-200">
+        {operations.map((operation) => {
+          const Icon = operation.icon;
+          const isSelected = selected === operation.type;
+          
+          return (
+            <Card
+              key={operation.type}
+              className={cn(
+                // ✅ TRANSICIONES MÁS SUAVES
+                "group cursor-pointer transition-all duration-300 ease-out",
+                "border-2 transform",
+                // ✅ HOVER MÁS SUTIL - SOLO SCALE Y SOMBRA
+                "hover:scale-[1.02] hover:shadow-lg",
+                // ✅ SIN OVERLAYS COMPLEJOS
+                isSelected 
+                  ? cn("ring-2 ring-primary shadow-lg scale-[1.02]", operation.selectedBorderColor)
+                  : cn(operation.borderColor, operation.hoverBorderColor),
+                operation.bgColor
+              )}
+              onClick={() => onSelect(operation.type)}
+            >
+              <CardHeader className="text-center pb-4">
+                {/* ✅ ICON CON ANIMACIÓN SIMPLE */}
+                <div className={cn(
+                  "mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4",
+                  "transition-transform duration-300 group-hover:scale-110",
+                  "bg-gradient-to-br", operation.gradient,
+                  isSelected && "scale-110"
+                )}>
+                  <Icon className="h-8 w-8 text-white drop-shadow-lg" />
+                </div>
+                
+                {/* ✅ TITLE SIN GRADIENTS COMPLEJOS */}
+                <CardTitle className={cn(
+                  "text-xl font-bold transition-colors duration-300",
+                  isSelected ? "text-primary" : "text-foreground"
+                )}>
+                  {operation.title}
+                </CardTitle>
+                
+                {/* ✅ BADGE SIMPLE */}
+                <div className="flex justify-center">
+                  <Badge className={cn(
+                    "transition-all duration-300",
+                    operation.badgeColor,
+                    isSelected && "bg-primary text-primary-foreground"
+                  )}>
+                    {operation.badge}
+                  </Badge>
+                </div>
+              </CardHeader>
+              
+              <CardContent className="text-center pb-6">
+                <p className={cn(
+                  "text-muted-foreground transition-colors duration-300",
+                  "group-hover:text-foreground",
+                  isSelected && "text-foreground font-medium"
+                )}>
+                  {operation.description}
+                </p>
+                
+                {/* ✅ SELECTION INDICATOR SIMPLE */}
+                {isSelected && (
+                  <div className="mt-4 flex items-center justify-center space-x-2 animate-in fade-in-0 duration-300">
+                    <div className="w-2 h-2 bg-primary rounded-full"></div>
+                    <span className="text-primary font-medium text-sm">Seleccionado</span>
+                    <div className="w-2 h-2 bg-primary rounded-full"></div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Enhanced Info Footer */}
-      <div className="text-center text-sm text-muted-foreground space-y-2 animate-in fade-in-0 slide-in-from-bottom-4 duration-700 delay-300">
-        <div className="flex items-center justify-center space-x-4 flex-wrap">
+      {/* ✅ FOOTER INFO SIN ANIMACIONES COMPLEJAS */}
+      <div className="text-center text-sm text-muted-foreground space-y-2 animate-in fade-in-0 duration-500 delay-500">
+        <div className="flex items-center justify-center space-x-6 flex-wrap">
           <div className="flex items-center space-x-2">
             <span className="text-lg">🚗</span>
             <span><strong>Alcance:</strong> Solo AUTOMÓVILES de BSE</span>

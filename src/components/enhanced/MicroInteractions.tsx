@@ -566,7 +566,6 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = ({
   );
 };
 
-// Export all components - SOLO UNA VEZ AL FINAL
 export {
   EnhancedCard,
   EnhancedButton,

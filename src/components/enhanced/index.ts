@@ -1,4 +1,4 @@
-// src/components/enhanced/index.ts
+// src/components/enhanced/index.ts - CORREGIDO
 export {
   EnhancedCard,
   EnhancedButton,
@@ -11,10 +11,12 @@ export {
   ParticleBackground
 } from './MicroInteractions';
 
+// ✅ CORREGIDO: Nombre del archivo era "AdavancedAnimation" ahora es "AdvancedAnimations"
 export {
   PageTransition,
   AdvancedStaggered,
   AnimatedModal,
   ProgressiveLoading,
-  MorphingButton
+  MorphingButton,
+  useAdvancedAnimations
 } from './AdavancedAnimation';
