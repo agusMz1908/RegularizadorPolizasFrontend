@@ -15,7 +15,7 @@ interface EnhancedCardProps {
   clickEffect?: 'ripple' | 'bounce' | 'scale' | 'none';
 }
 
-export const EnhancedCard: React.FC<EnhancedCardProps> = ({
+const EnhancedCard: React.FC<EnhancedCardProps> = ({
   children,
   className,
   onClick,
@@ -119,7 +119,7 @@ interface EnhancedButtonProps {
   loadingText?: string;
 }
 
-export const EnhancedButton: React.FC<EnhancedButtonProps> = ({
+const EnhancedButton: React.FC<EnhancedButtonProps> = ({
   children,
   className,
   onClick,
@@ -198,7 +198,7 @@ interface LoadingSkeletonProps {
   animated?: boolean;
 }
 
-export const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
+const LoadingSkeleton: React.FC<LoadingSkeletonProps> = ({
   className,
   variant = 'rectangular',
   lines = 1,
@@ -253,7 +253,7 @@ interface NotificationToastProps {
   icon?: React.ReactNode;
 }
 
-export const NotificationToast: React.FC<NotificationToastProps> = ({
+const NotificationToast: React.FC<NotificationToastProps> = ({
   message,
   type = 'info',
   duration = 4000,
@@ -276,10 +276,10 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
   }, [duration, onClose]);
 
   const typeStyles = {
-    success: "bg-success text-success-foreground border-success/20",
-    error: "bg-destructive text-destructive-foreground border-destructive/20",
-    warning: "bg-warning text-warning-foreground border-warning/20",
-    info: "bg-info text-info-foreground border-info/20"
+    success: "bg-green-500 text-white border-green-400/20",
+    error: "bg-red-500 text-white border-red-400/20",
+    warning: "bg-yellow-500 text-black border-yellow-400/20",
+    info: "bg-blue-500 text-white border-blue-400/20"
   };
 
   if (!isVisible) return null;
@@ -291,7 +291,7 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({
         typeStyles[type],
         isExiting 
           ? "opacity-0 translate-y-[-50px] scale-90" 
-          : "opacity-100 translate-y-0 scale-100 animate-in slide-in-from-top-2"
+          : "opacity-100 translate-y-0 scale-100"
       )}
     >
       <div className="flex items-center space-x-3">
@@ -324,7 +324,7 @@ interface AnimatedProgressProps {
   color?: 'primary' | 'secondary' | 'success' | 'warning' | 'error';
 }
 
-export const AnimatedProgress: React.FC<AnimatedProgressProps> = ({
+const AnimatedProgress: React.FC<AnimatedProgressProps> = ({
   value,
   max = 100,
   className,
@@ -349,9 +349,9 @@ export const AnimatedProgress: React.FC<AnimatedProgressProps> = ({
   const colorClasses = {
     primary: "bg-primary",
     secondary: "bg-secondary", 
-    success: "bg-success",
-    warning: "bg-warning",
-    error: "bg-destructive"
+    success: "bg-green-500",
+    warning: "bg-yellow-500",
+    error: "bg-red-500"
   };
 
   return (
@@ -384,7 +384,7 @@ interface FloatingActionButtonProps {
   tooltip?: string;
 }
 
-export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
+const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
   onClick,
   icon,
   className,
@@ -442,7 +442,7 @@ interface StaggeredListProps {
   direction?: 'up' | 'down' | 'left' | 'right';
 }
 
-export const StaggeredList: React.FC<StaggeredListProps> = ({
+const StaggeredList: React.FC<StaggeredListProps> = ({
   children,
   className,
   staggerDelay = 0.1,
@@ -492,7 +492,7 @@ interface HoverRevealProps {
   direction?: 'top' | 'bottom' | 'left' | 'right';
 }
 
-export const HoverReveal: React.FC<HoverRevealProps> = ({
+const HoverReveal: React.FC<HoverRevealProps> = ({
   children,
   revealContent,
   className,
@@ -531,7 +531,7 @@ interface ParticleBackgroundProps {
   color?: string;
 }
 
-export const ParticleBackground: React.FC<ParticleBackgroundProps> = ({
+const ParticleBackground: React.FC<ParticleBackgroundProps> = ({
   density = 20,
   color = 'rgb(59, 130, 246)'
 }) => {
@@ -566,7 +566,7 @@ export const ParticleBackground: React.FC<ParticleBackgroundProps> = ({
   );
 };
 
-// Export all components
+// Export all components - SOLO UNA VEZ AL FINAL
 export {
   EnhancedCard,
   EnhancedButton,

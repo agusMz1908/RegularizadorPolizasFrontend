@@ -172,14 +172,15 @@ function AppContent() {
       case 'operation':
         return <OperationSelector onSelect={handleOperationSelect} />;
 
-      case 'client':
-        return (
-          <ClientSelector 
-            onSelect={handleClientSelect} 
-            selected={selectedClient}
-            onBack={handleWizardBack}
-          />
-        );
+
+case 'client':
+  return (
+    <ClientSelector 
+      onSelect={handleClientSelect} 
+      selected={selectedClient}
+      onBack={handleWizardBack}
+    />
+  );
 
       case 'company-section':
         return (

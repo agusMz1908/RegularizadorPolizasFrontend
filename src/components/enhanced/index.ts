@@ -10,3 +10,11 @@ export {
   HoverReveal,
   ParticleBackground
 } from './MicroInteractions';
+
+export {
+  PageTransition,
+  AdvancedStaggered,
+  AnimatedModal,
+  ProgressiveLoading,
+  MorphingButton
+} from './AdavancedAnimation';
