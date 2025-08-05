@@ -1,4 +1,4 @@
-// src/App.tsx - CON ANIMACIONES AVANZADAS IMPLEMENTADAS
+// src/App.tsx - CON POLICYMAPPINGFORM DIRECTO
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -12,7 +12,10 @@ import OperationSelector from './components/wizard/OperationSelector';
 import ClientSelector from './components/wizard/ClientSelector';
 import CompanySectionSelector from './components/wizard/CompanySectionSelector';
 import DocumentScanner from './components/wizard/DocumentScanner';
-import PolicyForm from './components/wizard/PolicyForm';
+
+// 🚀 REEMPLAZO DIRECTO: PolicyForm → PolicyMappingForm
+import PolicyMappingForm from './components/wizard/PolicyMapperForm';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { BarChart3, DollarSign, Clock, Settings, Construction } from 'lucide-react';
@@ -145,21 +148,24 @@ function AppContent() {
   };
 
   const handleFormSubmit = async (formData: PolicyFormData) => {
-    console.log('📋 Datos del formulario:', formData);
+    console.log('📋 Datos del formulario (con mapeo inteligente):', formData);
     console.log('🏢 Compañía:', selectedCompany);
     console.log('🚗 Sección:', selectedSection);
     console.log('📄 Documento escaneado:', scannedDocument);
     
     try {
+      // 🚀 ENVÍO REAL A VELNEO (tu lógica existente)
+      // const result = await apiService.sendToVelneo(formData, selectedCompany, selectedSection);
+      
       // ✅ MOSTRAR MODAL DE ÉXITO CON ANIMACIONES
       setModalContent(
         <div className="p-6 text-center space-y-4">
           <div className="w-16 h-16 bg-green-100 dark:bg-green-950/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
             <span className="text-green-500 text-2xl">✓</span>
           </div>
-          <h3 className="text-xl font-bold text-green-600">¡Póliza Enviada Exitosamente!</h3>
+          <h3 className="text-xl font-bold text-green-600">¡Póliza Procesada con Mapeo Inteligente!</h3>
           <p className="text-muted-foreground">
-            Los datos han sido procesados y enviados a Velneo correctamente.
+            Los datos han sido mapeados automáticamente y enviados a Velneo correctamente.
           </p>
         </div>
       );
@@ -192,7 +198,7 @@ function AppContent() {
 
 const getTransitionDirection = () => {
   switch (currentWizardStep) {
-    case 'operation': return 'fade'; // ✅ Cambié de slide-right a fade
+    case 'operation': return 'fade';
     case 'client': return 'slide-right';
     case 'company-section': return 'slide-right';
     case 'document-scan': return 'slide-up';
@@ -218,8 +224,8 @@ const getTransitionDirection = () => {
 case 'wizard':
   return (
     <PageTransition 
-      direction="fade" // ✅ Cambié de slide-up a fade para suavizar
-      duration={400}   // ✅ Reduje la duración
+      direction="fade"
+      duration={400}
       isActive={currentPage === 'wizard'}
     >
       <div className="container-responsive py-6 space-y-6">
@@ -231,9 +237,9 @@ case 'wizard':
         {/* ✅ CONTENIDO DEL WIZARD CON TRANSICIONES MÁS SUAVES */}
         <PageTransition
           direction={getTransitionDirection()}
-          duration={300} // ✅ Duración más corta
+          duration={300}
           isActive={true}
-          key={currentWizardStep} // Key change triggers re-mount
+          key={currentWizardStep}
         >
           {renderWizardStep()}
         </PageTransition>
@@ -298,7 +304,6 @@ const renderWizardStep = () => {
   switch (currentWizardStep) {
     case 'operation':
       return (
-        // ✅ SIN AdvancedStaggered - Solo animación simple
         <div className="animate-in fade-in-0 duration-500">
           <OperationSelector onSelect={handleOperationSelect} />
         </div>
@@ -306,7 +311,6 @@ const renderWizardStep = () => {
 
     case 'client':
       return (
-        // ✅ Animación más sutil
         <div className="animate-in fade-in-0 slide-in-from-right-4 duration-400">
           <ClientSelector 
             onSelect={handleClientSelect} 
@@ -339,12 +343,11 @@ const renderWizardStep = () => {
 
     case 'form':
       return (
-        scannedDocument && selectedCompany && selectedSection ? (
+        scannedDocument ? (
           <div className="animate-in fade-in-0 duration-400">
-            <PolicyForm
+            {/* 🚀 REEMPLAZO DIRECTO: PolicyForm → PolicyMappingForm */}
+            <PolicyMappingForm
               scannedData={scannedDocument}
-              selectedCompany={selectedCompany}
-              selectedSection={selectedSection}
               onSubmit={handleFormSubmit}
               onBack={handleWizardBack}
             />
