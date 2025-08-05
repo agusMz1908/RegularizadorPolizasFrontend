@@ -1,8 +1,8 @@
-// src/hooks/useFormValidation.ts - Hook para validaciones del formulario
+// src/hooks/useFormValidation.ts - Hook para validaciones del formulario (COMPATIBLE CON TU ESTRUCTURA)
 
 import { useCallback, useMemo } from 'react';
 import type { PolicyFormData, FormTabId } from '../types/policyForm';
-import { VALIDATION_CONFIG, ALL_REQUIRED_FIELDS } from '../constants/velneoDefaults';
+import { VALIDATION_CONFIG } from '../constants/velneoDefault';
 import { TabsUtils } from '../constants/formTabs';
 
 export interface ValidationRule {
@@ -39,12 +39,13 @@ export interface FormValidationResult {
 /**
  * 🔍 HOOK PARA VALIDACIONES AVANZADAS DEL FORMULARIO
  * Proporciona validaciones granulares, por campo, por pestaña y globales
+ * COMPATIBLE CON TU ESTRUCTURA DE PolicyFormData
  */
 export const useFormValidation = (formData: PolicyFormData, touchedFields: Set<string>) => {
 
-  // ===== REGLAS DE VALIDACIÓN =====
+  // ===== REGLAS DE VALIDACIÓN ADAPTADAS A TU ESTRUCTURA =====
   const validationRules: ValidationRule[] = useMemo(() => [
-    // Campos de texto con longitud
+    // PESTAÑA 1: DATOS BÁSICOS
     {
       field: 'corredor',
       validator: (value) => {
@@ -58,95 +59,42 @@ export const useFormValidation = (formData: PolicyFormData, touchedFields: Set<s
     },
 
     {
-      field: 'poliza',
+      field: 'estadoTramite',
       validator: (value) => {
-        if (!value || value.trim() === '') return 'Número de póliza es requerido';
-        if (!VALIDATION_CONFIG.POLIZA_PATTERN.test(value)) {
-          return 'Formato de número de póliza inválido';
-        }
-        if (value.length > VALIDATION_CONFIG.POLIZA_MAX_LENGTH) {
-          return VALIDATION_CONFIG.MESSAGES.MAX_LENGTH(VALIDATION_CONFIG.POLIZA_MAX_LENGTH);
-        }
+        if (!value) return 'Estado de trámite es requerido';
         return null;
       },
       required: true
     },
 
     {
-      field: 'marcaModelo',
+      field: 'tramite',
       validator: (value) => {
-        if (!value || value.trim() === '') return 'Marca y modelo son requeridos';
-        if (value.length > VALIDATION_CONFIG.MARCA_MODELO_MAX_LENGTH) {
-          return VALIDATION_CONFIG.MESSAGES.MAX_LENGTH(VALIDATION_CONFIG.MARCA_MODELO_MAX_LENGTH);
-        }
-        // Verificar que tenga al menos marca y modelo
-        const parts = value.trim().split(' ').filter(Boolean);
-        if (parts.length < 2) {
-          return 'Debe incluir tanto marca como modelo';
-        }
-        return null;
-      },
-      required: true
-    },
-
-    // Campos numéricos
-    {
-      field: 'anio',
-      validator: (value) => {
-        if (!value) return 'Año es requerido';
-        const year = Number(value);
-        if (isNaN(year)) return 'Año debe ser un número válido';
-        if (year < VALIDATION_CONFIG.ANIO_MIN || year > VALIDATION_CONFIG.ANIO_MAX) {
-          return VALIDATION_CONFIG.MESSAGES.INVALID_YEAR;
-        }
+        if (!value) return 'Tipo de trámite es requerido';
         return null;
       },
       required: true
     },
 
     {
-      field: 'cuotas',
+      field: 'tipo',
       validator: (value) => {
-        if (!value) return 'Cantidad de cuotas es requerida';
-        const cuotas = Number(value);
-        if (isNaN(cuotas)) return 'Cuotas debe ser un número válido';
-        if (cuotas < VALIDATION_CONFIG.CUOTAS_MIN || cuotas > VALIDATION_CONFIG.CUOTAS_MAX) {
-          return VALIDATION_CONFIG.MESSAGES.INVALID_CUOTAS;
-        }
+        if (!value) return 'Tipo es requerido';
         return null;
       },
       required: true
     },
 
     {
-      field: 'premio',
+      field: 'estadoPoliza',
       validator: (value) => {
-        if (!value && value !== 0) return 'Premio es requerido';
-        const amount = Number(value);
-        if (isNaN(amount)) return 'Premio debe ser un número válido';
-        if (amount < VALIDATION_CONFIG.PREMIO_MIN) {
-          return VALIDATION_CONFIG.MESSAGES.NEGATIVE_AMOUNT;
-        }
+        if (!value) return 'Estado de póliza es requerido';
         return null;
       },
       required: true
     },
 
-    {
-      field: 'total',
-      validator: (value) => {
-        if (!value && value !== 0) return 'Total es requerido';
-        const amount = Number(value);
-        if (isNaN(amount)) return 'Total debe ser un número válido';
-        if (amount < VALIDATION_CONFIG.TOTAL_MIN) {
-          return VALIDATION_CONFIG.MESSAGES.NEGATIVE_AMOUNT;
-        }
-        return null;
-      },
-      required: true
-    },
-
-    // Fechas
+    // PESTAÑA 2: DATOS DE LA PÓLIZA
     {
       field: 'desde',
       validator: (value) => {
@@ -178,29 +126,51 @@ export const useFormValidation = (formData: PolicyFormData, touchedFields: Set<s
       dependencies: ['desde']
     },
 
-    // Selects requeridos
     {
-      field: 'estadoTramite',
+      field: 'poliza',
       validator: (value) => {
-        if (!value) return 'Estado de trámite es requerido';
+        if (!value || value.trim() === '') return 'Número de póliza es requerido';
+        if (!VALIDATION_CONFIG.POLIZA_PATTERN.test(value)) {
+          return 'Formato de número de póliza inválido';
+        }
+        if (value.length > VALIDATION_CONFIG.POLIZA_MAX_LENGTH) {
+          return VALIDATION_CONFIG.MESSAGES.MAX_LENGTH(VALIDATION_CONFIG.POLIZA_MAX_LENGTH);
+        }
+        return null;
+      },
+      required: true
+    },
+
+    // PESTAÑA 3: DATOS DEL VEHÍCULO
+    {
+      field: 'marcaModelo',
+      validator: (value) => {
+        if (!value || value.trim() === '') return 'Marca y modelo son requeridos';
+        if (value.length > VALIDATION_CONFIG.MARCA_MODELO_MAX_LENGTH) {
+          return VALIDATION_CONFIG.MESSAGES.MAX_LENGTH(VALIDATION_CONFIG.MARCA_MODELO_MAX_LENGTH);
+        }
+        // Verificar que tenga al menos marca y modelo
+        const parts = value.trim().split(' ').filter(Boolean);
+        if (parts.length < 2) {
+          return 'Debe incluir tanto marca como modelo';
+        }
         return null;
       },
       required: true
     },
 
     {
-      field: 'tramite',
+      field: 'anio',
       validator: (value) => {
-        if (!value) return 'Tipo de trámite es requerido';
-        return null;
-      },
-      required: true
-    },
-
-    {
-      field: 'estadoPoliza',
-      validator: (value) => {
-        if (!value) return 'Estado de póliza es requerido';
+        if (!value) return 'Año es requerido';
+        const yearStr = String(value);
+        if (!VALIDATION_CONFIG.ANIO_PATTERN.test(yearStr)) {
+          return 'Año debe ser un número de 4 dígitos';
+        }
+        const year = Number(yearStr);
+        if (isNaN(year) || year < VALIDATION_CONFIG.ANIO_MIN || year > VALIDATION_CONFIG.ANIO_MAX) {
+          return VALIDATION_CONFIG.MESSAGES.INVALID_YEAR;
+        }
         return null;
       },
       required: true
@@ -242,6 +212,7 @@ export const useFormValidation = (formData: PolicyFormData, touchedFields: Set<s
       required: true
     },
 
+    // PESTAÑA 4: DATOS DE LA COBERTURA
     {
       field: 'coberturaId',
       validator: (value) => {
@@ -269,10 +240,53 @@ export const useFormValidation = (formData: PolicyFormData, touchedFields: Set<s
       required: true
     },
 
+    // PESTAÑA 5: CONDICIONES DE PAGO
     {
       field: 'formaPago',
       validator: (value) => {
         if (!value) return 'Forma de pago es requerida';
+        return null;
+      },
+      required: true
+    },
+
+    {
+      field: 'premio',
+      validator: (value) => {
+        if (!value && value !== 0) return 'Premio es requerido';
+        const amount = Number(value);
+        if (isNaN(amount)) return 'Premio debe ser un número válido';
+        if (amount < VALIDATION_CONFIG.PREMIO_MIN) {
+          return VALIDATION_CONFIG.MESSAGES.NEGATIVE_AMOUNT;
+        }
+        return null;
+      },
+      required: true
+    },
+
+    {
+      field: 'total',
+      validator: (value) => {
+        if (!value && value !== 0) return 'Total es requerido';
+        const amount = Number(value);
+        if (isNaN(amount)) return 'Total debe ser un número válido';
+        if (amount < VALIDATION_CONFIG.TOTAL_MIN) {
+          return VALIDATION_CONFIG.MESSAGES.NEGATIVE_AMOUNT;
+        }
+        return null;
+      },
+      required: true
+    },
+
+    {
+      field: 'cuotas',
+      validator: (value) => {
+        if (!value) return 'Cantidad de cuotas es requerida';
+        const cuotas = Number(value);
+        if (isNaN(cuotas)) return 'Cuotas debe ser un número válido';
+        if (cuotas < VALIDATION_CONFIG.CUOTAS_MIN || cuotas > VALIDATION_CONFIG.CUOTAS_MAX) {
+          return VALIDATION_CONFIG.MESSAGES.INVALID_CUOTAS;
+        }
         return null;
       },
       required: true
@@ -340,6 +354,12 @@ export const useFormValidation = (formData: PolicyFormData, touchedFields: Set<s
           return 'Algunas compañías requieren el número de certificado';
         }
         break;
+
+      case 'asignado':
+        if (!value) {
+          return 'Considere asignar un responsable al trámite';
+        }
+        break;
     }
 
     return null;
@@ -391,14 +411,15 @@ export const useFormValidation = (formData: PolicyFormData, touchedFields: Set<s
 
   // ===== VALIDAR FORMULARIO COMPLETO =====
   const validateForm = useCallback((): FormValidationResult => {
-    const tabResults: Record<FormTabId, TabValidationResult> = {} as any;
+    const tabResults = {} as Record<FormTabId, TabValidationResult>;
     let totalErrors = 0;
     let totalWarnings = 0;
     const globalErrors: Record<string, string> = {};
     const globalWarnings: Record<string, string> = {};
 
-    // Validar cada pestaña
-    TabsUtils.getAllTabs().forEach(tab => {
+    // Validar cada pestaña usando TabsUtils.getAllTabs()
+    const allTabs = TabsUtils.getAllTabs();
+    allTabs.forEach(tab => {
       const tabResult = validateTab(tab.id);
       tabResults[tab.id] = tabResult;
       totalErrors += Object.keys(tabResult.errors).length;
@@ -420,9 +441,9 @@ export const useFormValidation = (formData: PolicyFormData, touchedFields: Set<s
 
     // Calcular completitud general
     const allCompletions = Object.values(tabResults).map(r => r.completion);
-    const overallCompletion = Math.round(
-      allCompletions.reduce((sum, comp) => sum + comp, 0) / allCompletions.length
-    );
+    const overallCompletion = allCompletions.length > 0 
+      ? Math.round(allCompletions.reduce((sum, comp) => sum + comp, 0) / allCompletions.length)
+      : 0;
 
     const isValid = totalErrors === 0 && Object.keys(globalErrors).length === 0;
 

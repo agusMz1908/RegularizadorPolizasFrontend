@@ -1,4 +1,4 @@
-// src/hooks/usePolicyForm.ts - Hook principal del formulario
+// src/hooks/usePolicyForm.ts - Hook principal del formulario (CORREGIDO PARA TU ESTRUCTURA)
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { PolicyFormData, FormTabId, FormValidationResult } from '../types/policyForm';
@@ -7,9 +7,7 @@ import type { AzureProcessResponse } from '../types/azureDocumentResult';
 import { VelneoMappingService } from '../services/velneoMapping';
 import { apiService, MasterDataApi } from '../services/apiService';
 import { 
-  VELNEO_DEFAULTS, 
-  getDefaultFormData, 
-  REQUIRED_FIELDS_BY_TAB, 
+  EMPTY_POLICY_FORM, 
   ALL_REQUIRED_FIELDS,
   VALIDATION_CONFIG 
 } from '../constants/velneoDefault';
@@ -46,7 +44,7 @@ export const usePolicyForm = ({
 }: UsePolicyFormProps) => {
   
   // ===== ESTADOS PRINCIPALES =====
-  const [formData, setFormData] = useState<PolicyFormData>(getDefaultFormData());
+  const [formData, setFormData] = useState<PolicyFormData>({ ...EMPTY_POLICY_FORM });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
   const [activeTab, setActiveTab] = useState<FormTabId>('datos_basicos');
@@ -104,8 +102,13 @@ export const usePolicyForm = ({
 
       // Combinar datos mapeados con datos por defecto
       const initialData = {
-        ...getDefaultFormData(),
-        ...mappedData
+        ...EMPTY_POLICY_FORM,
+        ...mappedData,
+        // Campos que vienen del contexto
+        asegurado: selectedClient?.clinom || selectedClient?.nombre || '',
+        tomador: selectedClient?.clinom || selectedClient?.nombre || '',
+        domicilio: selectedClient?.clidir || selectedClient?.direccion || '',
+        compania: selectedCompany?.comcod || EMPTY_POLICY_FORM.compania
       };
 
       setFormData(initialData);
@@ -148,7 +151,10 @@ export const usePolicyForm = ({
     
     // Validación en tiempo real para campos críticos
     if (ALL_REQUIRED_FIELDS.includes(field as any)) {
-      validateField(field, value);
+      const error = validateField(field, value);
+      if (error) {
+        setErrors(prev => ({ ...prev, [field]: error }));
+      }
     }
   }, [errors]);
 
@@ -164,8 +170,12 @@ export const usePolicyForm = ({
     // Validaciones específicas por campo
     switch (field) {
       case 'anio':
-        const year = Number(value);
-        if (isNaN(year) || year < VALIDATION_CONFIG.ANIO_MIN || year > VALIDATION_CONFIG.ANIO_MAX) {
+        const yearStr = String(value);
+        if (!yearStr || !VALIDATION_CONFIG.ANIO_PATTERN.test(yearStr)) {
+          return 'Año debe ser un número de 4 dígitos';
+        }
+        const year = Number(yearStr);
+        if (year < VALIDATION_CONFIG.ANIO_MIN || year > VALIDATION_CONFIG.ANIO_MAX) {
           return VALIDATION_CONFIG.MESSAGES.INVALID_YEAR;
         }
         break;
@@ -221,8 +231,8 @@ export const usePolicyForm = ({
 
     // Validar todos los campos requeridos
     ALL_REQUIRED_FIELDS.forEach(field => {
-      const value = formData[field];
-      const error = validateField(field, value);
+      const value = formData[field as keyof PolicyFormData];
+      const error = validateField(field as keyof PolicyFormData, value);
       
       if (error) {
         newErrors[field] = error;
@@ -264,7 +274,7 @@ export const usePolicyForm = ({
   const formProgress = useMemo(() => {
     const totalRequired = ALL_REQUIRED_FIELDS.length;
     const completedRequired = ALL_REQUIRED_FIELDS.filter(field => {
-      const value = formData[field];
+      const value = formData[field as keyof PolicyFormData];
       return value !== null && value !== undefined && value !== '';
     }).length;
 
@@ -274,7 +284,7 @@ export const usePolicyForm = ({
     const tabProgress = FORM_TABS.reduce((acc, tab) => {
       const tabRequiredFields = TabsUtils.getRequiredFieldsForTab(tab.id);
       const tabCompletedFields = tabRequiredFields.filter(field => {
-        const value = formData[field];
+        const value = formData[field as keyof PolicyFormData];
         return value !== null && value !== undefined && value !== '';
       }).length;
       
@@ -289,7 +299,7 @@ export const usePolicyForm = ({
         errors: tabErrors,
         required: tabRequiredFields,
         completed: tabRequiredFields.filter(field => {
-          const value = formData[field];
+          const value = formData[field as keyof PolicyFormData];
           return value !== null && value !== undefined && value !== '';
         })
       };
@@ -395,7 +405,7 @@ export const usePolicyForm = ({
 
   // ===== RESETEAR FORMULARIO =====
   const resetForm = useCallback(() => {
-    setFormData(getDefaultFormData());
+    setFormData({ ...EMPTY_POLICY_FORM });
     setErrors({});
     setTouchedFields(new Set());
     setActiveTab('datos_basicos');
