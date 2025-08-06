@@ -1,4 +1,4 @@
-// src/App.tsx - ACTUALIZADO PARA USAR IntegratedPolicyForm CON UX MEJORADO
+// src/App.tsx - CORREGIDO: USANDO TIPOS OFICIALES
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -27,41 +27,18 @@ import {
   AnimatedModal 
 } from '@/components/enhanced/AdavancedAnimation';
 
+// ✅ CORREGIDO: USAR TIPOS OFICIALES EN LUGAR DE DEFINICIONES LOCALES
 import type { OperationType } from './components/wizard/OperationSelector';
 import type { PolicyFormData } from './types/policyForm';
 import type { AzureProcessResponse } from './types/azureDocumentResult';
+import type { ClientDto } from './types/cliente';  // ✅ IMPORTAR TIPO OFICIAL
+import type { CompanyDto, SeccionDto } from './types/masterData';  // ✅ IMPORTAR TIPOS OFICIALES
+
 import { apiService } from './services/apiService';
 import './App.css';
 
-// ✅ AGREGAR TIPOS FALTANTES LOCALMENTE
-interface ClientDto {
-  id: number;
-  clinom: string;
-  cliced: string;
-  clidir: string;
-  clidircob?: string;
-  cliemail?: string;
-  clitelcel?: string;
-  clidptnom?: string;
-  clilocnom?: string;
-  activo: boolean;
-}
-
-interface CompanyDto {
-  id: number;
-  comnom: string;
-  comalias: string;
-  nombre?: string;
-  alias?: string;
-  activo: boolean;
-}
-
-interface SeccionDto {
-  id: number;
-  seccion: string;
-  nombre?: string;
-  activo: boolean;
-}
+// ✅ ELIMINAR DEFINICIONES LOCALES - YA NO NECESARIAS
+// Las interfaces ClientDto, CompanyDto, SeccionDto se importan desde los archivos oficiales
 
 // Query Client con configuración optimizada
 const queryClient = new QueryClient({
@@ -93,7 +70,7 @@ function AppContent() {
   // Estados para el sistema de navegación
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'wizard' | 'analytics' | 'billing' | 'history' | 'settings'>('dashboard');
   
-  // Estados del wizard
+  // Estados del wizard - ✅ AHORA USANDO TIPOS OFICIALES
   const [currentWizardStep, setCurrentWizardStep] = useState<'operation' | 'client' | 'company-section' | 'document-scan' | 'form'>('operation');
   const [selectedOperation, setSelectedOperation] = useState<OperationType | undefined>();
   const [selectedClient, setSelectedClient] = useState<ClientDto | undefined>();
@@ -155,12 +132,14 @@ function AppContent() {
     setCurrentWizardStep('client');
   };
 
+  // ✅ CORREGIDO: FUNCIÓN USANDO TIPO OFICIAL ClientDto
   const handleClientSelect = (client: ClientDto) => {
     setSelectedClient(client);
     console.log('Cliente seleccionado:', client);
     setCurrentWizardStep('company-section');
   };
 
+  // ✅ CORREGIDO: FUNCIÓN USANDO TIPOS OFICIALES
   const handleCompanySectionSelect = (company: CompanyDto, section: SeccionDto) => {
     setSelectedCompany(company);
     setSelectedSection(section);
@@ -208,7 +187,7 @@ function AppContent() {
           <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
             <p className="text-xs text-green-700">
               <strong>Cliente:</strong> {selectedClient?.clinom}<br/>
-              <strong>Compañía:</strong> {selectedCompany?.comalias}<br/>
+              <strong>Compañía:</strong> {selectedCompany?.alias || selectedCompany?.nombre}<br/>
               <strong>Póliza:</strong> {formData.poliza}
             </p>
           </div>
@@ -362,6 +341,7 @@ function AppContent() {
       case 'client':
         return (
           <div className="animate-in fade-in-0 slide-in-from-right-4 duration-400">
+            {/* ✅ CORREGIDO: AHORA USA LOS MISMOS TIPOS OFICIALES */}
             <ClientSelector 
               onSelect={handleClientSelect} 
               selected={selectedClient}

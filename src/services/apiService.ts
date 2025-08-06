@@ -1,36 +1,8 @@
 import type { LoginRequest, LoginResponse } from '@/types/auth';
-import type { MasterDataOptionsDto } from '../types/masterData';
+import type { CompanyDto, MasterDataOptionsDto, SeccionDto } from '../types/masterData';
 import { API_CONFIG } from '../constants/velneoDefault';
+import type { ClientDto } from '@/types/cliente';
 
-// ✅ AGREGAR TIPOS FALTANTES
-interface CompanyDto {
-  id: number;
-  comnom: string;
-  comalias: string;
-  nombre?: string;
-  alias?: string;
-  activo: boolean;
-}
-
-interface SeccionDto {
-  id: number;
-  seccion: string;
-  nombre?: string;
-  activo: boolean;
-}
-
-interface ClientDto {
-  id: number;
-  clinom: string;
-  cliced: string;
-  clidir: string;
-  clidircob?: string;
-  cliemail?: string;
-  clitelcel?: string;
-  clidptnom?: string;
-  clilocnom?: string;
-  activo: boolean;
-}
 
 interface VelneoPolizaRequest {
   // Campos principales
@@ -680,6 +652,8 @@ class ApiService {
   }
 }
 
+
+
 // Exportar instancia singleton
 export const apiService = new ApiService();
 
@@ -711,5 +685,7 @@ export const PolizaApi = {
 export const AzureApi = {
   processDocument: (file: File) => apiService.processDocument(file)
 };
+
+
 
 export default apiService;

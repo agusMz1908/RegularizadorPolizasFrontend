@@ -1,7 +1,7 @@
-// src/hooks/useMasterData.ts - Hook para manejo de datos maestros
+// src/hooks/useMasterData.ts - VERSIÓN CORREGIDA Y ACTUALIZADA
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { VelneoMasterDataOptions } from '../types/velneo';
+import type { MasterDataOptionsDto } from '../types/masterData';
 import type { SelectOption } from '../components/form/SelectField';
 import { MasterDataApi } from '../services/apiService';
 import { TEXT_PLAIN_OPTIONS } from '../constants/textPlainOptions';
@@ -13,8 +13,8 @@ export interface MasterDataState {
   error: string | null;
   lastUpdated: Date | null;
   
-  // Datos maestros
-  options: VelneoMasterDataOptions | null;
+  // ✅ CORREGIDO: Usar MasterDataOptionsDto en lugar de VelneoMasterDataOptions
+  options: MasterDataOptionsDto | null;
   
   // Cache individual por tipo
   categorias: SelectOption[];
@@ -32,12 +32,12 @@ export interface MasterDataState {
 }
 
 /**
- * 🏢 HOOK PARA MANEJO DE DATOS MAESTROS
+ * 🏢 HOOK PARA MANEJO DE DATOS MAESTROS - VERSIÓN CORREGIDA
  * Maneja la carga, cache y transformación de todos los datos maestros
  */
 export const useMasterData = () => {
   const [state, setState] = useState<MasterDataState>({
-    loading: true,
+    loading: false, // ✅ CORREGIDO: Iniciar en false para evitar conflictos
     error: null,
     lastUpdated: null,
     options: null,
@@ -53,56 +53,18 @@ export const useMasterData = () => {
     departamentos: []
   });
 
-  // ===== CARGAR DATOS MAESTROS =====
-  const loadMasterData = useCallback(async (force = false) => {
-    // No recargar si ya tenemos datos y no es forzado
-    if (state.options && !force && !state.error) {
-      return;
-    }
+  // ✅ CORREGIDO: Transformar datos maestros usando el tipo correcto
+  const transformMasterDataToSelectOptions = useCallback((options: MasterDataOptionsDto) => {
+    console.log('🔄 [useMasterData] Transformando datos maestros:', {
+      categorias: options.Categorias?.length || 0,
+      destinos: options.Destinos?.length || 0,
+      calidades: options.Calidades?.length || 0,
+      combustibles: options.Combustibles?.length || 0,
+      monedas: options.Monedas?.length || 0
+    });
 
-    setState(prev => ({ ...prev, loading: true, error: null }));
-
-    try {
-      console.log('🔄 Cargando datos maestros...');
-      
-      const options = await MasterDataApi.getMasterDataOptions();
-      
-      // Transformar datos maestros a formato SelectOption
-      const transformedData = transformMasterDataToSelectOptions(options);
-      
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: null,
-        lastUpdated: new Date(),
-        options,
-        ...transformedData
-      }));
-
-      console.log('✅ Datos maestros cargados exitosamente', {
-        categorias: options.Categorias?.length || 0,
-        destinos: options.Destinos?.length || 0,
-        calidades: options.Calidades?.length || 0,
-        combustibles: options.Combustibles?.length || 0,
-        monedas: options.Monedas?.length || 0
-      });
-
-    } catch (error) {
-      console.error('❌ Error cargando datos maestros:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      
-      setState(prev => ({
-        ...prev,
-        loading: false,
-        error: errorMessage
-      }));
-    }
-  }, [state.options, state.error]);
-
-  // ===== TRANSFORMAR DATOS MAESTROS =====
-  const transformMasterDataToSelectOptions = useCallback((options: VelneoMasterDataOptions) => {
-    return {
-      // Maestros de BD
+    const transformed = {
+      // ✅ Maestros de BD usando MasterDataOptionsDto
       categorias: options.Categorias?.map(cat => ({
         id: cat.id,
         name: cat.catdsc || `Categoría ${cat.id}`,
@@ -133,43 +95,122 @@ export const useMasterData = () => {
         description: mon.codigo ? `${mon.codigo}${mon.simbolo ? ` (${mon.simbolo})` : ''}` : `ID: ${mon.id}`
       })) || [],
 
-      // Opciones de texto plano
-      estadosPoliza: TEXT_PLAIN_OPTIONS.estadosPoliza.map(estado => ({
+      // ✅ Opciones de texto plano usando arrays del backend si están disponibles
+      estadosPoliza: (options.EstadosPoliza?.map(estado => ({
+        id: estado,
+        name: estado,
+        description: `Estado: ${estado}`
+      })) || TEXT_PLAIN_OPTIONS.estadosPoliza?.map(estado => ({
         id: estado.id,
         name: estado.name,
         description: estado.description
-      })),
+      })) || []),
 
-      tiposTramite: TEXT_PLAIN_OPTIONS.tiposTramite.map(tipo => ({
+      tiposTramite: (options.TiposTramite?.map(tipo => ({
+        id: tipo,
+        name: tipo,
+        description: `Tipo: ${tipo}`
+      })) || TEXT_PLAIN_OPTIONS.tiposTramite?.map(tipo => ({
         id: tipo.id,
         name: tipo.name,
         description: tipo.description
-      })),
+      })) || []),
 
-      estadosBasicos: TEXT_PLAIN_OPTIONS.estadosBasicos.map(estado => ({
+      estadosBasicos: (options.EstadosBasicos?.map(estado => ({
+        id: estado,
+        name: estado,
+        description: `Estado: ${estado}`
+      })) || TEXT_PLAIN_OPTIONS.estadosBasicos?.map(estado => ({
         id: estado.id,
         name: estado.name,
         description: estado.description
-      })),
+      })) || []),
 
-      formasPago: TEXT_PLAIN_OPTIONS.formasPago.map(forma => ({
+      formasPago: (options.FormasPago?.map(forma => ({
+        id: forma,
+        name: forma,
+        description: `Forma: ${forma}`
+      })) || TEXT_PLAIN_OPTIONS.formasPago?.map(forma => ({
         id: forma.id,
         name: forma.name,
         description: forma.description
-      })),
+      })) || []),
 
-      departamentos: REGIONAL_CONFIG.DEPARTAMENTOS_URUGUAY.map((dept: any) => ({
+      // ✅ Departamentos usando configuración regional
+      departamentos: (REGIONAL_CONFIG?.DEPARTAMENTOS_URUGUAY?.map((dept: string) => ({
         id: dept,
         name: dept,
         description: 'Departamento de Uruguay'
-      }))
+      })) || [
+        { id: 'MONTEVIDEO', name: 'MONTEVIDEO', description: 'Departamento de Uruguay' },
+        { id: 'CANELONES', name: 'CANELONES', description: 'Departamento de Uruguay' },
+        { id: 'MALDONADO', name: 'MALDONADO', description: 'Departamento de Uruguay' }
+      ])
     };
+
+    console.log('✅ [useMasterData] Datos transformados exitosamente:', {
+      categorias: transformed.categorias.length,
+      destinos: transformed.destinos.length,
+      calidades: transformed.calidades.length,
+      combustibles: transformed.combustibles.length,
+      monedas: transformed.monedas.length,
+      estadosPoliza: transformed.estadosPoliza.length,
+      tiposTramite: transformed.tiposTramite.length,
+      estadosBasicos: transformed.estadosBasicos.length,
+      formasPago: transformed.formasPago.length,
+      departamentos: transformed.departamentos.length
+    });
+
+    return transformed;
   }, []);
 
-  // ===== CARGAR AL MONTAR =====
+  // ===== CARGAR DATOS MAESTROS - CORREGIDO =====
+  const loadMasterData = useCallback(async (force = false) => {
+    // No recargar si ya tenemos datos y no es forzado
+    if (state.options && !force && !state.error) {
+      console.log('🔒 [useMasterData] Datos ya cargados, saltando recarga');
+      return;
+    }
+
+    console.log('🔄 [useMasterData] Iniciando carga de datos maestros...');
+    setState(prev => ({ ...prev, loading: true, error: null }));
+
+    try {
+      const options = await MasterDataApi.getMasterDataOptions();
+      
+      // ✅ Transformar datos maestros a formato SelectOption
+      const transformedData = transformMasterDataToSelectOptions(options);
+      
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: null,
+        lastUpdated: new Date(),
+        options,
+        ...transformedData
+      }));
+
+      console.log('✅ [useMasterData] Datos maestros cargados exitosamente');
+
+    } catch (error) {
+      console.error('❌ [useMasterData] Error cargando datos maestros:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Error desconocido cargando maestros';
+      
+      setState(prev => ({
+        ...prev,
+        loading: false,
+        error: errorMessage
+      }));
+    }
+  }, []); // ✅ CORREGIDO: Sin dependencias para evitar bucles
+
+  // ===== CARGAR AL MONTAR - SOLO UNA VEZ =====
   useEffect(() => {
-    loadMasterData();
-  }, [loadMasterData]);
+    if (!state.options && !state.loading && !state.error) {
+      console.log('🚀 [useMasterData] Carga inicial al montar componente');
+      loadMasterData();
+    }
+  }, []); // ✅ CORREGIDO: Solo al montar
 
   // ===== BÚSQUEDA EN MAESTROS =====
   const searchInMaster = useCallback(<T extends SelectOption>(
@@ -205,7 +246,7 @@ export const useMasterData = () => {
 
   // ===== ESTADÍSTICAS =====
   const stats = useMemo(() => ({
-    totalMasters: Object.keys(state.options || {}).length,
+    totalMasters: state.options ? Object.keys(state.options).length : 0,
     totalOptions: [
       state.categorias.length,
       state.destinos.length,
@@ -238,10 +279,13 @@ export const useMasterData = () => {
       const commonMappings: Record<string, string> = {
         'DIESEL': 'DIS',
         'DISEL': 'DIS',
+        'GAS-OIL': 'DIS',
         'GASOLINA': 'GAS',
         'NAFTA': 'GAS',
         'ELECTRICO': 'ELE',
-        'HIBRIDO': 'HYB'
+        'ELECTRIC': 'ELE',
+        'HIBRIDO': 'HYB',
+        'HYBRID': 'HYB'
       };
 
       for (const [key, id] of Object.entries(commonMappings)) {
@@ -250,13 +294,22 @@ export const useMasterData = () => {
         }
       }
 
-      return null;
+      // Buscar por coincidencia parcial en nombre
+      return state.combustibles.find(comb => 
+        comb.name.toLowerCase().includes(text.toLowerCase()) ||
+        text.toLowerCase().includes(comb.name.toLowerCase())
+      ) || null;
     },
 
     // Buscar moneda por código
     findMonedaByCodigo: (codigo: string) => {
+      if (!codigo) return null;
+      const upperCodigo = codigo.toUpperCase();
+      
       return state.monedas.find(moneda => 
-        moneda.description?.includes(codigo.toUpperCase())
+        moneda.description?.includes(upperCodigo) ||
+        moneda.name.toUpperCase().includes(upperCodigo) ||
+        moneda.id.toString() === upperCodigo
       ) || null;
     },
 
@@ -270,6 +323,30 @@ export const useMasterData = () => {
       return state.departamentos.find(dept => 
         dept.name.includes(upperText) || upperText.includes(dept.name)
       ) || null;
+    },
+
+    // ✅ NUEVO: Obtener elemento por cualquier criterio
+    findBestMatch: (masterType: keyof Omit<MasterDataState, 'loading' | 'error' | 'lastUpdated' | 'options'>, searchText: string) => {
+      if (!searchText) return null;
+      
+      const masterData = state[masterType];
+      const searchLower = searchText.toLowerCase();
+      
+      // Búsqueda exacta por ID
+      let match = masterData.find(item => item.id.toString().toLowerCase() === searchLower);
+      if (match) return match;
+      
+      // Búsqueda exacta por nombre
+      match = masterData.find(item => item.name.toLowerCase() === searchLower);
+      if (match) return match;
+      
+      // Búsqueda parcial por nombre
+      match = masterData.find(item => item.name.toLowerCase().includes(searchLower));
+      if (match) return match;
+      
+      // Búsqueda parcial por descripción
+      match = masterData.find(item => item.description?.toLowerCase().includes(searchLower));
+      return match || null;
     }
   }), [state, getItemById]);
 
@@ -304,12 +381,24 @@ export const useMasterData = () => {
     helpers,
 
     // Estado computed
-    isReady: helpers.isReady()
+    isReady: helpers.isReady(),
+    
+    // ✅ NUEVO: Información de debug
+    debugInfo: process.env.NODE_ENV === 'development' ? {
+      state: {
+        hasOptions: !!state.options,
+        loadedArrays: Object.keys(state).filter(key => 
+          Array.isArray(state[key as keyof MasterDataState]) && 
+          (state[key as keyof MasterDataState] as any[]).length > 0
+        )
+      },
+      stats
+    } : null
   };
 };
 
 /**
- * 🔍 HOOK SIMPLIFICADO PARA UN MAESTRO ESPECÍFICO
+ * 🔍 HOOK SIMPLIFICADO PARA UN MAESTRO ESPECÍFICO - CORREGIDO
  */
 export const useMaster = (masterType: keyof Omit<MasterDataState, 'loading' | 'error' | 'lastUpdated' | 'options'>) => {
   const masterData = useMasterData();
@@ -320,6 +409,11 @@ export const useMaster = (masterType: keyof Omit<MasterDataState, 'loading' | 'e
     error: masterData.error,
     search: (term: string) => masterData.searchInMaster(masterType, term),
     getById: (id: string | number) => masterData.getItemById(masterType, id),
-    isLoaded: masterData.isMasterLoaded(masterType)
+    isLoaded: masterData.isMasterLoaded(masterType),
+    count: masterData[masterType].length,
+    isReady: masterData.isReady
   };
 };
+
+
+export default useMasterData;

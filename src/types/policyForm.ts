@@ -1,75 +1,13 @@
-export interface PolicyFormData {
-  // ===== PESTAÑA 1: DATOS BÁSICOS =====
-  corredor: string;              // Input texto (del escaneo)
-  asegurado: string;             // Read-only (cliente seleccionado)
-  dirCobro: string;              // Input texto manual
-  estadoTramite: string;         // Select texto plano
-  tomador: string;               // Read-only (mismo que asegurado)
-  domicilio: string;             // Read-only (del cliente)
-  tramite: string;               // Select texto plano
-  fecha: string;                 // Date (fecha gestión)
-  asignado: string;              // Input texto (ignorar por ahora)
-  tipo: string;                  // Select texto plano
-  estadoPoliza: string;          // Select texto plano
-
-  // ===== PESTAÑA 2: DATOS DE LA PÓLIZA =====
-  compania: number;              // Read-only (del paso 3)
-  desde: string;                 // Date input (del escaneo)
-  hasta: string;                 // Date input (del escaneo)
-  poliza: string;                // Input texto (del escaneo)
-  certificado: string;           // Input texto (del escaneo)
-
-  // ===== PESTAÑA 3: DATOS DEL VEHÍCULO =====
-  marcaModelo: string;           // Input texto (marca + modelo unidos)
-  anio: string;                  // Input number (del escaneo)
-  matricula: string;             // Input texto (del escaneo, opcional)
-  motor: string;                 // Input texto (del escaneo)
-  destinoId: number;             // Select maestro Destino
-  combustibleId: string;         // Select maestro Combustible (STRING!)
-  chasis: string;                // Input texto (del escaneo)
-  calidadId: number;             // Select maestro Calidad
-  categoriaId: number;           // Select maestro Categoría
-
-  // ===== PESTAÑA 4: DATOS DE LA COBERTURA =====
-  coberturaId: number;           // Select maestro Cobertura
-  zonaCirculacion: string;       // Input texto (departamento)
-  monedaId: number;              // Select maestro Moneda
-
-  // ===== PESTAÑA 5: CONDICIONES DE PAGO =====
-  formaPago: string;             // Select texto plano
-  premio: number;                // Input número (del escaneo)
-  total: number;                 // Input número (del escaneo)
-  moneda: number;                // Mismo que monedaId (sincronizado)
-  valorCuota: number;            // Input número (del escaneo)
-  cuotas: number;                // Input número (del escaneo)
-
-  // ===== PESTAÑA 6: OBSERVACIONES =====
-  observaciones: string;         // Textarea libre
-}
-
-/**
- * 🎨 CONFIGURACIÓN DE PESTAÑAS
- */
-export interface FormTab {
-  id: FormTabId;
-  label: string;
-  icon: string;                  // Nombre del icono de Lucide
-  description: string;
-  color: string;                 // Clase CSS para color
-  fields: (keyof PolicyFormData)[]; // Campos que pertenecen a esta pestaña
-}
+import type { PolicyFormData } from "./poliza";
 
 export type FormTabId = 
   | 'datos_basicos'
   | 'datos_poliza' 
-  | 'datos_vehiculo'
-  | 'datos_cobertura'
-  | 'condiciones_pago'
+  | 'datos_vehiculo'      // ✅ CORRECTO
+  | 'datos_cobertura'     // ✅ CORRECTO  
+  | 'condiciones_pago'    // ✅ CORRECTO
   | 'observaciones';
 
-/**
- * 🔧 ESTADO DEL FORMULARIO COMPLETO
- */
 export interface PolicyFormState {
   // Datos del formulario
   formData: PolicyFormData;
