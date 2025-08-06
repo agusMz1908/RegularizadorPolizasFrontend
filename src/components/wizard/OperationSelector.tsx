@@ -1,21 +1,21 @@
-// src/components/wizard/OperationSelector.tsx - ANIMACIONES SUAVES Y CÓMODAS
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText, RotateCcw, Edit3, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-export type OperationType = 'EMISION' | 'RENOVACION' | 'CAMBIO';
+// ✅ CORREGIDO: Tipo exacto esperado por App.tsx
+export type OperationType = 'nueva' | 'renovacion' | 'cambio';
 
 interface OperationSelectorProps {
   onSelect: (operation: OperationType) => void;
-  selected?: OperationType;
+  selectedOperation?: OperationType; // ✅ CORREGIDO: nombre de prop esperado
 }
 
 const operations = [
   {
-    type: 'EMISION' as OperationType,
-    title: 'Nueva Poliza',
+    type: 'nueva' as OperationType, // ✅ CORREGIDO: valor en minúsculas
+    title: 'Nueva Póliza',
     description: 'Crear una nueva póliza desde cero',
     icon: FileText,
     color: 'blue',
@@ -28,7 +28,7 @@ const operations = [
     badgeColor: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
   },
   {
-    type: 'RENOVACION' as OperationType,
+    type: 'renovacion' as OperationType, // ✅ CORREGIDO
     title: 'Renovación',
     description: 'Renovar una póliza existente',
     icon: RotateCcw,
@@ -42,7 +42,7 @@ const operations = [
     badgeColor: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
   },
   {
-    type: 'CAMBIO' as OperationType,
+    type: 'cambio' as OperationType, // ✅ CORREGIDO
     title: 'Cambio/Modificación',
     description: 'Modificar una póliza vigente',
     icon: Edit3,
@@ -57,10 +57,12 @@ const operations = [
   }
 ];
 
-const OperationSelector: React.FC<OperationSelectorProps> = ({ onSelect, selected }) => {
+const OperationSelector: React.FC<OperationSelectorProps> = ({ 
+  onSelect, 
+  selectedOperation // ✅ CORREGIDO: usar selectedOperation
+}) => {
   return (
     <div className="w-full max-w-6xl mx-auto space-y-8">
-      {/* ✅ HEADER SIMPLE SIN ANIMACIONES COMPLEJAS */}
       <div className="text-center space-y-4 animate-in fade-in-0 duration-500">
         <div className="relative inline-block">
           <Sparkles className="h-12 w-12 text-primary mx-auto mb-4" />
@@ -73,22 +75,18 @@ const OperationSelector: React.FC<OperationSelectorProps> = ({ onSelect, selecte
         </p>
       </div>
 
-      {/* ✅ CARDS CON ANIMACIÓN MÁS SUAVE - FADE EN LUGAR DE STAGGERED */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-700 delay-200">
         {operations.map((operation) => {
           const Icon = operation.icon;
-          const isSelected = selected === operation.type;
+          const isSelected = selectedOperation === operation.type; // ✅ CORREGIDO
           
           return (
             <Card
               key={operation.type}
               className={cn(
-                // ✅ TRANSICIONES MÁS SUAVES
                 "group cursor-pointer transition-all duration-300 ease-out",
                 "border-2 transform",
-                // ✅ HOVER MÁS SUTIL - SOLO SCALE Y SOMBRA
                 "hover:scale-[1.02] hover:shadow-lg",
-                // ✅ SIN OVERLAYS COMPLEJOS
                 isSelected 
                   ? cn("ring-2 ring-primary shadow-lg scale-[1.02]", operation.selectedBorderColor)
                   : cn(operation.borderColor, operation.hoverBorderColor),
@@ -97,7 +95,6 @@ const OperationSelector: React.FC<OperationSelectorProps> = ({ onSelect, selecte
               onClick={() => onSelect(operation.type)}
             >
               <CardHeader className="text-center pb-4">
-                {/* ✅ ICON CON ANIMACIÓN SIMPLE */}
                 <div className={cn(
                   "mx-auto w-16 h-16 rounded-full flex items-center justify-center mb-4",
                   "transition-transform duration-300 group-hover:scale-110",
@@ -107,7 +104,6 @@ const OperationSelector: React.FC<OperationSelectorProps> = ({ onSelect, selecte
                   <Icon className="h-8 w-8 text-white drop-shadow-lg" />
                 </div>
                 
-                {/* ✅ TITLE SIN GRADIENTS COMPLEJOS */}
                 <CardTitle className={cn(
                   "text-xl font-bold transition-colors duration-300",
                   isSelected ? "text-primary" : "text-foreground"
@@ -115,7 +111,6 @@ const OperationSelector: React.FC<OperationSelectorProps> = ({ onSelect, selecte
                   {operation.title}
                 </CardTitle>
                 
-                {/* ✅ BADGE SIMPLE */}
                 <div className="flex justify-center">
                   <Badge className={cn(
                     "transition-all duration-300",
@@ -136,7 +131,6 @@ const OperationSelector: React.FC<OperationSelectorProps> = ({ onSelect, selecte
                   {operation.description}
                 </p>
                 
-                {/* ✅ SELECTION INDICATOR SIMPLE */}
                 {isSelected && (
                   <div className="mt-4 flex items-center justify-center space-x-2 animate-in fade-in-0 duration-300">
                     <div className="w-2 h-2 bg-primary rounded-full"></div>
@@ -150,7 +144,6 @@ const OperationSelector: React.FC<OperationSelectorProps> = ({ onSelect, selecte
         })}
       </div>
 
-      {/* ✅ FOOTER INFO SIN ANIMACIONES COMPLEJAS */}
       <div className="text-center text-sm text-muted-foreground space-y-2 animate-in fade-in-0 duration-500 delay-500">
         <div className="flex items-center justify-center space-x-6 flex-wrap">
           <div className="flex items-center space-x-2">

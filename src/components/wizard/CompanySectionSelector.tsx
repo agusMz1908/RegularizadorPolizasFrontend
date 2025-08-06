@@ -1,4 +1,4 @@
-// src/components/wizard/CompanySectionSelector.tsx - CON ANIMACIONES SUAVES
+// src/components/wizard/CompanySectionSelector.tsx - CORREGIDO PARA App.tsx
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,9 @@ import { cn } from '@/lib/utils';
 import { useAvailableCompanies, useAvailableSections } from '../../hooks/useCompaniesAndSection';
 import type { CompanyDto, SeccionDto } from '@/types/masterData';
 
+// ✅ CORREGIDO: Agregada prop clientId
 interface CompanySectionSelectorProps {
+  clientId?: number;  // ✅ AGREGADO: prop requerida por App.tsx
   onSelect: (company: CompanyDto, section: SeccionDto) => void;
   selectedCompany?: CompanyDto;
   selectedSection?: SeccionDto;
@@ -72,6 +74,12 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
   const canContinue = tempCompany && tempSection;
   const isLoading = loadingCompanies || loadingSections;
   const hasError = errorCompanies || errorSections;
+
+  // ✅ NOTA: Si en el futuro necesitas usar clientId, aquí puedes agregar lógica
+  // Por ejemplo, para filtrar compañías o secciones basadas en el cliente
+  // if (clientId) {
+  //   console.log('Cliente ID recibido:', clientId);
+  // }
 
   // ✅ LOADING STATE CON ANIMACIONES SUAVES
   if (isLoading) {

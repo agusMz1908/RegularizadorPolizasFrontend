@@ -1,4 +1,4 @@
-// src/components/wizard/ClientSelector.tsx - ACTUALIZADO CON ANIMACIONES SUAVES
+// src/components/wizard/ClientSelector.tsx - CORREGIDO PARA App.tsx
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -23,13 +23,18 @@ import { cn } from '@/lib/utils';
 import type { ClientDto } from '../../types/cliente';
 import { useClientSearch } from '@/hooks/useCliente';
 
+// ✅ CORREGIDO: Cambiado selected a selectedClient
 interface ClientSelectorProps {
   onSelect: (client: ClientDto) => void;
-  selected?: ClientDto;
+  selectedClient?: ClientDto;  // ✅ CAMBIADO DE selected A selectedClient
   onBack: () => void;
 }
 
-const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onBack }) => {
+const ClientSelector: React.FC<ClientSelectorProps> = ({ 
+  onSelect, 
+  selectedClient,  // ✅ CAMBIADO
+  onBack 
+}) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -127,8 +132,8 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
         </div>
       </div>
 
-      {/* ✅ SELECTED CLIENT DISPLAY CON ANIMACIÓN */}
-      {selected && (
+      {/* ✅ SELECTED CLIENT DISPLAY CON ANIMACIÓN - CORREGIDO */}
+      {selectedClient && (  // ✅ CAMBIADO
         <div className="max-w-2xl mx-auto animate-in fade-in-0 slide-in-from-bottom-4 duration-400">
           <div className="mb-4">
             <h3 className="text-sm font-medium text-foreground mb-2 flex items-center">
@@ -137,7 +142,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
             </h3>
           </div>
           <EnhancedClientCard 
-            client={selected} 
+            client={selectedClient}  // ✅ CAMBIADO
             isSelected={true}
             onClick={() => {}} 
             showSelectButton={false}
@@ -214,7 +219,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
                   >
                     <EnhancedClientCard
                       client={client}
-                      isSelected={selected?.id === client.id}
+                      isSelected={selectedClient?.id === client.id}  // ✅ CAMBIADO
                       onClick={() => handleClientSelect(client)}
                       showSelectButton={true}
                     />
@@ -276,7 +281,7 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
         </div>
       )}
 
-      {/* ✅ NAVIGATION BUTTONS CON ANIMACIÓN */}
+      {/* ✅ NAVIGATION BUTTONS CON ANIMACIÓN - CORREGIDO */}
       <div className="flex justify-between pt-6 animate-in fade-in-0 duration-400 delay-500">
         <Button
           variant="outline"
@@ -288,15 +293,15 @@ const ClientSelector: React.FC<ClientSelectorProps> = ({ onSelect, selected, onB
         
         <Button
           size="lg"
-          disabled={!selected}
+          disabled={!selectedClient}  // ✅ CAMBIADO
           onClick={() => {
-            if (selected) {
-              onSelect(selected);
+            if (selectedClient) {  // ✅ CAMBIADO
+              onSelect(selectedClient);  // ✅ CAMBIADO
             }
           }}
           className={cn(
             "min-w-[200px] transition-all duration-300",
-            selected && "bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 hover:scale-105"
+            selectedClient && "bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 hover:scale-105"  // ✅ CAMBIADO
           )}
         >
           Continuar

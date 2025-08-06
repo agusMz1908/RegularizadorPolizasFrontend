@@ -1,5 +1,5 @@
-// src/components/wizard/DocumentScanner.tsx - CON ANIMACIONES SUAVES CONSISTENTES
-import React, { useState, useCallback } from 'react';
+// src/components/wizard/DocumentScanner.tsx - CORREGIDO PARA App.tsx
+import React, { useState, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useDropzone } from 'react-dropzone';
 import { 
@@ -13,7 +13,8 @@ import {
   Send,
   RefreshCw,
   Sparkles,
-  Cloud
+  Cloud,
+  X
 } from 'lucide-react';
 import { 
   EnhancedCard, 
@@ -23,12 +24,15 @@ import {
   ProgressiveLoading
 } from '@/components/enhanced';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Button } from '@/components/ui/button';
 
+// ✅ CORREGIDO: Agregada prop scannedDocument
 interface DocumentScannerProps {
-  onFileProcess?: (file: File) => Promise<any>; // ✅ Función para procesar archivo
+  scannedDocument?: any;  // ✅ AGREGADO: prop requerida por App.tsx
+  onFileProcess?: (file: File) => Promise<any>;
   onBack: () => void;
-  onNext?: (data: any) => void; // ✅ Opcional  
-  onDocumentProcessed: (data: any) => void; // ✅ Handler de App.tsx
+  onNext?: (data: any) => void;
+  onDocumentProcessed: (data: any) => void;
   isProcessing?: boolean;
   error?: string;
 }
@@ -36,6 +40,7 @@ interface DocumentScannerProps {
 type ProcessingStage = 'upload' | 'analyze' | 'extract' | 'validate' | 'complete';
 
 const DocumentScanner: React.FC<DocumentScannerProps> = ({
+  scannedDocument,  // ✅ AGREGADO: recibir scannedDocument
   onFileProcess,
   onBack,
   onNext,
@@ -50,6 +55,16 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
   const [showSuccess, setShowSuccess] = useState(false);
   const [processingError, setProcessingError] = useState<string | null>(null);
   const [isInternalProcessing, setIsInternalProcessing] = useState(false);
+
+  // ✅ AGREGADO: Si ya hay un documento escaneado, usarlo
+  useEffect(() => {
+    if (scannedDocument) {
+      setProcessedData(scannedDocument);
+      setCurrentStage('complete');
+      setProgress(100);
+      setShowSuccess(true);
+    }
+  }, [scannedDocument]);
 
   // Etapas del procesamiento con información detallada
   const processingStages = [
@@ -128,6 +143,15 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
     setProcessingError(null);
     setIsInternalProcessing(false);
   }, []);
+
+  // ✅ FUNCIÓN PARA LIMPIAR DOCUMENTO ESCANEADO
+  const handleClearScannedDocument = () => {
+    resetToInitialState();
+    // Si necesitas notificar al componente padre
+    if (onDocumentProcessed) {
+      onDocumentProcessed(null);
+    }
+  };
 
   // ✅ FUNCIÓN onDrop CORREGIDA PARA USAR API REAL
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
@@ -226,7 +250,7 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
       'application/pdf': ['.pdf']
     },
     maxFiles: 1,
-    disabled: isProcessing || isInternalProcessing
+    disabled: isProcessing || isInternalProcessing || !!processedData // ✅ Deshabilitado si ya hay documento
   });
 
   const handleContinue = () => {
@@ -237,6 +261,12 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
       if (onNext) onNext(processedData);
       if (onDocumentProcessed) onDocumentProcessed(processedData);
     }
+  };
+
+  const handleSkip = () => {
+    console.log('⏭️ Saltando escaneo de documento');
+    // Continuar sin documento escaneado
+    if (onDocumentProcessed) onDocumentProcessed(null);
   };
 
   const handleRetry = () => {
@@ -291,7 +321,7 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
   }
 
   // ✅ PANTALLA DE PROCESAMIENTO CON ANIMACIONES MEJORADAS
-  if (isProcessing || isInternalProcessing || currentStage !== 'upload' || selectedFile) {
+  if (isProcessing || isInternalProcessing || (currentStage !== 'upload' && !processedData) || selectedFile) {
     return (
       <div className="w-full max-w-2xl mx-auto space-y-8">
         {/* ✅ HEADER CON ANIMACIÓN SUAVE */}
@@ -415,6 +445,89 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
     );
   }
 
+  // ✅ SI YA HAY UN DOCUMENTO ESCANEADO
+  if (processedData && !isInternalProcessing) {
+    return (
+      <div className="w-full max-w-2xl mx-auto space-y-8">
+        <div className="text-center space-y-4 animate-in fade-in-0 duration-500">
+          <div className="relative inline-block">
+            <CheckCircle className="h-12 w-12 text-green-500 mx-auto mb-2" />
+          </div>
+          <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+            Documento Ya Procesado
+          </h2>
+          <p className="text-muted-foreground">
+            Ya tienes un documento escaneado y listo
+          </p>
+        </div>
+
+        <div className="animate-in slide-in-from-bottom-4 duration-500 delay-200">
+          <EnhancedCard variant="minimal" className="bg-green-50 dark:bg-green-950/20 border-green-200">
+            <div className="p-6">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center space-x-4">
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <FileText className="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-green-900 dark:text-green-100">
+                      Documento Procesado
+                    </h3>
+                    <p className="text-sm text-green-700 dark:text-green-300 mt-1">
+                      Estado: {processedData.estado || 'Listo'}
+                    </p>
+                    {processedData.archivo && (
+                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                        Archivo: {processedData.archivo}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleClearScannedDocument}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </EnhancedCard>
+        </div>
+
+        <div className="flex justify-between pt-6 animate-in fade-in-0 duration-400 delay-400">
+          <Button
+            variant="outline"
+            onClick={onBack}
+            className="min-w-[120px] transition-all duration-300 hover:scale-105"
+          >
+            Volver
+          </Button>
+          
+          <div className="space-x-4">
+            <Button
+              variant="outline"
+              onClick={handleClearScannedDocument}
+              className="min-w-[140px] transition-all duration-300 hover:scale-105"
+            >
+              Escanear Otro
+            </Button>
+            
+            <Button
+              size="lg"
+              onClick={handleContinue}
+              className="min-w-[200px] bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all duration-300 hover:scale-105"
+            >
+              Continuar con Formulario
+              <Send className="ml-2 h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ✅ PANTALLA DE UPLOAD INICIAL CON ANIMACIONES SUAVES
   return (
     <div className="w-full max-w-2xl mx-auto space-y-8">
@@ -439,7 +552,7 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
           clickEffect="scale"
           className={cn(
             "border-2 border-dashed transition-all duration-300 cursor-pointer",
-            isDragActive && "border-primary bg-primary/5 scale-[1.02]", // ✅ Scale más sutil
+            isDragActive && "border-primary bg-primary/5 scale-[1.02]",
             isDragReject && "border-red-500 bg-red-50 dark:bg-red-950/20",
             !isDragActive && !isDragReject && "border-border hover:border-primary hover:bg-accent/50"
           )}
@@ -524,7 +637,7 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
         </div>
       </div>
 
-      {/* ✅ NAVIGATION CON ANIMACIÓN */}
+      {/* ✅ NAVIGATION CON OPCIÓN DE SALTAR */}
       <div className="flex justify-between pt-6 animate-in fade-in-0 duration-400 delay-600">
         <EnhancedButton
           variant="secondary"
@@ -532,6 +645,14 @@ const DocumentScanner: React.FC<DocumentScannerProps> = ({
           className="min-w-[120px] transition-all duration-300 hover:scale-105"
         >
           Volver
+        </EnhancedButton>
+        
+        <EnhancedButton
+          variant="outline"
+          onClick={handleSkip}
+          className="min-w-[180px] transition-all duration-300 hover:scale-105"
+        >
+          Continuar sin escanear
         </EnhancedButton>
       </div>
     </div>

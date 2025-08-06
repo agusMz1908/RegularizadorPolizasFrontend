@@ -1,11 +1,9 @@
-// src/features/policy-form/PolicyFormProvider.tsx
-// Context y estado global del formulario de póliza
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import type { PolicyFormData } from '@/types/poliza';
 import type { FormTabId } from '@/types/policyForm';
-import type { MasterDataOptionsDto, ClienteDto, CompanyDto, SeccionDto } from '@/types/masterData';
+import type { MasterDataOptionsDto, CompanyDto, SeccionDto } from '@/types/masterData';
 import type { AzureProcessResponse } from '@/types/azureDocumentResult';
+import type { ClientDto } from '@/types/cliente';
 import { MasterDataApi } from '@/services/apiService';
 import { FORM_TABS, TabsUtils } from '@/constants/formTabs';
 
@@ -31,7 +29,7 @@ export interface PolicyFormContextValue {
   
   // Contexto externo
   scannedData: AzureProcessResponse | null;
-  selectedClient: ClienteDto | null;
+  selectedClient: ClientDto | null;
   selectedCompany: CompanyDto | null;
   selectedSection: SeccionDto | null;
   
@@ -122,7 +120,7 @@ export const usePolicyFormContext = () => {
 interface PolicyFormProviderProps {
   children: React.ReactNode;
   scannedData?: AzureProcessResponse | null;
-  selectedClient?: ClienteDto | null;
+  selectedClient?: ClientDto | null;
   selectedCompany?: CompanyDto | null;
   selectedSection?: SeccionDto | null;
   onSubmit?: (data: PolicyFormData) => Promise<void>;

@@ -1,4 +1,4 @@
-// src/components/enhanced/MicroInteractions.tsx - SISTEMA COMPLETO SIN DEPENDENCIAS EXTERNAS
+// src/components/enhanced/MicroInteractions.tsx - CORREGIDO CON VARIANT OUTLINE
 import React, { useState, useEffect, useRef } from 'react';
 import { cn } from '@/lib/utils';
 
@@ -106,14 +106,14 @@ const EnhancedCard: React.FC<EnhancedCardProps> = ({
   );
 };
 
-// 2. Enhanced Button with CSS Loading States
+// 2. Enhanced Button with CSS Loading States - ✅ CORREGIDO CON VARIANT OUTLINE
 interface EnhancedButtonProps {
   children: React.ReactNode;
   className?: string;
   onClick?: () => void;
   disabled?: boolean;
   loading?: boolean;
-  variant?: 'default' | 'primary' | 'secondary' | 'ghost' | 'gradient';
+  variant?: 'default' | 'primary' | 'secondary' | 'ghost' | 'gradient' | 'outline';  // ✅ AGREGADO 'outline'
   size?: 'sm' | 'md' | 'lg';
   icon?: React.ReactNode;
   loadingText?: string;
@@ -137,7 +137,8 @@ const EnhancedButton: React.FC<EnhancedButtonProps> = ({
     primary: "bg-primary text-primary-foreground hover:bg-primary/90",
     secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/90", 
     ghost: "bg-transparent text-foreground hover:bg-accent",
-    gradient: "bg-gradient-to-r from-primary to-secondary text-primary-foreground hover:shadow-lg"
+    gradient: "bg-gradient-to-r from-primary to-secondary text-primary-foreground hover:shadow-lg",
+    outline: "bg-transparent text-foreground border border-border hover:bg-accent hover:text-accent-foreground"  // ✅ AGREGADO
   };
 
   const sizes = {
@@ -566,6 +567,100 @@ const ParticleBackground: React.FC<ParticleBackgroundProps> = ({
   );
 };
 
+// 10. Progressive Loading Component - ✅ AGREGADO PARA DocumentScanner
+interface ProgressiveLoadingProps {
+  stages: Array<{
+    id: string;
+    label: string;
+    description: string;
+    icon: React.ReactNode;
+    duration: number;
+  }>;
+  currentStage: string;
+  onComplete?: () => void;
+  showProgress?: boolean;
+}
+
+const ProgressiveLoading: React.FC<ProgressiveLoadingProps> = ({
+  stages,
+  currentStage,
+  onComplete,
+  showProgress = true
+}) => {
+  const currentIndex = stages.findIndex(stage => stage.id === currentStage);
+  const progress = ((currentIndex + 1) / stages.length) * 100;
+
+  useEffect(() => {
+    if (currentStage === stages[stages.length - 1].id && onComplete) {
+      onComplete();
+    }
+  }, [currentStage, stages, onComplete]);
+
+  return (
+    <div className="space-y-4">
+      {stages.map((stage, index) => {
+        const isActive = stage.id === currentStage;
+        const isCompleted = index < currentIndex;
+        
+        return (
+          <div
+            key={stage.id}
+            className={cn(
+              "flex items-center space-x-4 p-4 rounded-lg transition-all duration-300",
+              isActive && "bg-primary/10 scale-[1.02]",
+              isCompleted && "opacity-60",
+              !isActive && !isCompleted && "opacity-30"
+            )}
+          >
+            <div className={cn(
+              "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
+              isActive && "bg-primary text-primary-foreground animate-pulse",
+              isCompleted && "bg-green-500 text-white",
+              !isActive && !isCompleted && "bg-muted"
+            )}>
+              {stage.icon}
+            </div>
+            
+            <div className="flex-1">
+              <h4 className={cn(
+                "font-medium transition-colors duration-300",
+                isActive && "text-primary",
+                isCompleted && "text-green-600"
+              )}>
+                {stage.label}
+              </h4>
+              <p className="text-sm text-muted-foreground">
+                {stage.description}
+              </p>
+            </div>
+            
+            {isActive && (
+              <div className="flex-shrink-0">
+                <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            
+            {isCompleted && (
+              <div className="flex-shrink-0 text-green-500">
+                ✓
+              </div>
+            )}
+          </div>
+        );
+      })}
+      
+      {showProgress && (
+        <AnimatedProgress
+          value={progress}
+          showLabel={false}
+          color="primary"
+          className="mt-4"
+        />
+      )}
+    </div>
+  );
+};
+
 export {
   EnhancedCard,
   EnhancedButton,
@@ -575,5 +670,6 @@ export {
   FloatingActionButton,
   StaggeredList,
   HoverReveal,
-  ParticleBackground
+  ParticleBackground,
+  ProgressiveLoading  // ✅ EXPORTADO
 };
