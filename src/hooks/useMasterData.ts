@@ -1,11 +1,10 @@
 // src/hooks/useMasterData.ts - VERSIÓN CORREGIDA Y ACTUALIZADA
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { MasterDataOptionsDto } from '../types/masterData';
+import type { CalidadDto, CategoriaDto, CombustibleDto, DestinoDto, MasterDataOptionsDto, MonedaDto } from '../types/masterData';
 import type { SelectOption } from '../components/form/SelectField';
 import { MasterDataApi } from '../services/apiService';
 import { TEXT_PLAIN_OPTIONS } from '../constants/textPlainOptions';
-import { REGIONAL_CONFIG } from '../constants/velneoDefault';
 
 export interface MasterDataState {
   // Estados de carga
@@ -54,115 +53,102 @@ export const useMasterData = () => {
   });
 
   // ✅ CORREGIDO: Transformar datos maestros usando el tipo correcto
-  const transformMasterDataToSelectOptions = useCallback((options: MasterDataOptionsDto) => {
-    console.log('🔄 [useMasterData] Transformando datos maestros:', {
-      categorias: options.Categorias?.length || 0,
-      destinos: options.Destinos?.length || 0,
-      calidades: options.Calidades?.length || 0,
-      combustibles: options.Combustibles?.length || 0,
-      monedas: options.Monedas?.length || 0
-    });
+const transformMasterDataToSelectOptions = useCallback((options: MasterDataOptionsDto) => {
+  console.log('🔄 [useMasterData] Transformando datos maestros:', {
+    // ✅ CORREGIDO: Verificar tanto camelCase como PascalCase para compatibilidad
+    categorias: options.categorias?.length || (options as any).Categorias?.length || 0,
+    destinos: options.destinos?.length || (options as any).Destinos?.length || 0,
+    calidades: options.calidades?.length || (options as any).Calidades?.length || 0,
+    combustibles: options.combustibles?.length || (options as any).Combustibles?.length || 0,
+    monedas: options.monedas?.length || (options as any).Monedas?.length || 0
+  });
 
-    const transformed = {
-      // ✅ Maestros de BD usando MasterDataOptionsDto
-      categorias: options.Categorias?.map(cat => ({
-        id: cat.id,
-        name: cat.catdsc || `Categoría ${cat.id}`,
-        description: `ID: ${cat.id}`
-      })) || [],
+  const transformed = {
+    // ✅ CORREGIDO: Usar camelCase del backend con fallback a PascalCase
+    categorias: (options.categorias || (options as any).Categorias)?.map((cat: CategoriaDto) => ({
+      id: cat.id,
+      name: cat.catdsc || `Categoría ${cat.id}`,
+      description: `ID: ${cat.id}`
+    })) || [],
 
-      destinos: options.Destinos?.map(dest => ({
-        id: dest.id,
-        name: dest.desnom || `Destino ${dest.id}`,
-        description: `ID: ${dest.id}`
-      })) || [],
+    destinos: (options.destinos || (options as any).Destinos)?.map((dest: DestinoDto) => ({
+      id: dest.id,
+      name: dest.desnom || `Destino ${dest.id}`,
+      description: `ID: ${dest.id}`
+    })) || [],
 
-      calidades: options.Calidades?.map(cal => ({
-        id: cal.id,
-        name: cal.caldsc || `Calidad ${cal.id}`,
-        description: `ID: ${cal.id}`
-      })) || [],
+    calidades: (options.calidades || (options as any).Calidades)?.map((cal: CalidadDto) => ({
+      id: cal.id,
+      name: cal.caldsc || `Calidad ${cal.id}`,
+      description: `ID: ${cal.id}`
+    })) || [],
 
-      combustibles: options.Combustibles?.map(comb => ({
-        id: comb.id, // STRING: "DIS", "ELE", "GAS", "HYB"
-        name: comb.name || `Combustible ${comb.id}`,
-        description: `Código: ${comb.id}`
-      })) || [],
+    combustibles: (options.combustibles || (options as any).Combustibles)?.map((comb: CombustibleDto) => ({
+      id: comb.id, // STRING: "DIS", "ELE", "GAS", "HYB"
+      name: comb.name || `Combustible ${comb.id}`,
+      description: `Código: ${comb.id}`
+    })) || [],
 
-      monedas: options.Monedas?.map(mon => ({
-        id: mon.id,
-        name: mon.nombre || `Moneda ${mon.id}`,
-        description: mon.codigo ? `${mon.codigo}${mon.simbolo ? ` (${mon.simbolo})` : ''}` : `ID: ${mon.id}`
-      })) || [],
+    monedas: (options.monedas || (options as any).Monedas)?.map((mon: MonedaDto) => ({
+      id: mon.id,
+      name: mon.nombre || `Moneda ${mon.id}`,
+      description: mon.codigo ? `${mon.codigo}${mon.simbolo ? ` (${mon.simbolo})` : ''}` : `ID: ${mon.id}`
+    })) || [],
 
-      // ✅ Opciones de texto plano usando arrays del backend si están disponibles
-      estadosPoliza: (options.EstadosPoliza?.map(estado => ({
-        id: estado,
-        name: estado,
-        description: `Estado: ${estado}`
-      })) || TEXT_PLAIN_OPTIONS.estadosPoliza?.map(estado => ({
-        id: estado.id,
-        name: estado.name,
-        description: estado.description
-      })) || []),
+    // ✅ CORREGIDO: Opciones de texto plano usando arrays del backend (camelCase)
+    estadosPoliza: ((options.estadosPoliza || (options as any).EstadosPoliza)?.map((estado: string) => ({
+      id: estado,
+      name: estado,
+      description: `Estado: ${estado}`
+    })) || TEXT_PLAIN_OPTIONS.estadosPoliza?.map(estado => ({
+      id: estado.id,
+      name: estado.name,
+      description: estado.description
+    })) || []),
 
-      tiposTramite: (options.TiposTramite?.map(tipo => ({
-        id: tipo,
-        name: tipo,
-        description: `Tipo: ${tipo}`
-      })) || TEXT_PLAIN_OPTIONS.tiposTramite?.map(tipo => ({
-        id: tipo.id,
-        name: tipo.name,
-        description: tipo.description
-      })) || []),
+    tiposTramite: ((options.tiposTramite || (options as any).TiposTramite)?.map((tipo: string) => ({
+      id: tipo,
+      name: tipo,
+      description: `Tipo: ${tipo}`
+    })) || TEXT_PLAIN_OPTIONS.tiposTramite?.map(tipo => ({
+      id: tipo.id,
+      name: tipo.name,
+      description: tipo.description
+    })) || []),
 
-      estadosBasicos: (options.EstadosBasicos?.map(estado => ({
-        id: estado,
-        name: estado,
-        description: `Estado: ${estado}`
-      })) || TEXT_PLAIN_OPTIONS.estadosBasicos?.map(estado => ({
-        id: estado.id,
-        name: estado.name,
-        description: estado.description
-      })) || []),
+    estadosBasicos: ((options.estadosBasicos || (options as any).EstadosBasicos)?.map((estado: string) => ({
+      id: estado,
+      name: estado,
+      description: `Estado: ${estado}`
+    })) || TEXT_PLAIN_OPTIONS.estadosBasicos?.map(estado => ({
+      id: estado.id,
+      name: estado.name,
+      description: estado.description
+    })) || []),
 
-      formasPago: (options.FormasPago?.map(forma => ({
-        id: forma,
-        name: forma,
-        description: `Forma: ${forma}`
-      })) || TEXT_PLAIN_OPTIONS.formasPago?.map(forma => ({
-        id: forma.id,
-        name: forma.name,
-        description: forma.description
-      })) || []),
+    formasPago: ((options.formasPago || (options as any).FormasPago)?.map((forma: string) => ({
+      id: forma,
+      name: forma,
+      description: `Forma: ${forma}`
+    })) || TEXT_PLAIN_OPTIONS.formasPago?.map(forma => ({
+      id: forma.id,
+      name: forma.name,
+      description: forma.description
+    })) || []),
+  };
 
-      // ✅ Departamentos usando configuración regional
-      departamentos: (REGIONAL_CONFIG?.DEPARTAMENTOS_URUGUAY?.map((dept: string) => ({
-        id: dept,
-        name: dept,
-        description: 'Departamento de Uruguay'
-      })) || [
-        { id: 'MONTEVIDEO', name: 'MONTEVIDEO', description: 'Departamento de Uruguay' },
-        { id: 'CANELONES', name: 'CANELONES', description: 'Departamento de Uruguay' },
-        { id: 'MALDONADO', name: 'MALDONADO', description: 'Departamento de Uruguay' }
-      ])
-    };
+  console.log('✅ [useMasterData] Transformación completada:', {
+    categorias: transformed.categorias.length,
+    destinos: transformed.destinos.length,
+    calidades: transformed.calidades.length,
+    combustibles: transformed.combustibles.length,
+    monedas: transformed.monedas.length,
+    estadosPoliza: transformed.estadosPoliza.length,
+    formasPago: transformed.formasPago.length
+  });
 
-    console.log('✅ [useMasterData] Datos transformados exitosamente:', {
-      categorias: transformed.categorias.length,
-      destinos: transformed.destinos.length,
-      calidades: transformed.calidades.length,
-      combustibles: transformed.combustibles.length,
-      monedas: transformed.monedas.length,
-      estadosPoliza: transformed.estadosPoliza.length,
-      tiposTramite: transformed.tiposTramite.length,
-      estadosBasicos: transformed.estadosBasicos.length,
-      formasPago: transformed.formasPago.length,
-      departamentos: transformed.departamentos.length
-    });
-
-    return transformed;
-  }, []);
+  return transformed;
+}, []);
 
   // ===== CARGAR DATOS MAESTROS - CORREGIDO =====
   const loadMasterData = useCallback(async (force = false) => {

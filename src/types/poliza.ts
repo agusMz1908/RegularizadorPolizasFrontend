@@ -35,7 +35,8 @@ export interface PolicyFormData {
   estadoPoliza: string;          // Select texto plano
 
   // ===== PESTAÑA 2: DATOS DE LA PÓLIZA =====
-  compania: number;              // Read-only (del paso 3)
+  compania: number;
+  comalias: string;              // Read-only (del paso 3)
   desde: string;                 // Date input (del escaneo)
   hasta: string;                 // Date input (del escaneo)
   poliza: string;                // Input texto (del escaneo)

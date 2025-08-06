@@ -8,8 +8,6 @@ import { apiService, MasterDataApi } from '../services/apiService';
 import type { MasterDataOptionsDto } from '../types/masterData';
 import { 
   EMPTY_POLICY_FORM, 
-  ALL_REQUIRED_FIELDS,
-  VALIDATION_CONFIG 
 } from '../constants/velneoDefault';
 import { FORM_TABS } from '../constants/formTabs';
 import type { PolicyFormData } from '@/types/poliza';
@@ -135,11 +133,11 @@ export const usePolicyForm = ({
         // Solo actualizar estado si el componente sigue montado
         if (isComponentMounted) {
           console.log('✅ [usePolicyForm] Opciones de maestros cargadas:', {
-            categorias: options.Categorias?.length || 0,
-            destinos: options.Destinos?.length || 0,
-            calidades: options.Calidades?.length || 0,
-            combustibles: options.Combustibles?.length || 0,
-            monedas: options.Monedas?.length || 0
+            categorias: options.categorias?.length || 0,
+            destinos: options.destinos?.length || 0,
+            calidades: options.calidades?.length || 0,
+            combustibles: options.combustibles?.length || 0,
+            monedas: options.monedas?.length || 0
           });
           
           setMasterOptions(options);
@@ -574,11 +572,11 @@ export const usePolicyForm = ({
       activeTab,
       progress: formProgress.overall,
       masterOptions: masterOptions ? {
-        categorias: masterOptions.Categorias?.length || 0,
-        destinos: masterOptions.Destinos?.length || 0,
-        calidades: masterOptions.Calidades?.length || 0,
-        combustibles: masterOptions.Combustibles?.length || 0,
-        monedas: masterOptions.Monedas?.length || 0
+        categorias: masterOptions.categorias?.length || 0,
+        destinos: masterOptions.destinos?.length || 0,
+        calidades: masterOptions.calidades?.length || 0,
+        combustibles: masterOptions.combustibles?.length || 0,
+        monedas: masterOptions.monedas?.length || 0
       } : null,
       validation: validateForm()
     };

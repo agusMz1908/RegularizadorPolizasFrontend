@@ -92,10 +92,10 @@ export class VelneoMappingService {
       poliza: formData.poliza,
       premio: formData.premio,
       masterOptions: masterOptions ? {
-        combustibles: masterOptions.Combustibles?.length || 0,
-        categorias: masterOptions.Categorias?.length || 0,
-        destinos: masterOptions.Destinos?.length || 0,
-        calidades: masterOptions.Calidades?.length || 0
+        combustibles: masterOptions.combustibles?.length || 0,
+        categorias: masterOptions.categorias?.length || 0,
+        destinos: masterOptions.destinos?.length || 0,
+        calidades: masterOptions.calidades?.length || 0
       } : 'NO_DISPONIBLE'
     });
 
@@ -145,15 +145,15 @@ export class VelneoMappingService {
       // ===== NOMBRES PARA LOGGING/DEBUG (opcionales) =====
       Categoria: this.resolveCategoriaNombre(
         this.resolveMaestroId(formData.categoriaId, 'categoria'),
-        masterOptions?.Categorias
+        masterOptions?.categorias
       ),
       Destino: this.resolveDestinoNombre(
         this.resolveMaestroId(formData.destinoId, 'destino'),
-        masterOptions?.Destinos
+        masterOptions?.destinos
       ),
       Calidad: this.resolveCalidadNombre(
         this.resolveMaestroId(formData.calidadId, 'calidad'),
-        masterOptions?.Calidades
+        masterOptions?.calidades
       ),
 
       // ===== DATOS FINANCIEROS =====

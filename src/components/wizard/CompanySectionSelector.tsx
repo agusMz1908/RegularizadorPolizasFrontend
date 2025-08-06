@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAvailableCompanies, useAvailableSections } from '../../hooks/useCompaniesAndSection';
-import type { CompanyDto, SeccionDto } from '../../types/maestros';
+import type { CompanyDto, SeccionDto } from '@/types/masterData';
 
 interface CompanySectionSelectorProps {
   onSelect: (company: CompanyDto, section: SeccionDto) => void;
@@ -251,7 +251,6 @@ const CompanySectionSelector: React.FC<CompanySectionSelectorProps> = ({
                 <span className="font-medium text-foreground">{tempCompany.alias}</span>
               </div>
               <div className="flex items-center space-x-2">
-                <span className="text-xl">{tempSection.icono}</span>
                 <span className="text-muted-foreground">Sección:</span>
                 <span className="font-medium text-foreground">{tempSection.seccion}</span>
               </div>
@@ -380,13 +379,6 @@ const SectionCard: React.FC<SectionCardProps> = ({
       <CardContent className="p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            {/* ✅ ICONO CON ANIMACIÓN SUAVE */}
-            <div className={cn(
-              "p-2 rounded-lg text-xl transition-all duration-300 group-hover:scale-110",
-              "bg-emerald-100 dark:bg-emerald-900/30"
-            )}>
-              {section.icono}
-            </div>
             <div>
               <h4 className={cn(
                 "font-semibold transition-colors duration-300",

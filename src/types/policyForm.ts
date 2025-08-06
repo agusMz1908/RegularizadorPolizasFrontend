@@ -1,13 +1,24 @@
-import type { PolicyFormData } from "./poliza";
+// src/types/policyForm.ts - VERSIÓN LIMPIA SIN DUPLICACIÓN
+// ⚠️ NO DEFINIR SelectOption aquí - importar desde ui.ts
 
+import type { SelectOption } from './ui';  // ← IMPORTAR desde ui.ts
+import type { PolicyFormData } from './poliza';
+import type { MasterDataOptionsDto } from './masterData';
+
+/**
+ * 🗂️ IDs DE PESTAÑAS DEL FORMULARIO
+ */
 export type FormTabId = 
   | 'datos_basicos'
   | 'datos_poliza' 
-  | 'datos_vehiculo'      // ✅ CORRECTO
-  | 'datos_cobertura'     // ✅ CORRECTO  
-  | 'condiciones_pago'    // ✅ CORRECTO
+  | 'datos_vehiculo'
+  | 'datos_cobertura'
+  | 'condiciones_pago'
   | 'observaciones';
 
+/**
+ * 📊 ESTADO DEL FORMULARIO DE PÓLIZA
+ */
 export interface PolicyFormState {
   // Datos del formulario
   formData: PolicyFormData;
@@ -27,7 +38,7 @@ export interface PolicyFormState {
   tabCompletion: Record<FormTabId, number>;
   
   // Datos de contexto
-  masterOptions: any; // VelneoMasterDataOptions cuando se cargue
+  masterOptions: MasterDataOptionsDto | null;
   loadingMasters: boolean;
 }
 
@@ -35,25 +46,28 @@ export interface PolicyFormState {
  * 📊 PROGRESO DEL FORMULARIO
  */
 export interface FormProgress {
-  overall: number;               // Progreso general 0-100
+  overall: number;  // Progreso general 0-100
   byTab: Record<FormTabId, {
-    completion: number;          // 0-100
-    errors: number;              // Cantidad de errores
-    required: string[];          // Campos requeridos
-    completed: string[];         // Campos completados
+    completion: number;     // 0-100
+    errors: number;         // Cantidad de errores
+    required: string[];     // Campos requeridos
+    completed: string[];    // Campos completados
   }>;
 }
 
 /**
- * ✅ VALIDACIÓN
+ * ✅ VALIDACIÓN DE CAMPO
  */
 export interface FieldValidation {
   field: keyof PolicyFormData;
   isRequired: boolean;
   validator?: (value: any, formData: PolicyFormData) => string | null;
-  dependency?: keyof PolicyFormData; // Campo del que depende
+  dependency?: keyof PolicyFormData;  // Campo del que depende
 }
 
+/**
+ * ✅ RESULTADO DE VALIDACIÓN DE FORMULARIO
+ */
 export interface FormValidationResult {
   isValid: boolean;
   errors: Record<string, string>;
@@ -79,9 +93,9 @@ export interface FormActions {
 export interface AutoMappingResult {
   mappedFields: (keyof PolicyFormData)[];
   unmappedFields: string[];
-  confidence: Record<keyof PolicyFormData, number>; // 0-100 por campo
+  confidence: Record<keyof PolicyFormData, number>;  // 0-100 por campo
   warnings: string[];
-  suggestions: Record<string, string[]>; // Sugerencias para campos no mapeados
+  suggestions: Record<string, string[]>;  // Sugerencias para campos no mapeados
 }
 
 /**
@@ -92,80 +106,15 @@ export interface PolicyFormContextValue {
   actions: FormActions;
   
   // Datos de contexto externa
-  scannedData: any; // AzureProcessResponse
-  selectedClient: any; // VelneoClienteDto
-  selectedCompany: any; // VelneoCompaniaDto
-  selectedSection: any; // VelneoSeccionDto
+  scannedData: any;      // AzureProcessResponse
+  selectedClient: any;   // ClienteDto
+  selectedCompany: any;  // CompanyDto
+  selectedSection: any;  // SeccionDto
   
   // Callbacks
   onSubmit: (result: any) => void;
   onError: (error: string) => void;
   onBack: () => void;
-}
-
-/**
- * 🎨 OPCIONES DE UI PARA SELECTS
- */
-export interface SelectOption {
-  id: string | number;
-  name: string;
-  description?: string;
-  disabled?: boolean;
-}
-
-export interface SelectFieldProps {
-  id: string;
-  label: string;
-  value: string | number;
-  onChange: (value: string | number) => void;
-  options: SelectOption[];
-  placeholder?: string;
-  required?: boolean;
-  error?: string;
-  touched?: boolean;
-  disabled?: boolean;
-  loading?: boolean;
-  icon?: string; // Nombre del icono de Lucide
-  isNumeric?: boolean; // Si devuelve number o string
-}
-
-/**
- * 📝 PROPS DE CAMPO DE INPUT
- */
-export interface FormFieldProps {
-  id: string;
-  label: string;
-  value: string | number;
-  onChange: (value: string | number) => void;
-  type?: 'text' | 'number' | 'date' | 'email' | 'tel';
-  placeholder?: string;
-  required?: boolean;
-  error?: string;
-  touched?: boolean;
-  disabled?: boolean;
-  readonly?: boolean;
-  icon?: string; // Nombre del icono de Lucide
-  min?: number;
-  max?: number;
-  step?: number;
-}
-
-/**
- * 🏷️ PROPS DE TEXTAREA
- */
-export interface TextareaFieldProps {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  error?: string;
-  touched?: boolean;
-  disabled?: boolean;
-  readonly?: boolean;
-  rows?: number;
-  maxLength?: number;
 }
 
 /**
@@ -186,10 +135,13 @@ export interface FieldMetadata {
   plainOptions?: string[];
   
   // Para validación
-  validator?: string; // Nombre de la función de validación
+  validator?: string;  // Nombre de la función de validación
   dependency?: keyof PolicyFormData;
   
   // Para mapeo automático
-  azureField?: string; // Campo correspondiente en Azure response
+  azureField?: string;  // Campo correspondiente en Azure response
   fallbackValue?: any;
 }
+
+// Re-exportar SelectOption desde ui.ts para conveniencia
+export type { SelectOption };

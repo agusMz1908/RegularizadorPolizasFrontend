@@ -1,3 +1,11 @@
+// src/types/masterData.ts - VERSIÓN LIMPIA SIN DUPLICACIÓN
+// ⚠️ NO DEFINIR SelectOption aquí - importar desde ui.ts
+
+import type { SelectOption } from './ui';  // ← IMPORTAR desde ui.ts
+
+/**
+ * 🎯 DATOS MAESTROS DEL BACKEND
+ */
 export interface MasterDataOptionsDto {
   Categorias: CategoriaDto[];
   Destinos: DestinoDto[];
@@ -20,7 +28,7 @@ export interface MasterDataOptionsDto {
  */
 export interface CategoriaDto {
   id: number;
-  catdsc: string;              // ← Campo exacto del backend
+  catdsc: string;  // ← Campo exacto del backend
 }
 
 /**
@@ -28,7 +36,7 @@ export interface CategoriaDto {
  */
 export interface DestinoDto {
   id: number;
-  desnom: string;              // ← Campo exacto del backend
+  desnom: string;  // ← Campo exacto del backend
 }
 
 /**
@@ -36,15 +44,15 @@ export interface DestinoDto {
  */
 export interface CalidadDto {
   id: number;
-  caldsc: string;              // ← Campo exacto del backend
+  caldsc: string;  // ← Campo exacto del backend
 }
 
 /**
  * ⛽ COMBUSTIBLE - ESPECIAL: ID es STRING
  */
 export interface CombustibleDto {
-  id: string;                  // "GAS", "DIS", "ELE", "HYB" 
-  name: string;                // "GASOLINA", "DIESEL", "ELECTRICO", "HIBRIDO"
+  id: string;      // "GAS", "DIS", "ELE", "HYB" 
+  name: string;    // "GASOLINA", "DIESEL", "ELECTRICO", "HIBRIDO"
 }
 
 /**
@@ -52,9 +60,9 @@ export interface CombustibleDto {
  */
 export interface MonedaDto {
   id: number;
-  nombre: string;              // "PESO URUGUAYO", "DOLAR AMERICANO"
-  codigo?: string;             // "PES", "DOL", "EU"
-  simbolo?: string;            // "$U", "$", "€"
+  nombre: string;   // "PESO URUGUAYO", "DOLAR AMERICANO"
+  codigo?: string;  // "PES", "DOL", "EU"
+  simbolo?: string; // "$U", "$", "€"
 }
 
 // ===== OTROS TIPOS DEL SISTEMA =====
@@ -64,10 +72,11 @@ export interface MonedaDto {
  */
 export interface CompanyDto {
   id: number;
-  comnom: string;              // Nombre completo
-  comalias: string;            // Alias (BSE)
-  nombre: string;              // Para compatibilidad
-  alias: string;               // Para compatibilidad
+  comnom: string;    // Nombre completo
+  comalias: string;  // Alias (BSE)
+  comcod?: string;   // Código
+  nombre?: string;   // Para compatibilidad
+  alias?: string;    // Para compatibilidad
   activo: boolean;
 }
 
@@ -76,8 +85,8 @@ export interface CompanyDto {
  */
 export interface SeccionDto {
   id: number;
-  seccion: string;             // "AUTOMOVILES"
-  nombre: string;              // Para compatibilidad
+  seccion: string;  // "AUTOMOVILES"
+  nombre?: string;  // Para compatibilidad
   activo: boolean;
 }
 
@@ -86,31 +95,21 @@ export interface SeccionDto {
  */
 export interface ClienteDto {
   id: number;
-  clinom: string;              // Nombre completo
-  cliced: string;              // Documento
-  clidir: string;              // Dirección
-  clidircob: string;           // Dirección de cobro
-  cliemail: string;            // Email
-  clitelcel: string;           // Teléfono
-  clidptnom: string;           // Departamento
-  clilocnom: string;           // Localidad
+  clinom: string;     // Nombre completo
+  cliced: string;     // Documento
+  clidir: string;     // Dirección
+  clidircob: string;  // Dirección de cobro
+  cliemail: string;   // Email
+  clitelcel: string;  // Teléfono
+  clidptnom: string;  // Departamento
+  clilocnom: string;  // Localidad
   activo: boolean;
 }
 
-// ===== TIPOS PARA COMPONENTES UI =====
+// ===== TIPOS PARA RESPUESTAS DE API =====
 
 /**
- * 🎨 OPCIÓN PARA SELECT COMPONENTS
- */
-export interface SelectOption {
-  id: string | number;
-  name: string;
-  description?: string;
-  disabled?: boolean;
-}
-
-/**
- * 🔄 RESPUESTA DE API WRAPPER (si tu API envuelve respuestas)
+ * 🔄 RESPUESTA DE API WRAPPER
  */
 export interface MasterDataResponse {
   success: boolean;
@@ -174,11 +173,5 @@ export type CategoriaVelneoDto = CategoriaDto;
 /** @deprecated Usar DestinoDto */
 export type DestinoVelneoDto = DestinoDto;
 
-/** @deprecated Usar CalidadDto */
-export type CalidadVelneoDto = CalidadDto;
-
-/** @deprecated Usar CombustibleDto */
-export type CombustibleVelneoDto = CombustibleDto;
-
-/** @deprecated Usar MonedaDto */
-export type MonedaVelneoDto = MonedaDto;
+// Re-exportar SelectOption desde ui.ts para conveniencia
+export type { SelectOption };

@@ -1,6 +1,8 @@
+// src/hooks/useRealTimeValidation.ts - ✅ COMPLETAMENTE CORREGIDO
 import { useState, useEffect } from 'react';
-import type { PolicyFormData, FormTabId } from '../types/policyForm';
-import { TabsUtils } from '../constants/formTabs';
+import type { PolicyFormData } from '../types/poliza'; // ✅ IMPORTACIÓN CORRECTA
+import type { FormTabId } from '../types/policyForm'; // ✅ IMPORTACIÓN CORRECTA
+import type { MasterDataOptionsDto } from '../types/masterData'; // ✅ IMPORTACIÓN CORRECTA
 
 export interface ValidationMessage {
   type: 'error' | 'warning' | 'info' | 'success';
@@ -14,7 +16,7 @@ export interface ValidationMessage {
 export const useRealTimeValidation = (
   formData: PolicyFormData,
   touchedFields: Set<string>,
-  masterOptions: any
+  masterOptions: MasterDataOptionsDto | null
 ) => {
   const [validationMessages, setValidationMessages] = useState<ValidationMessage[]>([]);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -25,7 +27,7 @@ export const useRealTimeValidation = (
     const validateAsync = async () => {
       setIsValidating(true);
       
-      // Simular validación asíncrona (puedes conectar con backend)
+      // Simular validación asíncrona
       await new Promise(resolve => setTimeout(resolve, 300));
       
       const errors: Record<string, string> = {};
@@ -62,7 +64,7 @@ export const useRealTimeValidation = (
     value: any,
     fullFormData: PolicyFormData
   ): string | null => {
-    // Validaciones específicas mejoradas
+    // Validaciones específicas en tiempo real
     switch (field) {
       case 'poliza':
         if (value && value.length < 3) return 'Número de póliza muy corto';
@@ -80,22 +82,24 @@ export const useRealTimeValidation = (
         if (fullFormData.desde && value) {
           const desde = new Date(fullFormData.desde);
           const hasta = new Date(value);
-          const diffMonths = (hasta.getTime() - desde.getTime()) / (1000 * 60 * 60 * 24 * 30);
-          
-          if (diffMonths > 12) {
-            return 'Período de vigencia muy largo (máximo 12 meses)';
-          }
-          if (diffMonths < 1) {
-            return 'Período de vigencia muy corto (mínimo 1 mes)';
-          }
+          if (hasta <= desde) return 'La fecha hasta debe ser posterior a la fecha desde';
         }
         break;
 
       case 'premio':
       case 'total':
         const amount = Number(value);
-        if (amount && amount > 1000000) return 'Monto parece excesivo, verificar';
-        if (amount && amount < 100) return 'Monto parece muy bajo, verificar';
+        if (value && (isNaN(amount) || amount <= 0)) {
+          return 'Debe ser un número mayor a 0';
+        }
+        if (amount > 999999) return 'Monto muy alto';
+        break;
+
+      case 'cuotas':
+        const cuotas = Number(value);
+        if (value && (isNaN(cuotas) || cuotas < 1 || cuotas > 48)) {
+          return 'Cuotas debe estar entre 1 y 48';
+        }
         break;
     }
 
@@ -104,52 +108,42 @@ export const useRealTimeValidation = (
 
   const getContextualMessages = (
     formData: PolicyFormData,
-    masterOptions: any
+    masterOptions: MasterDataOptionsDto | null
   ): ValidationMessage[] => {
     const messages: ValidationMessage[] = [];
 
-    // Sugerencias inteligentes
-    if (formData.anio && Number(formData.anio) < 2015 && !formData.matricula) {
+    // Sugerencias inteligentes basadas en datos maestros
+    if (masterOptions && formData.combustibleId && formData.categoriaId) {
+      // Validación contextual: ciertos combustibles con ciertas categorías
+      const combustible = masterOptions.combustibles?.find(c => c.id === formData.combustibleId);
+      const categoria = masterOptions.categorias?.find(c => c.id === formData.categoriaId);
+      
+      if (combustible?.id === 'ELE' && categoria?.catdsc?.includes('CAMION')) {
+        messages.push({
+          type: 'warning',
+          message: 'Vehículo eléctrico categorizado como camión es inusual. Verifique los datos.',
+          field: 'combustibleId',
+          tab: 'datos_vehiculo'
+        });
+      }
+    }
+
+    // Avisos sobre completitud de datos
+    if (formData.poliza && formData.desde && formData.hasta && !formData.premio) {
       messages.push({
         type: 'info',
-        message: 'Vehículos anteriores a 2015 suelen tener matrícula. ¿Deseas agregarla?',
-        field: 'matricula',
-        action: () => {
-          // Navegar al campo matrícula
-          const matriculaTab = TabsUtils.getTabForField('matricula');
-          if (matriculaTab) {
-            // Implementar navegación automática
-          }
-        },
-        actionLabel: 'Ir a Matrícula'
+        message: 'Datos de póliza completos. Ahora defina el premio para continuar.',
+        tab: 'datos_cobertura'
       });
     }
 
-    // Verificación de coherencia
-    if (formData.premio && formData.total && Number(formData.premio) > Number(formData.total)) {
+    // Avisos de forma de pago vs cuotas
+    if (formData.formaPago === 'Contado' && Number(formData.cuotas) > 1) {
       messages.push({
         type: 'warning',
-        message: 'El premio no puede ser mayor al total',
-        field: 'premio'
-      });
-    }
-
-    // Completitud automática
-    if (formData.marcaModelo && formData.anio && !formData.destinoId) {
-      messages.push({
-        type: 'info',
-        message: 'Basado en el vehículo, sugerimos destino "Particular"',
-        field: 'destinoId',
-        action: () => {
-          // Auto-completar con destino particular
-          const particularDestino = masterOptions?.destinos?.find(
-            (d: any) => d.desnom?.toLowerCase().includes('particular')
-          );
-          if (particularDestino) {
-            // Trigger auto-complete
-          }
-        },
-        actionLabel: 'Aplicar Sugerencia'
+        message: 'Pago al contado con múltiples cuotas. Verifique la forma de pago.',
+        field: 'formaPago',
+        tab: 'condiciones_pago'
       });
     }
 
@@ -157,11 +151,9 @@ export const useRealTimeValidation = (
   };
 
   return {
-    fieldErrors,
     validationMessages,
+    fieldErrors,
     isValidating,
-    clearMessage: (index: number) => {
-      setValidationMessages(prev => prev.filter((_, i) => i !== index));
-    }
+    validateFieldRealTime
   };
 };

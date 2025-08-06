@@ -1,31 +1,30 @@
+// src/components/wizard/FormComponents.tsx - VERSIÓN UNIFICADA
+// ⚠️ ESTE ARCHIVO AHORA USA COMPONENTES CENTRALIZADOS
+
 import React from 'react';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
-// Componente base para inputs de texto/número/fecha
-export interface FormFieldProps {
-  id: string;
-  label: string;
-  value: string | number;
-  onChange: (value: string | number) => void;
-  type?: 'text' | 'number' | 'date' | 'email' | 'tel';
-  placeholder?: string;
-  required?: boolean;
-  error?: string;
-  touched?: boolean;
-  disabled?: boolean;
-  readonly?: boolean;
-  icon?: React.ReactNode;
-  min?: number;
-  max?: number;
-  step?: number;
-  className?: string;
-}
+// ✅ IMPORTAR TIPOS CENTRALIZADOS
+import type { 
+  FormFieldProps,
+  SelectFieldProps,
+  TextareaFieldProps,
+  InfoFieldProps,
+  FormSectionProps,
+  SelectOption 
+} from '@/types/ui';
 
+/**
+ * 📝 CAMPO DE FORMULARIO REUTILIZABLE
+ * Input de texto, número, fecha, etc.
+ */
 export function FormField({
   id,
   label,
   value,
   onChange,
+  onBlur,
   type = 'text',
   placeholder,
   required = false,
@@ -37,7 +36,9 @@ export function FormField({
   min,
   max,
   step,
-  className = ''
+  className = '',
+  showDataOrigin = false,
+  dataOrigin
 }: FormFieldProps) {
   const hasError = error && touched;
   const isValid = touched && !error && value;
@@ -47,17 +48,31 @@ export function FormField({
     onChange(newValue);
   };
 
+  // Renderizar el icono si es un string (nombre de Lucide icon)
+  const IconComponent = icon ? require('lucide-react')[icon] : null;
+
   return (
-    <div className={`space-y-2 ${className}`}>
+    <div className={cn("space-y-2", className)}>
       <label htmlFor={id} className="block text-sm font-medium text-gray-700">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
+        {showDataOrigin && dataOrigin && (
+          <span className={cn(
+            "ml-2 text-xs px-2 py-0.5 rounded-full",
+            dataOrigin === 'azure' && "bg-blue-100 text-blue-700",
+            dataOrigin === 'manual' && "bg-yellow-100 text-yellow-700",
+            dataOrigin === 'client' && "bg-green-100 text-green-700",
+            dataOrigin === 'master' && "bg-purple-100 text-purple-700"
+          )}>
+            {dataOrigin}
+          </span>
+        )}
       </label>
       
       <div className="relative">
-        {icon && (
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <div className="text-gray-400">{icon}</div>
+        {IconComponent && (
+          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
+            <IconComponent className="w-4 h-4 text-gray-400" />
           </div>
         )}
         
@@ -66,27 +81,24 @@ export function FormField({
           type={type}
           value={value || ''}
           onChange={handleChange}
+          onBlur={onBlur}
           placeholder={placeholder}
           disabled={disabled}
           readOnly={readonly}
           min={min}
           max={max}
           step={step}
-          className={`
-            block w-full rounded-lg border-2 px-3 py-2 text-sm transition-colors
-            ${icon ? 'pl-10' : ''}
-            ${hasError 
-              ? 'border-red-300 bg-red-50 text-red-900 placeholder-red-400 focus:border-red-500 focus:ring-red-500' 
-              : isValid
-                ? 'border-green-300 bg-green-50 text-green-900 focus:border-green-500 focus:ring-green-500'
-                : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500'
-            }
-            ${readonly || disabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}
-            focus:outline-none focus:ring-2 focus:ring-opacity-50
-          `}
+          className={cn(
+            "block w-full rounded-lg border-2 px-3 py-2 text-sm transition-colors",
+            IconComponent && "pl-10",
+            hasError && "border-red-300 bg-red-50 text-red-900 placeholder-red-400 focus:border-red-500 focus:ring-red-500",
+            isValid && "border-green-300 bg-green-50 text-green-900 focus:border-green-500 focus:ring-green-500",
+            !hasError && !isValid && "border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500",
+            (readonly || disabled) && "bg-gray-50 text-gray-500 cursor-not-allowed",
+            "focus:outline-none focus:ring-2 focus:ring-opacity-50"
+          )}
         />
         
-        {/* Indicador de estado */}
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
           {hasError && <AlertCircle className="w-5 h-5 text-red-500" />}
           {isValid && <CheckCircle2 className="w-5 h-5 text-green-500" />}
@@ -103,36 +115,15 @@ export function FormField({
   );
 }
 
-// Componente para selects
-export interface SelectOption {
-  id: string | number;
-  name: string;
-  description?: string;
-  disabled?: boolean;
-}
-
-export interface SelectFieldProps {
-  id: string;
-  label: string;
-  value: string | number;
-  onChange: (value: string | number) => void;
-  options: SelectOption[];
-  placeholder?: string;
-  required?: boolean;
-  error?: string;
-  touched?: boolean;
-  disabled?: boolean;
-  loading?: boolean;
-  icon?: React.ReactNode;
-  isNumeric?: boolean;
-  className?: string;
-}
-
+/**
+ * 🔽 SELECT FIELD REUTILIZABLE
+ */
 export function SelectField({
   id,
   label,
   value,
   onChange,
+  onBlur,
   options,
   placeholder = 'Seleccionar...',
   required = false,
@@ -142,7 +133,10 @@ export function SelectField({
   loading = false,
   icon,
   isNumeric = false,
-  className = ''
+  className = '',
+  showDataOrigin = false,
+  dataOrigin,
+  emptyMessage = "No hay opciones disponibles"
 }: SelectFieldProps) {
   const hasError = error && touched;
   const isValid = touched && !error && value;
@@ -152,17 +146,30 @@ export function SelectField({
     onChange(newValue);
   };
 
+  // Renderizar el icono si es un string (nombre de Lucide icon)
+  const IconComponent = icon ? require('lucide-react')[icon] : null;
+
   return (
-    <div className={`space-y-2 ${className}`}>
+    <div className={cn("space-y-2", className)}>
       <label htmlFor={id} className="block text-sm font-medium text-gray-700">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
+        {showDataOrigin && dataOrigin && (
+          <span className={cn(
+            "ml-2 text-xs px-2 py-0.5 rounded-full",
+            dataOrigin === 'azure' && "bg-blue-100 text-blue-700",
+            dataOrigin === 'manual' && "bg-yellow-100 text-yellow-700",
+            dataOrigin === 'master' && "bg-purple-100 text-purple-700"
+          )}>
+            {dataOrigin}
+          </span>
+        )}
       </label>
       
       <div className="relative">
-        {icon && (
+        {IconComponent && (
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none z-10">
-            <div className="text-gray-400">{icon}</div>
+            <IconComponent className="w-4 h-4 text-gray-400" />
           </div>
         )}
         
@@ -170,25 +177,25 @@ export function SelectField({
           id={id}
           value={value || ''}
           onChange={handleChange}
+          onBlur={onBlur}
           disabled={disabled || loading}
-          className={`
-            block w-full rounded-lg border-2 px-3 py-2 text-sm transition-colors
-            ${icon ? 'pl-10' : ''}
-            ${hasError 
-              ? 'border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500' 
-              : isValid
-                ? 'border-green-300 bg-green-50 text-green-900 focus:border-green-500 focus:ring-green-500'
-                : 'border-gray-300 bg-white text-gray-900 focus:border-blue-500 focus:ring-blue-500'
-            }
-            ${disabled || loading ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'cursor-pointer'}
-            focus:outline-none focus:ring-2 focus:ring-opacity-50
-            appearance-none
-          `}
+          className={cn(
+            "block w-full rounded-lg border-2 px-3 py-2 text-sm transition-colors appearance-none",
+            IconComponent && "pl-10",
+            hasError && "border-red-300 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500",
+            isValid && "border-green-300 bg-green-50 text-green-900 focus:border-green-500 focus:ring-green-500",
+            !hasError && !isValid && "border-gray-300 bg-white text-gray-900 focus:border-blue-500 focus:ring-blue-500",
+            (disabled || loading) && "bg-gray-50 text-gray-500 cursor-not-allowed",
+            !disabled && !loading && "cursor-pointer",
+            "focus:outline-none focus:ring-2 focus:ring-opacity-50"
+          )}
         >
           <option value="" disabled>
             {loading ? 'Cargando...' : placeholder}
           </option>
-          {options.map((option) => (
+          
+          {/* Agrupar opciones si tienen grupos */}
+          {options.filter(opt => !opt.group).map((option) => (
             <option 
               key={option.id} 
               value={option.id}
@@ -199,9 +206,32 @@ export function SelectField({
               {option.description && ` - ${option.description}`}
             </option>
           ))}
+          
+          {/* Opciones agrupadas */}
+          {Object.entries(
+            options.reduce((groups, option) => {
+              if (option.group) {
+                if (!groups[option.group]) groups[option.group] = [];
+                groups[option.group].push(option);
+              }
+              return groups;
+            }, {} as Record<string, SelectOption[]>)
+          ).map(([groupName, groupOptions]) => (
+            <optgroup key={groupName} label={groupName}>
+              {groupOptions.map((option) => (
+                <option 
+                  key={option.id} 
+                  value={option.id}
+                  disabled={option.disabled}
+                >
+                  {option.name}
+                  {option.description && ` - ${option.description}`}
+                </option>
+              ))}
+            </optgroup>
+          ))}
         </select>
         
-        {/* Flecha personalizada para select */}
         <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
           {loading ? (
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
@@ -223,27 +253,20 @@ export function SelectField({
           {error}
         </p>
       )}
+      
+      {!loading && options.length === 0 && !hasError && (
+        <p className="text-sm text-gray-500 flex items-center gap-1">
+          <Info className="w-4 h-4" />
+          {emptyMessage}
+        </p>
+      )}
     </div>
   );
 }
 
-// Componente para textarea
-export interface TextareaFieldProps {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-  required?: boolean;
-  error?: string;
-  touched?: boolean;
-  disabled?: boolean;
-  readonly?: boolean;
-  rows?: number;
-  maxLength?: number;
-  className?: string;
-}
-
+/**
+ * 📄 TEXTAREA FIELD
+ */
 export function TextareaField({
   id,
   label,
@@ -257,7 +280,9 @@ export function TextareaField({
   readonly = false,
   rows = 4,
   maxLength,
-  className = ''
+  className = '',
+  showDataOrigin = false,
+  dataOrigin
 }: TextareaFieldProps) {
   const hasError = error && touched;
   const isValid = touched && !error && value;
@@ -267,10 +292,20 @@ export function TextareaField({
   };
 
   return (
-    <div className={`space-y-2 ${className}`}>
+    <div className={cn("space-y-2", className)}>
       <label htmlFor={id} className="block text-sm font-medium text-gray-700">
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
+        {showDataOrigin && dataOrigin && (
+          <span className={cn(
+            "ml-2 text-xs px-2 py-0.5 rounded-full",
+            dataOrigin === 'azure' && "bg-blue-100 text-blue-700",
+            dataOrigin === 'manual' && "bg-yellow-100 text-yellow-700",
+            dataOrigin === 'client' && "bg-green-100 text-green-700"
+          )}>
+            {dataOrigin}
+          </span>
+        )}
       </label>
       
       <div className="relative">
@@ -283,31 +318,22 @@ export function TextareaField({
           readOnly={readonly}
           rows={rows}
           maxLength={maxLength}
-          className={`
-            block w-full rounded-lg border-2 px-3 py-2 text-sm transition-colors resize-vertical
-            ${hasError 
-              ? 'border-red-300 bg-red-50 text-red-900 placeholder-red-400 focus:border-red-500 focus:ring-red-500' 
-              : isValid
-                ? 'border-green-300 bg-green-50 text-green-900 focus:border-green-500 focus:ring-green-500'
-                : 'border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500'
-            }
-            ${readonly || disabled ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''}
-            focus:outline-none focus:ring-2 focus:ring-opacity-50
-          `}
+          className={cn(
+            "block w-full rounded-lg border-2 px-3 py-2 text-sm transition-colors resize-none",
+            hasError && "border-red-300 bg-red-50 text-red-900 placeholder-red-400 focus:border-red-500 focus:ring-red-500",
+            isValid && "border-green-300 bg-green-50 text-green-900 focus:border-green-500 focus:ring-green-500",
+            !hasError && !isValid && "border-gray-300 bg-white text-gray-900 placeholder-gray-400 focus:border-blue-500 focus:ring-blue-500",
+            (readonly || disabled) && "bg-gray-50 text-gray-500 cursor-not-allowed",
+            "focus:outline-none focus:ring-2 focus:ring-opacity-50"
+          )}
         />
         
-        {/* Indicador de estado */}
-        <div className="absolute top-2 right-2">
-          {hasError && <AlertCircle className="w-5 h-5 text-red-500" />}
-          {isValid && <CheckCircle2 className="w-5 h-5 text-green-500" />}
-        </div>
+        {maxLength && (
+          <div className="absolute bottom-2 right-2 text-xs text-gray-400">
+            {value?.length || 0}/{maxLength}
+          </div>
+        )}
       </div>
-      
-      {maxLength && (
-        <div className="text-xs text-gray-500 text-right">
-          {(value || '').length}/{maxLength}
-        </div>
-      )}
       
       {hasError && (
         <p className="text-sm text-red-600 flex items-center gap-1">
@@ -319,16 +345,36 @@ export function TextareaField({
   );
 }
 
-// Componente wrapper para secciones del formulario
-export interface FormSectionProps {
-  title: string;
-  description?: string;
-  children: React.ReactNode;
-  className?: string;
-  collapsible?: boolean;
-  defaultExpanded?: boolean;
+/**
+ * ℹ️ INFO FIELD (solo lectura)
+ */
+export function InfoField({
+  label,
+  value,
+  icon,
+  className = '',
+  emptyText = 'No especificado'
+}: InfoFieldProps) {
+  const displayValue = value || emptyText;
+  
+  return (
+    <div className={cn("space-y-1", className)}>
+      <label className="block text-sm font-medium text-gray-500">
+        {label}
+      </label>
+      <div className="flex items-center gap-2 text-sm text-gray-900">
+        {icon && <span className="text-gray-400">{icon}</span>}
+        <span className={!value ? 'text-gray-400 italic' : ''}>
+          {displayValue}
+        </span>
+      </div>
+    </div>
+  );
 }
 
+/**
+ * 📦 FORM SECTION
+ */
 export function FormSection({
   title,
   description,
@@ -338,61 +384,45 @@ export function FormSection({
   defaultExpanded = true
 }: FormSectionProps) {
   const [isExpanded, setIsExpanded] = React.useState(defaultExpanded);
-
+  
   return (
-    <div className={`bg-white rounded-lg border border-gray-200 ${className}`}>
+    <div className={cn("bg-white rounded-lg border border-gray-200 p-6", className)}>
       <div 
-        className={`px-6 py-4 border-b border-gray-200 ${collapsible ? 'cursor-pointer' : ''}`}
+        className={cn(
+          "mb-4",
+          collapsible && "cursor-pointer select-none"
+        )}
         onClick={collapsible ? () => setIsExpanded(!isExpanded) : undefined}
       >
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">{title}</h3>
             {description && (
-              <p className="text-sm text-gray-600 mt-1">{description}</p>
+              <p className="text-sm text-gray-500 mt-1">{description}</p>
             )}
           </div>
-          
           {collapsible && (
-            <button className="text-gray-400 hover:text-gray-600 transition-colors">
-              <svg 
-                className={`w-5 h-5 transform transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                fill="none" 
-                stroke="currentColor" 
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
+            <svg 
+              className={cn(
+                "w-5 h-5 text-gray-400 transition-transform",
+                isExpanded && "rotate-180"
+              )} 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
           )}
         </div>
       </div>
       
       {(!collapsible || isExpanded) && (
-        <div className="px-6 py-4">
-          {children}
-        </div>
+        <div>{children}</div>
       )}
     </div>
   );
 }
 
-// Componente para mostrar información de solo lectura
-export interface InfoFieldProps {
-  label: string;
-  value: string | number;
-  icon?: React.ReactNode;
-  className?: string;
-}
-
-export function InfoField({ label, value, icon, className = '' }: InfoFieldProps) {
-  return (
-    <div className={`space-y-1 ${className}`}>
-      <label className="block text-sm font-medium text-gray-700">{label}</label>
-      <div className="flex items-center space-x-2 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg">
-        {icon && <div className="text-gray-400">{icon}</div>}
-        <span className="text-sm text-gray-900">{value || 'No especificado'}</span>
-      </div>
-    </div>
-  );
-}
+// Re-exportar tipos para conveniencia
+export type { SelectOption };

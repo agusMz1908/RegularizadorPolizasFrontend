@@ -190,63 +190,85 @@ class ApiService {
   /**
    * 📊 Obtener opciones de maestros para el formulario 
    */
-  async getMasterDataOptions(): Promise<MasterDataOptionsDto> {
-    try {
-      console.log('🔄 [ApiService] Cargando opciones de maestros...');
-      
-      const response = await this.request<any>('/velneo/mapping-options', {
-        method: 'GET'
+async getMasterDataOptions(): Promise<MasterDataOptionsDto> {
+  try {
+    console.log('🔄 [ApiService] Cargando opciones de maestros...');
+    
+    const response = await this.request<any>('/velneo/mapping-options', {
+      method: 'GET'
+    });
+
+    console.log('🔍 [ApiService] Raw response structure:', {
+      hasSuccess: 'success' in response,
+      hasData: 'data' in response,
+      hasCategorias: 'categorias' in response,
+      hasDestinos: 'destinos' in response,
+      // ✅ TAMBIÉN VERIFICAR PASCALCASE PARA DEBUGGING
+      hasCategoriasUpper: 'Categorias' in response,
+      hasDestinosUpper: 'Destinos' in response,
+      topLevelKeys: Object.keys(response).slice(0, 10) // Primeras 10 keys para debugging
+    });
+
+    // ✅ VERIFICAR ESTRUCTURA DE RESPUESTA - AHORA CON CAMELCASE
+    let data: MasterDataOptionsDto;
+    
+    if (response.success && response.data) {
+      // Formato wrapped: { success: true, data: {...} }
+      data = response.data;
+      console.log('📦 [ApiService] Using wrapped response format');
+    } else if (response.categorias && response.destinos) {
+      // ✅ CORREGIDO: Formato directo camelCase: { categorias: [...], destinos: [...] }
+      data = response;
+      console.log('📦 [ApiService] Using direct camelCase response format');
+    } else if (response.Categorias && response.Destinos) {
+      // ✅ FALLBACK: Si por alguna razón aún viene PascalCase
+      data = response;
+      console.log('📦 [ApiService] Using direct PascalCase response format (fallback)');
+    } else {
+      console.error('❌ [ApiService] Unrecognized response structure:', {
+        keys: Object.keys(response),
+        sampleData: JSON.stringify(response).substring(0, 500) + '...'
       });
-
-      // ✅ VERIFICAR ESTRUCTURA DE RESPUESTA
-      let data: MasterDataOptionsDto;
-      
-      if (response.success && response.data) {
-        // Formato: { success: true, data: {...} }
-        data = response.data;
-        console.log('📦 [ApiService] Using wrapped response format');
-      } else if (response.Categorias && response.Destinos) {
-        // Formato directo: { Categorias: [...], Destinos: [...] }
-        data = response;
-        console.log('📦 [ApiService] Using direct response format');
-      } else {
-        console.error('❌ [ApiService] Unrecognized response structure:', response);
-        throw new Error('Estructura de respuesta no válida del servidor');
-      }
-
-      // ✅ VERIFICAR DATOS
-      const summary = {
-        categorias: data.Categorias?.length || 0,
-        destinos: data.Destinos?.length || 0,
-        calidades: data.Calidades?.length || 0,
-        combustibles: data.Combustibles?.length || 0,
-        monedas: data.Monedas?.length || 0,
-        estadosPoliza: data.EstadosPoliza?.length || 0
-      };
-      
-      console.log('📊 [ApiService] Master data summary:', summary);
-
-      if (summary.categorias === 0 && summary.destinos === 0) {
-        throw new Error('El servidor devolvió datos vacíos para todos los maestros');
-      }
-
-      console.log('✅ [ApiService] Master data loaded successfully!');
-      return data;
-      
-    } catch (error) {
-      console.error('❌ [ApiService] Error in getMasterDataOptions:', error);
-      
-      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        throw new Error('Error de conectividad. Verifica que el backend esté ejecutándose.');
-      }
-      
-      if (error instanceof SyntaxError && error.message.includes('JSON')) {
-        throw new Error('El servidor devolvió HTML en lugar de JSON. Posible problema de autenticación.');
-      }
-      
-      throw error;
+      throw new Error('Estructura de respuesta no válida del servidor');
     }
+
+    // ✅ VERIFICAR DATOS - CORREGIDO PARA CAMELCASE
+    const summary = {
+      // Intentar camelCase primero
+      categorias: data.categorias?.length || data.categorias?.length || 0,
+      destinos: data.destinos?.length || data.destinos?.length || 0,
+      calidades: data.calidades?.length || data.calidades?.length || 0,
+      combustibles: data.combustibles?.length || data.combustibles?.length || 0,
+      monedas: data.monedas?.length || data.monedas?.length || 0,
+      estadosPoliza: data.estadosPoliza?.length || data.estadosPoliza?.length || 0,
+      tiposTramite: data.tiposTramite?.length || data.tiposTramite?.length || 0,
+      formasPago: data.formasPago?.length || data.formasPago?.length || 0
+    };
+    
+    console.log('📊 [ApiService] Master data summary:', summary);
+
+    if (summary.categorias === 0 && summary.destinos === 0) {
+      console.warn('⚠️ [ApiService] No master data found. Full response:', response);
+      throw new Error('El servidor devolvió datos vacíos para todos los maestros');
+    }
+
+    console.log('✅ [ApiService] Master data loaded successfully!');
+    return data;
+    
+  } catch (error) {
+    console.error('❌ [ApiService] Error in getMasterDataOptions:', error);
+    
+    if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+      throw new Error('Error de conectividad. Verifica que el backend esté ejecutándose.');
+    }
+    
+    if (error instanceof SyntaxError && error.message.includes('JSON')) {
+      throw new Error('El servidor devolvió HTML en lugar de JSON. Posible problema de autenticación.');
+    }
+    
+    throw error;
   }
+}
 
   /**
    * Obtener todas las compañías
@@ -296,7 +318,7 @@ class ApiService {
   async getCombustibles(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
-      return masterOptions.Combustibles || [];
+      return masterOptions.combustibles || [];
     } catch (error) {
       console.error('❌ Error obteniendo combustibles:', error);
       return [];
@@ -306,7 +328,7 @@ class ApiService {
   async getCategorias(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
-      return masterOptions.Categorias || [];
+      return masterOptions.categorias || [];
     } catch (error) {
       console.error('❌ Error obteniendo categorías:', error);
       return [];
@@ -316,7 +338,7 @@ class ApiService {
   async getDestinos(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
-      return masterOptions.Destinos || [];
+      return masterOptions.destinos || [];
     } catch (error) {
       console.error('❌ Error obteniendo destinos:', error);
       return [];
@@ -326,7 +348,7 @@ class ApiService {
   async getCalidades(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
-      return masterOptions.Calidades || [];
+      return masterOptions.calidades || [];
     } catch (error) {
       console.error('❌ Error obteniendo calidades:', error);
       return [];
@@ -336,7 +358,7 @@ class ApiService {
   async getMonedas(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
-      return masterOptions.Monedas || [];
+      return masterOptions.monedas || [];
     } catch (error) {
       console.error('❌ Error obteniendo monedas:', error);
       return [];

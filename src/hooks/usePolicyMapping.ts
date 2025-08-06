@@ -145,11 +145,11 @@ export const usePolicyMapping = (): UsePolicyMappingReturn => {
       const data = await apiService.getMasterDataOptions();
       
       console.log('✅ [usePolicyMapping] Masters received:', {
-        categorias: data.Categorias?.length || 0,
-        destinos: data.Destinos?.length || 0,
-        calidades: data.Calidades?.length || 0,
-        combustibles: data.Combustibles?.length || 0,
-        monedas: data.Monedas?.length || 0
+        categorias: data.categorias?.length || 0,
+        destinos: data.destinos?.length || 0,
+        calidades: data.calidades?.length || 0,
+        combustibles: data.combustibles?.length || 0,
+        monedas: data.monedas?.length || 0
       });
       
       setMasterOptions(data);

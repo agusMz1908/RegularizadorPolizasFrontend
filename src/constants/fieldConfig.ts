@@ -1,11 +1,11 @@
-// src/constants/fieldConfigs.ts
-import type { MasterDataOptions } from  '../types/mappings';
+// src/constants/fieldConfig.ts - ✅ CORREGIDO
+import type { MasterDataOptionsDto } from '../types/masterData'; // ✅ CAMBIO PRINCIPAL
 
 export interface FieldConfig {
   id: string;
   label: string;
   category: 'basicos' | 'poliza' | 'vehiculo' | 'cobertura';
-  masterDataKey?: keyof MasterDataOptions;
+  masterDataKey?: keyof MasterDataOptionsDto; // ✅ CAMBIO PRINCIPAL
   required?: boolean;
   type?: 'text' | 'number' | 'date' | 'email' | 'select';
   placeholder?: string;
@@ -24,7 +24,8 @@ export const FIELD_CONFIGS: FieldConfig[] = [
     label: 'Corredor', 
     category: 'basicos',
     type: 'text',
-    placeholder: 'Nombre del corredor'
+    placeholder: 'Nombre del corredor',
+    required: true
   },
   { 
     id: 'asegurado', 
@@ -42,7 +43,7 @@ export const FIELD_CONFIGS: FieldConfig[] = [
     type: 'text',
     placeholder: 'CI o RUT',
     validation: {
-      pattern: '^[0-9]{1,8}[-]?[0-9kK]?$',
+      pattern: '^[0-9]{1,8}[-]?[0-9]$',
       message: 'Formato de documento inválido'
     }
   },
@@ -57,7 +58,6 @@ export const FIELD_CONFIGS: FieldConfig[] = [
     id: 'telefono', 
     label: 'Teléfono', 
     category: 'basicos',
-    type: 'text',
     placeholder: 'Número de teléfono'
   },
   { 
@@ -70,72 +70,78 @@ export const FIELD_CONFIGS: FieldConfig[] = [
   
   // Datos Póliza
   { 
-    id: 'numeroPoliza', 
+    id: 'poliza', 
     label: 'Número de Póliza', 
     category: 'poliza', 
     required: true,
     type: 'text',
-    placeholder: 'Número único de póliza'
+    placeholder: 'Número de póliza'
   },
   { 
     id: 'desde', 
     label: 'Vigencia Desde', 
     category: 'poliza',
-    type: 'date'
+    type: 'date',
+    required: true
   },
   { 
     id: 'hasta', 
     label: 'Vigencia Hasta', 
     category: 'poliza',
-    type: 'date'
+    type: 'date',
+    required: true
   },
   { 
-    id: 'endoso', 
-    label: 'Endoso', 
+    id: 'certificado', 
+    label: 'Certificado', 
     category: 'poliza',
-    type: 'number',
-    placeholder: '0'
+    type: 'text',
+    placeholder: 'Número de certificado'
   },
   
   // Datos Vehículo
   { 
-    id: 'marca', 
-    label: 'Marca', 
+    id: 'marcaModelo', 
+    label: 'Marca y Modelo', 
     category: 'vehiculo',
     type: 'text',
-    placeholder: 'Marca del vehículo'
-  },
-  { 
-    id: 'modelo', 
-    label: 'Modelo', 
-    category: 'vehiculo',
-    type: 'text',
-    placeholder: 'Modelo del vehículo'
+    placeholder: 'Ej: Toyota Corolla',
+    required: true
   },
   { 
     id: 'anio', 
     label: 'Año', 
     category: 'vehiculo',
     type: 'number',
-    validation: {
-      min: 1900,
-      max: new Date().getFullYear() + 2,
-      message: 'Año inválido'
-    }
+    placeholder: 'Año del vehículo'
   },
   { 
-    id: 'combustible', 
+    id: 'combustibleId', 
     label: 'Combustible', 
     category: 'vehiculo', 
-    masterDataKey: 'combustibles',
-    type: 'select'
+    type: 'select',
+    required: true
   },
   { 
-    id: 'categoria', 
+    id: 'categoriaId', 
     label: 'Categoría', 
     category: 'vehiculo', 
-    masterDataKey: 'categorias',
-    type: 'select'
+    type: 'select',
+    required: true
+  },
+  { 
+    id: 'destinoId', 
+    label: 'Destino', 
+    category: 'vehiculo', 
+    type: 'select',
+    required: true
+  },
+  { 
+    id: 'calidadId', 
+    label: 'Calidad', 
+    category: 'vehiculo', 
+    type: 'select',
+    required: true
   },
   { 
     id: 'chasis', 
@@ -154,32 +160,34 @@ export const FIELD_CONFIGS: FieldConfig[] = [
   
   // Datos Cobertura
   { 
-    id: 'cobertura', 
-    label: 'Cobertura', 
+    id: 'monedaId', 
+    label: 'Moneda', 
     category: 'cobertura', 
-    masterDataKey: 'coberturas',
-    type: 'select'
+    type: 'select',
+    required: true
   },
   { 
     id: 'premio', 
     label: 'Premio', 
     category: 'cobertura',
     type: 'number',
-    placeholder: '0.00'
+    placeholder: '0.00',
+    required: true
   },
   { 
     id: 'total', 
     label: 'Total', 
     category: 'cobertura',
     type: 'number',
-    placeholder: '0.00'
+    placeholder: '0.00',
+    required: true
   },
   { 
     id: 'formaPago', 
     label: 'Forma de Pago', 
-    category: 'cobertura', 
-    masterDataKey: 'formasPago',
-    type: 'select'
+    category: 'cobertura',
+    type: 'select',
+    required: true
   },
   { 
     id: 'cuotas', 
@@ -190,13 +198,17 @@ export const FIELD_CONFIGS: FieldConfig[] = [
   }
 ];
 
-export const REQUIRED_FIELDS = FIELD_CONFIGS
-  .filter(config => config.required)
-  .map(config => config.id);
+// ✅ HELPER: Obtener campos por categoría
+export const getFieldsByCategory = (category: FieldConfig['category']): FieldConfig[] => {
+  return FIELD_CONFIGS.filter(field => field.category === category);
+};
 
-export const CATEGORY_LABELS = {
-  basicos: 'Datos Básicos',
-  poliza: 'Póliza',
-  vehiculo: 'Vehículo',
-  cobertura: 'Cobertura'
-} as const;
+// ✅ HELPER: Obtener campos requeridos
+export const getRequiredFields = (): FieldConfig[] => {
+  return FIELD_CONFIGS.filter(field => field.required);
+};
+
+// ✅ HELPER: Obtener campos con datos maestros
+export const getMasterDataFields = (): FieldConfig[] => {
+  return FIELD_CONFIGS.filter(field => field.masterDataKey);
+};
