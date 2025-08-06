@@ -290,27 +290,27 @@ function AppContent() {
           </div>
         );
       
-      case 'form':
-        return selectedClient && selectedCompany && selectedSection ? (
-          <div className="animate-in fade-in-0 duration-400">
-            {/* 🚀 CAMBIO PRINCIPAL: Usar PolicyFormWizard en lugar de IntegratedPolicyForm */}
-            <PolicyFormWizard
-              scannedData={scannedDocument}
-              selectedClient={selectedClient}
-              selectedCompany={selectedCompany}
-              selectedSection={selectedSection}
-              onSubmit={handleFormSubmit}
-              onBack={handleWizardBack}
-            />
-          </div>
-        ) : (
-          <div className="text-center p-8 animate-in fade-in-0 duration-300">
-            <p className="text-destructive">Error: Datos faltantes para el formulario</p>
-            <button onClick={handleWizardBack} className="mt-4 text-primary hover:underline">
-              Volver al paso anterior
-            </button>
-          </div>
-        );
+      // case 'form':
+      //   return selectedClient && selectedCompany && selectedSection ? (
+      //     <div className="animate-in fade-in-0 duration-400">
+      //       {/* 🚀 CAMBIO PRINCIPAL: Usar PolicyFormWizard en lugar de IntegratedPolicyForm */}
+      //       <PolicyFormWizard
+      //         scannedData={scannedDocument}
+      //         selectedClient={selectedClient}
+      //         selectedCompany={selectedCompany}
+      //         selectedSection={selectedSection}
+      //         onSubmit={handleFormSubmit}
+      //         onBack={handleWizardBack}
+      //       />
+      //     </div>
+      //   ) : (
+      //     <div className="text-center p-8 animate-in fade-in-0 duration-300">
+      //       <p className="text-destructive">Error: Datos faltantes para el formulario</p>
+      //       <button onClick={handleWizardBack} className="mt-4 text-primary hover:underline">
+      //         Volver al paso anterior
+      //       </button>
+      //     </div>
+      //   );
 
       default:
         return (
