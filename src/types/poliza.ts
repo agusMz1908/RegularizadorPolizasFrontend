@@ -68,3 +68,80 @@ export interface PolicyFormData {
   // ===== PESTAÑA 6: OBSERVACIONES =====
   observaciones: string;         // Textarea libre
 }
+
+// ✅ TIPO CORREGIDO: Basado en el backend real PolizaCreateRequest
+export interface PolizaCreateRequest {
+  // ===== CAMPOS PRINCIPALES OBLIGATORIOS =====
+  Clinro: number;                    // ID Cliente
+  Clinom?: string;                   // Nombre cliente
+  Comcod: number;                    // ID Compañía
+  Seccod?: number;                   // ID Sección (opcional, se puede derivar)
+  SeccionId?: number;                // ID Sección alternativo
+  
+  // ===== DATOS BÁSICOS DE LA PÓLIZA =====
+  Conpol?: string;                   // Número de póliza
+  Concar?: string;                   // Certificado
+  Conend?: string;                   // Endoso
+  Confchdes?: string;                // Fecha desde
+  Confchhas?: string;                // Fecha hasta
+  Convig?: string;                   // Estado vigencia
+  Contra?: string;                   // Tipo trámite
+  Consta?: string;                   // Forma de pago
+  Congesti?: string;                 // Tipo gestión
+  Congeses?: string;                 // Estado gestión
+  Congesfi?: string;                 // Fecha gestión
+  
+  // ===== DATOS DEL CLIENTE =====
+  Asegurado?: string;                // Nombre asegurado (alternativo)
+  Direccion?: string;                // Dirección
+  Condom?: string;                   // Domicilio
+  
+  // ===== DATOS DEL VEHÍCULO =====
+  Marca?: string;                    // Marca
+  Modelo?: string;                   // Modelo
+  Conmaraut?: string;                // Marca + modelo completo
+  Anio?: number;                     // Año
+  Conanioaut?: number;               // Año (campo Velneo)
+  Matricula?: string;                // Matrícula
+  Conmataut?: string;                // Matrícula (campo Velneo)
+  Motor?: string;                    // Motor
+  Conmotor?: string;                 // Motor (campo Velneo)
+  Chasis?: string;                   // Chasis
+  Conchasis?: string;                // Chasis (campo Velneo)
+  
+  // ===== MAESTROS DEL VEHÍCULO =====
+  CombustibleId?: number;            // ID Combustible
+  CombustibleNombre?: string;        // Nombre combustible
+  CategoriaId?: number;              // ID Categoría
+  CategoriaNombre?: string;          // Nombre categoría
+  DestinoId?: number;                // ID Destino
+  DestinoNombre?: string;            // Nombre destino
+  CalidadId?: number;                // ID Calidad
+  CalidadNombre?: string;            // Nombre calidad
+  
+  // ===== DATOS FINANCIEROS =====
+  Conpremio: number;                 // Premio (OBLIGATORIO)
+  PremioTotal?: number;              // Premio total
+  Contot?: number;                   // Total
+  CantidadCuotas?: number;           // Cantidad de cuotas
+  Concuo?: number;                   // Cuotas (campo Velneo)
+  Moneda?: string;                   // Moneda como string
+  Moncod?: number;                   // Moneda ID
+  FormaPago?: string;                // Forma de pago como string
+  
+  // ===== DATOS DE COBERTURA =====
+  CoberturaId?: number;              // ID Cobertura
+  Cobertura?: string;                // Nombre cobertura
+  ZonaCirculacion?: string;          // Zona de circulación
+  DepartamentoId?: number;           // ID Departamento
+  
+  // ===== OTROS CAMPOS =====
+  Ramo?: string;                     // Ramo (ej: "AUTOMOVILES")
+  EstadoPoliza?: string;             // Estado de la póliza
+  Tramite?: string;                  // Tipo de trámite
+  Observaciones?: string;            // Observaciones generales
+  ProcesadoConIA?: boolean;          // Flag de procesamiento con IA
+  
+  // ===== CAMPOS FLEXIBLES =====
+  [key: string]: any;                // Para campos adicionales
+}

@@ -1,3 +1,5 @@
+// src/hooks/usePolicyForm.ts - VERSIÓN CORREGIDA Y OPTIMIZADA
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { FormTabId, FormValidationResult } from '../types/policyForm';
 import type { AzureProcessResponse } from '../types/azureDocumentResult';
@@ -28,7 +30,7 @@ export interface FormValidationError {
   severity: 'error' | 'warning';
 }
 
-// ✅ UTILIDADES DE PESTAÑAS (en caso de que TabsUtils no esté definido)
+// ✅ UTILIDADES DE PESTAÑAS CORREGIDAS
 const TabsUtils = {
   getRequiredFieldsForTab: (tabId: FormTabId): string[] => {
     switch (tabId) {
@@ -50,7 +52,6 @@ const TabsUtils = {
   },
 
   getFieldsForTab: (tabId: FormTabId): string[] => {
-    // Devolver todos los campos de la pestaña (requeridos + opcionales)
     switch (tabId) {
       case 'datos_basicos':
         return ['poliza', 'certificado', 'desde', 'hasta', 'tramite', 'estadoPoliza', 'corredor'];
@@ -91,7 +92,7 @@ const TabsUtils = {
 
 /**
  * 🎯 HOOK PRINCIPAL DEL FORMULARIO DE PÓLIZA
- * VERSIÓN FINAL: Todos los errores corregidos
+ * VERSIÓN CORREGIDA: Todos los errores solucionados
  */
 export const usePolicyForm = ({
   scannedData,
@@ -116,48 +117,60 @@ export const usePolicyForm = ({
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [masterError, setMasterError] = useState<string | null>(null);
 
-  // ===== 🔧 CARGAR OPCIONES DE MAESTROS SIN BUCLE =====
+  // ===== 🔧 CARGAR OPCIONES DE MAESTROS - OPTIMIZADO =====
   useEffect(() => {
+    let isComponentMounted = true;
+    
     const loadMasterOptions = async () => {
-      // Evitar cargas múltiples
-      if (masterOptions || !loadingMasters) {
-        console.log('🔒 Carga de maestros ya completada o en progreso');
+      // Evitar cargas múltiples o si ya están cargados
+      if (masterOptions !== null || !loadingMasters) {
+        console.log('🔒 [usePolicyForm] Maestros ya cargados o carga en progreso');
         return;
       }
 
       try {
-        setLoadingMasters(true);
-        setMasterError(null);
-        
         console.log('🔄 [usePolicyForm] Cargando opciones de maestros...');
         const options = await MasterDataApi.getMasterDataOptions();
         
-        console.log('✅ [usePolicyForm] Opciones de maestros cargadas:', {
-          categorias: options.Categorias?.length || 0,
-          destinos: options.Destinos?.length || 0,
-          calidades: options.Calidades?.length || 0,
-          combustibles: options.Combustibles?.length || 0,
-          monedas: options.Monedas?.length || 0
-        });
-        
-        setMasterOptions(options);
+        // Solo actualizar estado si el componente sigue montado
+        if (isComponentMounted) {
+          console.log('✅ [usePolicyForm] Opciones de maestros cargadas:', {
+            categorias: options.Categorias?.length || 0,
+            destinos: options.Destinos?.length || 0,
+            calidades: options.Calidades?.length || 0,
+            combustibles: options.Combustibles?.length || 0,
+            monedas: options.Monedas?.length || 0
+          });
+          
+          setMasterOptions(options);
+          setMasterError(null);
+        }
       } catch (error) {
         console.error('❌ [usePolicyForm] Error cargando opciones de maestros:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Error desconocido cargando maestros';
-        setMasterError(errorMessage);
         
-        // NO llamar onError aquí para evitar bucles - solo log
-        console.warn('⚠️ [usePolicyForm] Error de maestros guardado en estado local');
+        if (isComponentMounted) {
+          const errorMessage = error instanceof Error ? error.message : 'Error desconocido cargando maestros';
+          setMasterError(errorMessage);
+          
+          // NO llamar onError aquí para evitar bucles
+          console.warn('⚠️ [usePolicyForm] Error de maestros guardado en estado local');
+        }
       } finally {
-        setLoadingMasters(false);
+        if (isComponentMounted) {
+          setLoadingMasters(false);
+        }
       }
     };
 
-    // Solo ejecutar la primera vez
     loadMasterOptions();
-  }, []); // ✅ Array vacío - solo se ejecuta una vez
+    
+    // Cleanup function
+    return () => {
+      isComponentMounted = false;
+    };
+  }, []); // ✅ Solo ejecutar una vez
 
-  // ===== 🔧 CALLBACK PARA INICIALIZACIÓN CON DATOS DE AZURE =====
+  // ===== 🔧 INICIALIZACIÓN CON DATOS DE AZURE - MEJORADO =====
   const initializeFormFromAzure = useCallback(() => {
     if (!scannedData || !selectedClient) {
       console.log('🔒 [usePolicyForm] Esperando datos para inicialización...');
@@ -167,10 +180,18 @@ export const usePolicyForm = ({
     try {
       console.log('🔄 [usePolicyForm] Inicializando formulario con datos de Azure...');
       
-      // ✅ CORREGIDO: Usar el método correcto que existe en VelneoMappingService
-      const mappedData = VelneoMappingService.mapAzureToFormData 
-        ? VelneoMappingService.mapAzureToFormData(scannedData, selectedClient, selectedCompany, masterOptions)
-        : {};
+      // ✅ VERIFICAR QUE EL MÉTODO EXISTE ANTES DE USAR
+      let mappedData = {};
+      if (VelneoMappingService.mapAzureToFormData) {
+        mappedData = VelneoMappingService.mapAzureToFormData(
+          scannedData, 
+          selectedClient, 
+          selectedCompany, 
+          masterOptions || undefined
+        );
+      } else {
+        console.warn('⚠️ [usePolicyForm] VelneoMappingService.mapAzureToFormData no está disponible');
+      }
 
       // Datos básicos del contexto
       const contextData = {
@@ -205,11 +226,11 @@ export const usePolicyForm = ({
   // ===== EFECTO PARA INICIALIZAR FORMULARIO =====
   useEffect(() => {
     // Solo inicializar cuando tengamos todos los datos necesarios
-    if (scannedData && selectedClient && !loadingMasters) {
+    if (scannedData && selectedClient && !loadingMasters && masterOptions) {
       console.log('🚀 [usePolicyForm] Condiciones cumplidas para inicialización');
       initializeFormFromAzure();
     }
-  }, [scannedData, selectedClient, selectedCompany, loadingMasters, initializeFormFromAzure]);
+  }, [scannedData, selectedClient, selectedCompany, loadingMasters, masterOptions, initializeFormFromAzure]);
 
   // ===== VALIDACIÓN INDIVIDUAL DE CAMPO =====
   const validateField = useCallback((field: keyof PolicyFormData, value: any): string | null => {
@@ -300,7 +321,7 @@ export const usePolicyForm = ({
     }
   }, [validateField]);
 
-  // ===== 🔧 VALIDACIÓN COMPLETA DEL FORMULARIO - TIPO CORREGIDO =====
+  // ===== 🔧 VALIDACIÓN COMPLETA DEL FORMULARIO - CORREGIDA =====
   const validateForm = useCallback((): FormValidationResult => {
     const newErrors: Record<string, string> = {};
     const requiredFields = ['poliza', 'desde', 'hasta', 'tramite', 'estadoPoliza'];
@@ -330,12 +351,12 @@ export const usePolicyForm = ({
       return value === null || value === undefined || value === '';
     });
 
-    // ✅ RETORNAR ESTRUCTURA CORRECTA SEGÚN FormValidationResult
+    // ✅ ESTRUCTURA CORRECTA SEGÚN FormValidationResult
     return {
       isValid,
       errors: newErrors,
-      warnings: {}, // ✅ Agregar warnings vacío
-      missingRequired // ✅ Agregar missingRequired
+      warnings: {}, // Agregar warnings vacío
+      missingRequired // Agregar missingRequired
     };
   }, [formData, validateField]);
 
@@ -447,7 +468,11 @@ export const usePolicyForm = ({
 
       console.log('🔄 [usePolicyForm] Mapeando datos para Velneo...');
       
-      // ✅ CORREGIDO: Mapear datos del formulario al formato de Velneo
+      // ✅ CORREGIDO: Verificar que el método existe y mapear correctamente
+      if (!VelneoMappingService.mapFormDataToVelneoRequest) {
+        throw new Error('VelneoMappingService.mapFormDataToVelneoRequest no está disponible');
+      }
+
       const velneoRequest = VelneoMappingService.mapFormDataToVelneoRequest(
         formData,
         selectedClient,
@@ -457,19 +482,17 @@ export const usePolicyForm = ({
       );
 
       console.log('📋 [usePolicyForm] Objeto mapeado para Velneo:', {
-        poliza: velneoRequest.conpol || formData.poliza,
-        cliente: velneoRequest.clinom || selectedClient?.clinom,
-        compania: velneoRequest.com_alias || selectedCompany?.comalias,
+        poliza: velneoRequest.Conpol || formData.poliza,
+        cliente: velneoRequest.Clinom || selectedClient?.clinom,
+        companiaId: velneoRequest.Comcod,
+        premio: velneoRequest.Conpremio,
         campos: Object.keys(velneoRequest).length
       });
 
-      // ✅ CORREGIDO: Verificar que apiService tenga el método sendToVelneo
+      // ✅ CORREGIDO: Usar el método correcto del apiService
       console.log('🚀 [usePolicyForm] Enviando a Velneo...');
       
-      // Usar el método correcto del apiService (ajustar según tu implementación)
-      const result = apiService.sendToVelneo 
-        ? await apiService.sendToVelneo(velneoRequest)
-        : await apiService.createPoliza?.(velneoRequest) || await apiService.processDocument(velneoRequest);
+      const result = await apiService.createPoliza(velneoRequest);
       
       console.log('✅ [usePolicyForm] Póliza enviada exitosamente:', result);
       
@@ -529,6 +552,7 @@ export const usePolicyForm = ({
     try {
       const options = await MasterDataApi.getMasterDataOptions();
       setMasterOptions(options);
+      setMasterError(null);
       console.log('✅ [usePolicyForm] Maestros recargados exitosamente');
     } catch (error) {
       console.error('❌ [usePolicyForm] Error recargando maestros:', error);

@@ -1,36 +1,87 @@
-import type { PolicyFormData } from '../types/policyForm';
+// src/constants/velneoDefault.ts - VERSIÓN CORREGIDA CON TIPOS COMPATIBLES
 
-interface VelneoPolizaRequest {
-  // Campos principales
-  id: number;
-  clinom: string;
-  conpol: string;
-  com_alias: string;
-  seccionId: number;
-  ramo: string;
-  procesadoConIA: boolean;
-  conend: string;
+import type { PolicyFormData } from '../types/poliza';
+
+// ✅ TIPO CORRECTO BASADO EN TU BACKEND REAL
+interface PolizaCreateRequest {
+  // ===== CAMPOS PRINCIPALES OBLIGATORIOS =====
+  Clinro: number;                    // ID Cliente
+  Clinom?: string;                   // Nombre cliente
+  Comcod: number;                    // ID Compañía
+  Conpremio: number;                 // Premio (OBLIGATORIO)
   
-  // Campos numéricos
-  flocod: number;
-  conclaaut: number;
-  condedaut: number;
-  conresciv: number;
-  conbonnsin: number;
-  conbonant: number;
-  concaraut: number;
-  concapaut: number;
+  // ===== CAMPOS OPCIONALES =====
+  Seccod?: number;                   // ID Sección
+  SeccionId?: number;                // ID Sección alternativo
+  Conpol?: string;                   // Número de póliza
+  Concar?: string;                   // Certificado
+  Conend?: string;                   // Endoso
+  Confchdes?: string;                // Fecha desde
+  Confchhas?: string;                // Fecha hasta
+  Convig?: string;                   // Estado vigencia
+  Contra?: string;                   // Tipo trámite
+  Consta?: string;                   // Forma de pago
+  Congesti?: string;                 // Tipo gestión
+  Congeses?: string;                 // Estado gestión
+  Congesfi?: string;                 // Fecha gestión
+  Asegurado?: string;                // Nombre asegurado
+  Direccion?: string;                // Dirección
+  Condom?: string;                   // Domicilio
+  Marca?: string;                    // Marca
+  Modelo?: string;                   // Modelo
+  Conmaraut?: string;                // Marca + modelo completo
+  Anio?: number;                     // Año
+  Conanioaut?: number;               // Año (campo Velneo)
+  Matricula?: string;                // Matrícula
+  Conmataut?: string;                // Matrícula (campo Velneo)
+  Motor?: string;                    // Motor
+  Conmotor?: string;                 // Motor (campo Velneo)
+  Chasis?: string;                   // Chasis
+  Conchasis?: string;                // Chasis (campo Velneo)
+  CombustibleId?: string;            // ID Combustible (STRING)
+  CombustibleNombre?: string;        // Nombre combustible
+  CategoriaId?: number;              // ID Categoría
+  CategoriaNombre?: string;          // Nombre categoría
+  DestinoId?: number;                // ID Destino
+  DestinoNombre?: string;            // Nombre destino
+  CalidadId?: number;                // ID Calidad
+  CalidadNombre?: string;            // Nombre calidad
+  PremioTotal?: number;              // Premio total
+  Contot?: number;                   // Total
+  CantidadCuotas?: number;           // Cantidad de cuotas
+  Concuo?: number;                   // Cuotas (campo Velneo)
+  Moneda?: string;                   // Moneda como string
+  Moncod?: number;                   // Moneda ID
+  FormaPago?: string;                // Forma de pago como string
+  CoberturaId?: number;              // ID Cobertura
+  Cobertura?: string;                // Nombre cobertura
+  ZonaCirculacion?: string;          // Zona de circulación
+  DepartamentoId?: number;           // ID Departamento
+  Ramo?: string;                     // Ramo (ej: "AUTOMOVILES")
+  EstadoPoliza?: string;             // Estado de la póliza
+  Tramite?: string;                  // Tipo de trámite
+  Observaciones?: string;            // Observaciones generales
+  ProcesadoConIA?: boolean;          // Flag de procesamiento con IA
   
-  // Campos string
-  conpadaut: string;
-  forpagvid: string;
-  concesnom: string;
-  concestel: string;
-  conges: string;
-  plan: string;
+  // ===== CAMPOS ADICIONALES DEL ORIGINAL =====
+  id?: number;
+  flocod?: number;
+  conclaaut?: number;
+  condedaut?: number;
+  conresciv?: number;
+  conbonnsin?: number;
+  conbonant?: number;
+  concaraut?: number;
+  concapaut?: number;
+  conpadaut?: string;
+  forpagvid?: string;
+  concesnom?: string;
+  concestel?: string;
+  conges?: string;
+  plan?: string;
   
-  // Otros campos que pueda necesitar
-  [key: string]: any;
+  // ===== CAMPOS FLEXIBLES =====
+  [key: string]: any;                // Para campos adicionales
 }
 
 /**
@@ -54,7 +105,7 @@ export const VELNEO_DEFAULTS = {
   RAMO: 'AUTOMOVILES',
   
   // ===== MAESTROS POR DEFECTO =====
-  COMBUSTIBLE_DEFAULT: 'GAS',          // Gasolina por defecto
+  COMBUSTIBLE_DEFAULT: 'GAS',          // ✅ CORREGIDO: STRING para combustibles
   DESTINO_DEFAULT: 2,                  // PARTICULAR por defecto
   CALIDAD_DEFAULT: 2,                  // PROPIETARIO por defecto
   MONEDA_DEFAULT: 1,                   // PESO URUGUAYO por defecto
@@ -101,7 +152,7 @@ export const EMPTY_POLICY_FORM: PolicyFormData = {
   matricula: VELNEO_DEFAULTS.EMPTY_STRING,
   motor: VELNEO_DEFAULTS.EMPTY_STRING,
   destinoId: VELNEO_DEFAULTS.DESTINO_DEFAULT,
-  combustibleId: VELNEO_DEFAULTS.COMBUSTIBLE_DEFAULT,
+  combustibleId: VELNEO_DEFAULTS.COMBUSTIBLE_DEFAULT, // ✅ STRING
   chasis: VELNEO_DEFAULTS.EMPTY_STRING,
   calidadId: VELNEO_DEFAULTS.CALIDAD_DEFAULT,
   categoriaId: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
@@ -124,14 +175,14 @@ export const EMPTY_POLICY_FORM: PolicyFormData = {
 };
 
 /**
- * 🏗️ OBJETO VELNEO VACÍO (para referencia)
+ * 🏗️ OBJETO VELNEO VACÍO (para referencia) - CORREGIDO CON TIPO ADECUADO
  */
-export const EMPTY_VELNEO_REQUEST: Partial<VelneoPolizaRequest> = {
+export const EMPTY_VELNEO_REQUEST: Partial<PolizaCreateRequest> = {
   // ===== VALORES FIJOS =====
   id: 0,
-  ramo: VELNEO_DEFAULTS.RAMO,
-  procesadoConIA: true,
-  conend: VELNEO_DEFAULTS.ENDOSO_DEFAULT,
+  Ramo: VELNEO_DEFAULTS.RAMO,
+  ProcesadoConIA: true,
+  Conend: VELNEO_DEFAULTS.ENDOSO_DEFAULT,
   
   // ===== CAMPOS NUMÉRICOS POR DEFECTO =====
   flocod: VELNEO_DEFAULTS.FLOCOD_DEFAULT,

@@ -1,19 +1,10 @@
+// src/services/apiService.ts - VERSIÓN CORREGIDA CON TIPOS COMPATIBLES
+
 import type { LoginRequest, LoginResponse } from '@/types/auth';
 import type { CompanyDto, MasterDataOptionsDto, SeccionDto } from '../types/masterData';
 import { API_CONFIG } from '../constants/velneoDefault';
 import type { ClientDto } from '@/types/cliente';
-
-
-interface VelneoPolizaRequest {
-  // Campos principales
-  clinom: string;
-  conpol: string;
-  com_alias: string;
-  seccionId: number;
-  
-  // Otros campos que necesite tu backend
-  [key: string]: any;
-}
+import type { PolizaCreateRequest } from '@/types/poliza';
 
 class ApiService {
   private baseUrl: string;
@@ -40,11 +31,6 @@ class ApiService {
       return localStorage.getItem('authToken') || null;
     }
     return null;
-  }
-
-  // ✅ AGREGAR MÉTODO FALTANTE
-  private getAuthToken(): string | null {
-    return this.token || this.getStoredToken();
   }
 
   /**
@@ -126,7 +112,6 @@ class ApiService {
   async login(credentials: LoginRequest): Promise<LoginResponse> {
     console.log('🔐 Attempting login for user:', credentials.nombre);
     
-    // ✅ CORREGIDO: Usar el formato exacto del Swagger
     const loginPayload = {
       nombre: credentials.nombre,
       password: credentials.password
@@ -203,57 +188,29 @@ class ApiService {
   // ==============================================
 
   /**
-   * 📊 CORREGIDO: Obtener opciones de maestros para el formulario 
-   * Endpoint principal para cargar todos los selects del nuevo formulario
+   * 📊 Obtener opciones de maestros para el formulario 
    */
   async getMasterDataOptions(): Promise<MasterDataOptionsDto> {
     try {
-      console.log('🔄 [DEBUG] Cargando opciones de maestros...');
-      console.log('🌐 [DEBUG] Base URL:', this.baseUrl);
-      console.log('🔑 [DEBUG] Auth token exists:', !!this.getAuthToken());
+      console.log('🔄 [ApiService] Cargando opciones de maestros...');
       
-      const url = `${this.baseUrl}/velneo/mapping-options`;
-      console.log('📡 [DEBUG] Full URL:', url);
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          // Solo incluir auth si existe
-          ...(this.getAuthToken() && {
-            'Authorization': `Bearer ${this.getAuthToken()}`
-          })
-        }
+      const response = await this.request<any>('/velneo/mapping-options', {
+        method: 'GET'
       });
-
-      console.log('📊 [DEBUG] Response status:', response.status);
-      console.log('📊 [DEBUG] Response ok:', response.ok);
-      console.log('📊 [DEBUG] Content-Type:', response.headers.get('content-type'));
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ [DEBUG] Error response:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const rawData = await response.json();
-      console.log('📦 [DEBUG] Raw response type:', typeof rawData);
-      console.log('📦 [DEBUG] Raw response keys:', Object.keys(rawData));
 
       // ✅ VERIFICAR ESTRUCTURA DE RESPUESTA
       let data: MasterDataOptionsDto;
       
-      if (rawData.success && rawData.data) {
+      if (response.success && response.data) {
         // Formato: { success: true, data: {...} }
-        data = rawData.data;
-        console.log('📦 [DEBUG] Using wrapped response format');
-      } else if (rawData.Categorias && rawData.Destinos) {
+        data = response.data;
+        console.log('📦 [ApiService] Using wrapped response format');
+      } else if (response.Categorias && response.Destinos) {
         // Formato directo: { Categorias: [...], Destinos: [...] }
-        data = rawData;
-        console.log('📦 [DEBUG] Using direct response format');
+        data = response;
+        console.log('📦 [ApiService] Using direct response format');
       } else {
-        console.error('❌ [DEBUG] Unrecognized response structure:', rawData);
+        console.error('❌ [ApiService] Unrecognized response structure:', response);
         throw new Error('Estructura de respuesta no válida del servidor');
       }
 
@@ -267,32 +224,24 @@ class ApiService {
         estadosPoliza: data.EstadosPoliza?.length || 0
       };
       
-      console.log('📊 [DEBUG] Data summary:', summary);
+      console.log('📊 [ApiService] Master data summary:', summary);
 
       if (summary.categorias === 0 && summary.destinos === 0) {
         throw new Error('El servidor devolvió datos vacíos para todos los maestros');
       }
 
-      // ✅ LOG DE EJEMPLOS
-      console.log('🔍 [DEBUG] Sample data:', {
-        firstCategoria: data.Categorias?.[0],
-        firstDestino: data.Destinos?.[0],
-        firstCombustible: data.Combustibles?.[0],
-        firstMoneda: data.Monedas?.[0]
-      });
-
-      console.log('✅ [DEBUG] Master data loaded successfully!');
+      console.log('✅ [ApiService] Master data loaded successfully!');
       return data;
       
     } catch (error) {
-      console.error('❌ [DEBUG] Complete error in getMasterDataOptions:', error);
+      console.error('❌ [ApiService] Error in getMasterDataOptions:', error);
       
       if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
-        throw new Error('Error de conectividad. Verifica que el backend esté ejecutándose en el puerto correcto.');
+        throw new Error('Error de conectividad. Verifica que el backend esté ejecutándose.');
       }
       
       if (error instanceof SyntaxError && error.message.includes('JSON')) {
-        throw new Error('El servidor devolvió HTML en lugar de JSON. Posible problema de autenticación o configuración.');
+        throw new Error('El servidor devolvió HTML en lugar de JSON. Posible problema de autenticación.');
       }
       
       throw error;
@@ -301,7 +250,6 @@ class ApiService {
 
   /**
    * Obtener todas las compañías
-   * GET /api/companies
    */
   async getCompanies(): Promise<CompanyDto[]> {
     const response = await this.request<any>('/companies');
@@ -329,13 +277,10 @@ class ApiService {
     return response.data || response || [];
   }
 
-  /**
-   * Obtener secciones disponibles (por ahora solo AUTOMÓVILES)
-   */
   async getAvailableSections(): Promise<SeccionDto[]> {
     const allSections = await this.getSecciones();
     
-    // Por ahora solo AUTOMÓVILES, después se puede quitar este filtro
+    // Por ahora solo AUTOMÓVILES
     const availableSections = allSections.filter((section: SeccionDto) => 
       section.seccion === 'AUTOMOVILES' ||
       section.seccion === 'AUTOMÓVIL' ||
@@ -344,55 +289,30 @@ class ApiService {
     
     console.log('🚗 Secciones disponibles:', availableSections);
     
-    // Si no hay AUTOMÓVILES, usar la primera disponible como fallback
     return availableSections.length > 0 ? availableSections : allSections.slice(0, 1);
   }
 
-  /**
-   * ⛽ CORREGIDO: Obtener maestros de combustibles
-   * Usando el método principal de maestros
-   */
+  // ===== MÉTODOS DE MAESTROS INDIVIDUALES =====
   async getCombustibles(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
       return masterOptions.Combustibles || [];
     } catch (error) {
       console.error('❌ Error obteniendo combustibles:', error);
-      // Fallback: intentar endpoint directo
-      try {
-        const response = await this.request<any>('/combustible');
-        return response.data || response || [];
-      } catch (fallbackError) {
-        console.error('❌ Error en fallback de combustibles:', fallbackError);
-        return [];
-      }
+      return [];
     }
   }
 
-  /**
-   * 🏷️ CORREGIDO: Obtener maestros de categorías
-   * Usando el método principal de maestros
-   */
   async getCategorias(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
       return masterOptions.Categorias || [];
     } catch (error) {
       console.error('❌ Error obteniendo categorías:', error);
-      // Fallback: intentar endpoint directo
-      try {
-        const response = await this.request<any>('/categoria');
-        return response.data || response || [];
-      } catch (fallbackError) {
-        console.error('❌ Error en fallback de categorías:', fallbackError);
-        return [];
-      }
+      return [];
     }
   }
 
-  /**
-   * 🎯 NUEVO: Obtener destinos
-   */
   async getDestinos(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
@@ -403,9 +323,6 @@ class ApiService {
     }
   }
 
-  /**
-   * 💎 NUEVO: Obtener calidades
-   */
   async getCalidades(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
@@ -416,9 +333,6 @@ class ApiService {
     }
   }
 
-  /**
-   * 💰 NUEVO: Obtener monedas
-   */
   async getMonedas(): Promise<any[]> {
     try {
       const masterOptions = await this.getMasterDataOptions();
@@ -429,10 +343,6 @@ class ApiService {
     }
   }
 
-  /**
-   * Obtener maestros de coberturas
-   * GET /api/cobertura
-   */
   async getCoberturas() {
     const response = await this.request<any>('/cobertura');
     return response.data || response || [];
@@ -443,32 +353,45 @@ class ApiService {
   // ==============================================
 
   /**
-   * 📝 NUEVO: Crear nueva póliza en Velneo con el objeto correcto
-   * POST /api/polizas (usado por el nuevo formulario)
+   * ✅ CORREGIDO: Crear nueva póliza con el tipo correcto del backend
+   * POST /api/polizas
    */
-  async createPoliza(polizaData: VelneoPolizaRequest): Promise<any> {
+  async createPoliza(polizaData: PolizaCreateRequest): Promise<any> {
     try {
-      console.log('🚀 Enviando póliza a Velneo...', {
-        poliza: polizaData.conpol,
-        cliente: polizaData.clinom,
-        compania: polizaData.com_alias
+      console.log('🚀 [ApiService] Enviando póliza a Velneo...', {
+        poliza: polizaData.Conpol,
+        cliente: polizaData.Clinom || polizaData.Asegurado,
+        clienteId: polizaData.Clinro,
+        companiaId: polizaData.Comcod,
+        premio: polizaData.Conpremio
       });
+
+      // ✅ LOG DEL PAYLOAD COMPLETO EN DESARROLLO
+      if (process.env.NODE_ENV === 'development') {
+        console.log('📋 [ApiService] Payload completo:', {
+          ...polizaData,
+          // Ocultar campos sensibles si los hay
+          Password: polizaData.Password ? '[HIDDEN]' : undefined
+        });
+      }
 
       const response = await this.request<any>('/polizas', {
         method: 'POST',
         body: JSON.stringify(polizaData)
       });
 
-      console.log('✅ Póliza creada exitosamente en Velneo:', {
-        id: response.id || response.data?.id,
-        message: response.message
+      console.log('✅ [ApiService] Póliza creada exitosamente:', {
+        success: response.success,
+        message: response.message,
+        numeroPoliza: response.numeroPoliza || response.polizaCreada?.numeroPoliza,
+        timestamp: response.timestamp
       });
 
       return response;
     } catch (error) {
-      console.error('❌ Error creando póliza en Velneo:', error);
+      console.error('❌ [ApiService] Error creando póliza:', error);
       
-      // Mejorar el mensaje de error para el usuario
+      // ✅ MENSAJES DE ERROR MEJORADOS
       let userMessage = 'Error enviando póliza a Velneo';
       if (error instanceof Error) {
         if (error.message.includes('400')) {
@@ -477,6 +400,8 @@ class ApiService {
           userMessage = 'Error interno del servidor. Contacte al administrador.';
         } else if (error.message.includes('timeout')) {
           userMessage = 'Timeout enviando póliza. Intente nuevamente.';
+        } else if (error.message.includes('401') || error.message.includes('403')) {
+          userMessage = 'Error de autenticación. Vuelva a iniciar sesión.';
         } else {
           userMessage = `Error: ${error.message}`;
         }
@@ -488,7 +413,6 @@ class ApiService {
 
   /**
    * Obtener pólizas por cliente
-   * GET /api/poliza/client/{clienteId}
    */
   async getPolizasByCliente(clienteId: number, filters?: any): Promise<any[]> {
     try {
@@ -510,8 +434,7 @@ class ApiService {
   }
 
   /**
-   * LEGACY: Crear póliza (mantenido para compatibilidad)
-   * POST /api/poliza
+   * LEGACY: Mantener compatibilidad
    */
   async createPolizaLegacy(polizaData: any) {
     return this.request('/poliza', {
@@ -526,7 +449,6 @@ class ApiService {
 
   /**
    * Procesar documento con Azure
-   * POST /api/azuredocument/process
    */
   async processDocument(file: File): Promise<any> {
     try {
@@ -563,7 +485,7 @@ class ApiService {
   }
 
   // ==============================================
-  // 🔧 UTILIDADES
+  // 🔧 UTILIDADES - MÉTODOS FALTANTES AGREGADOS
   // ==============================================
 
   /**
@@ -577,6 +499,13 @@ class ApiService {
   }
 
   /**
+   * ✅ NUEVO: Obtener token de autenticación actual
+   */
+  getAuthToken(): string | null {
+    return this.token || this.getStoredToken();
+  }
+
+  /**
    * Establecer URL base
    */
   setBaseUrl(url: string) {
@@ -584,11 +513,14 @@ class ApiService {
   }
 
   /**
-   * Test de conexión
+   * ✅ NUEVO: Obtener URL base actual
    */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
   async testConnection(): Promise<boolean> {
     try {
-      // Intentar obtener algunas compañías como test
       await this.getCompanies();
       return true;
     } catch (error) {
@@ -597,14 +529,11 @@ class ApiService {
     }
   }
 
-  /**
-   * 🏥 Health check del API
-   */
   async healthCheck(): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/health`, { 
         method: 'GET',
-        signal: AbortSignal.timeout(5000) // 5 segundos timeout
+        signal: AbortSignal.timeout(5000)
       });
       return response.ok;
     } catch {
@@ -612,20 +541,13 @@ class ApiService {
     }
   }
 
-  /**
-   * ⚙️ Configurar timeout personalizado
-   */
   setTimeout(timeout: number): void {
     this.timeout = timeout;
   }
 
-  /**
-   * 📊 Obtener estadísticas de uso (para analytics futuros)
-   */
   async getUsageStats(tenantId?: string): Promise<any> {
     try {
       const url = tenantId ? `/analytics/stats/${tenantId}` : '/analytics/stats';
-      
       const response = await this.request<any>(url, { method: 'GET' });
       return response;
     } catch (error) {
@@ -634,9 +556,6 @@ class ApiService {
     }
   }
 
-  /**
-   * 🔍 Buscar maestros específicos (para funcionalidad futura)
-   */
   async searchMaestro<T>(tipo: string, query: string): Promise<T[]> {
     try {
       const response = await this.request<{ success: boolean; data: T[] }>(
@@ -652,22 +571,16 @@ class ApiService {
   }
 }
 
-
-
 // Exportar instancia singleton
 export const apiService = new ApiService();
 
-/**
- * 🔧 HELPER FUNCTIONS PARA APIS ESPECÍFICAS - CORREGIDAS
- * Mantienen compatibilidad con el código existente
- */
+// ✅ HELPERS CORREGIDOS CON EL TIPO CORRECTO
 export const MasterDataApi = {
   getCategorias: () => apiService.getCategorias(),
   getDestinos: () => apiService.getDestinos(),
   getCalidades: () => apiService.getCalidades(),
   getCombustibles: () => apiService.getCombustibles(),
   getMonedas: () => apiService.getMonedas(),
-  // PRINCIPAL: Para el formulario
   getMasterDataOptions: () => apiService.getMasterDataOptions()
 };
 
@@ -677,7 +590,7 @@ export const ClienteApi = {
 };
 
 export const PolizaApi = {
-  create: (data: VelneoPolizaRequest) => apiService.createPoliza(data),
+  create: (data: PolizaCreateRequest) => apiService.createPoliza(data),
   createLegacy: (data: any) => apiService.createPolizaLegacy(data),
   getByCliente: (clienteId: number, filters?: any) => apiService.getPolizasByCliente(clienteId, filters)
 };
@@ -686,6 +599,7 @@ export const AzureApi = {
   processDocument: (file: File) => apiService.processDocument(file)
 };
 
-
+// ✅ EXPORTAR TIPO PARA USO EN OTROS ARCHIVOS
+export type { PolizaCreateRequest };
 
 export default apiService;

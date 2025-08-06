@@ -1,24 +1,60 @@
-// src/hooks/usePolicyMapping.ts - SOLUCIÓN RÁPIDA
-import { useState, useCallback } from 'react';
-import type { 
-  PolicyMappingResult, 
-  PolicyMappingResponse, 
-  MasterDataOptions,
-  ApplyMappingRequest,
-  ApplyMappingResponse 
-} from '../types/mappings';
+// src/hooks/usePolicyMapping.ts - VERSIÓN CORREGIDA CON TIPOS ACTUALES
 
-// ✅ CONFIGURACIÓN DIRECTA (temporal)
-const API_BASE_URL = 'https://localhost:7191/api';
-const TOKEN_KEY = 'authToken'; // Usar la misma key que en apiService
+import { useState, useCallback, useEffect } from 'react';
+import type { MasterDataOptionsDto } from '../types/masterData';
+import type { AzureProcessResponse } from '../types/azureDocumentResult';
+import { apiService } from '../services/apiService';
+
+// ✅ TIPOS CORREGIDOS BASADOS EN TU BACKEND REAL
+interface PolicyMappingResult {
+  camposMapeados: Record<string, MappedField>;
+  camposQueFallaronMapeo: string[];
+  porcentajeExito: number;
+  camposConAltaConfianza: number;
+  camposConMediaConfianza: number;
+  camposConBajaConfianza: number;
+  opcionesDisponibles: MasterDataOptionsDto;
+}
+
+interface MappedField {
+  valorExtraido: string;
+  valorMapeado: any;
+  confianza: number;
+  opcionesDisponibles: any;
+  nivelConfianza: 'high' | 'medium' | 'low' | 'failed';
+  requiereRevision: boolean;
+  mapeoExitoso: boolean;
+}
+
+interface PolicyMappingResponse {
+  success: boolean;
+  mappingResult: PolicyMappingResult;
+  recommendations: string[];
+  message?: string;
+}
+
+interface ApplyMappingRequest {
+  azureData: AzureProcessResponse;
+  manualMappings: Record<string, any>;
+  selectedClient: any;
+  selectedCompany: any;
+  selectedSection: any;
+}
+
+interface ApplyMappingResponse {
+  success: boolean;
+  formData: any;
+  warnings: string[];
+  message: string;
+}
 
 interface UsePolicyMappingReturn {
   mappingResult: PolicyMappingResult | null;
-  masterOptions: MasterDataOptions | null;
+  masterOptions: MasterDataOptionsDto | null;
   isLoading: boolean;
   error: string | null;
   recommendations: string[];
-  validateMapping: (azureData: any) => Promise<void>;
+  validateMapping: (azureData: AzureProcessResponse) => Promise<void>;
   getMasterOptions: () => Promise<void>;
   applyManualMapping: (request: ApplyMappingRequest) => Promise<ApplyMappingResponse>;
   clearError: () => void;
@@ -26,42 +62,45 @@ interface UsePolicyMappingReturn {
 
 export const usePolicyMapping = (): UsePolicyMappingReturn => {
   const [mappingResult, setMappingResult] = useState<PolicyMappingResult | null>(null);
-  const [masterOptions, setMasterOptions] = useState<MasterDataOptions | null>(null);
+  const [masterOptions, setMasterOptions] = useState<MasterDataOptionsDto | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [recommendations, setRecommendations] = useState<string[]>([]);
 
-  const getAuthHeaders = () => ({
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${localStorage.getItem(TOKEN_KEY) || ''}`
-  });
-
   const handleApiError = (error: any) => {
-    console.error('🚨 Policy Mapping API Error:', error);
+    console.error('🚨 [usePolicyMapping] API Error:', error);
     setError(error.message || 'Error de conexión con el servidor');
   };
 
-  const validateMapping = useCallback(async (azureData: any) => {
+  const validateMapping = useCallback(async (azureData: AzureProcessResponse) => {
     setIsLoading(true);
     setError(null);
 
-    console.log('🔍 Validando mapeo con datos:', azureData);
-    console.log('🔗 URL completa:', `${API_BASE_URL}/Velneo/validate-mapping`);
-    console.log('🔑 Token disponible:', !!localStorage.getItem(TOKEN_KEY));
+    console.log('🔍 [usePolicyMapping] Validando mapeo con datos:', {
+      archivo: azureData.archivo,
+      completitud: azureData.porcentajeCompletitud,
+      estado: azureData.estado
+    });
 
     try {
-      // ✅ URL COMPLETA + HEADERS CORRECTOS
-      const response = await fetch(`${API_BASE_URL}/Velneo/validate-mapping`, {
+      // ✅ USAR apiService CONSISTENTE - OPCIÓN 1: Usar método request directo
+      const baseUrl = apiService['baseUrl'] || 'https://localhost:7191/api';
+      const token = apiService['token'] || localStorage.getItem('authToken');
+      
+      const response = await fetch(`${baseUrl}/Velneo/validate-mapping`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        },
         body: JSON.stringify(azureData)
       });
 
-      console.log('📡 Response status:', response.status, response.statusText);
+      console.log('📡 [usePolicyMapping] Response status:', response.status, response.statusText);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
+        console.error('❌ [usePolicyMapping] Error response:', errorText);
         
         try {
           const errorData = JSON.parse(errorText);
@@ -72,18 +111,23 @@ export const usePolicyMapping = (): UsePolicyMappingReturn => {
       }
 
       const data: PolicyMappingResponse = await response.json();
-      console.log('✅ Mapping data received:', data);
+      console.log('✅ [usePolicyMapping] Mapping data received:', {
+        success: data.success,
+        porcentajeExito: data.mappingResult.porcentajeExito,
+        camposMapeados: Object.keys(data.mappingResult.camposMapeados).length,
+        camposFallaron: data.mappingResult.camposQueFallaronMapeo.length
+      });
       
       setMappingResult(data.mappingResult);
       setRecommendations(data.recommendations || []);
       
-      // If master options are included in the response
+      // Si las opciones de maestros están incluidas en la respuesta
       if (data.mappingResult.opcionesDisponibles) {
         setMasterOptions(data.mappingResult.opcionesDisponibles);
       }
       
     } catch (err: any) {
-      console.error('❌ Validate mapping error:', err);
+      console.error('❌ [usePolicyMapping] Validate mapping error:', err);
       handleApiError(err);
     } finally {
       setIsLoading(false);
@@ -94,35 +138,24 @@ export const usePolicyMapping = (): UsePolicyMappingReturn => {
     setIsLoading(true);
     setError(null);
 
-    console.log('📊 Obteniendo maestros...');
-    console.log('🔗 URL completa:', `${API_BASE_URL}/Velneo/mapping-options`);
+    console.log('📊 [usePolicyMapping] Obteniendo maestros...');
 
     try {
-      const response = await fetch(`${API_BASE_URL}/Velneo/mapping-options`, {
-        method: 'GET',
-        headers: getAuthHeaders()
+      // ✅ USAR EL MÉTODO EXISTENTE DEL apiService
+      const data = await apiService.getMasterDataOptions();
+      
+      console.log('✅ [usePolicyMapping] Masters received:', {
+        categorias: data.Categorias?.length || 0,
+        destinos: data.Destinos?.length || 0,
+        calidades: data.Calidades?.length || 0,
+        combustibles: data.Combustibles?.length || 0,
+        monedas: data.Monedas?.length || 0
       });
-
-      console.log('📡 Masters response status:', response.status, response.statusText);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Masters error response:', errorText);
-        
-        try {
-          const errorData = JSON.parse(errorText);
-          throw new Error(errorData.detail || errorData.message || `Error ${response.status}: ${response.statusText}`);
-        } catch {
-          throw new Error(`Error ${response.status}: ${response.statusText} - ${errorText}`);
-        }
-      }
-
-      const data: MasterDataOptions = await response.json();
-      console.log('✅ Masters received:', data);
+      
       setMasterOptions(data);
       
     } catch (err: any) {
-      console.error('❌ Get masters error:', err);
+      console.error('❌ [usePolicyMapping] Get masters error:', err);
       handleApiError(err);
     } finally {
       setIsLoading(false);
@@ -133,18 +166,27 @@ export const usePolicyMapping = (): UsePolicyMappingReturn => {
     setIsLoading(true);
     setError(null);
 
-    console.log('🔧 Aplicando mapeo manual:', request);
+    console.log('🔧 [usePolicyMapping] Aplicando mapeo manual:', {
+      azureDataFile: request.azureData.archivo,
+      manualMappingsCount: Object.keys(request.manualMappings).length,
+      cliente: request.selectedClient?.clinom,
+      compania: request.selectedCompany?.comalias
+    });
 
     try {
-      const response = await fetch(`${API_BASE_URL}/Velneo/apply-manual-mapping`, {
+      // ✅ USAR apiService PARA CONSISTENCIA
+      const response = await fetch(`${apiService.getBaseUrl()}/Velneo/apply-manual-mapping`, {
         method: 'POST',
-        headers: getAuthHeaders(),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiService.getAuthToken() || ''}`
+        },
         body: JSON.stringify(request)
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Apply mapping error response:', errorText);
+        console.error('❌ [usePolicyMapping] Apply mapping error response:', errorText);
         
         try {
           const errorData = JSON.parse(errorText);
@@ -155,11 +197,16 @@ export const usePolicyMapping = (): UsePolicyMappingReturn => {
       }
 
       const data: ApplyMappingResponse = await response.json();
-      console.log('✅ Manual mapping applied:', data);
+      console.log('✅ [usePolicyMapping] Manual mapping applied:', {
+        success: data.success,
+        warnings: data.warnings?.length || 0,
+        message: data.message
+      });
+      
       return data;
       
     } catch (err: any) {
-      console.error('❌ Apply manual mapping error:', err);
+      console.error('❌ [usePolicyMapping] Apply manual mapping error:', err);
       handleApiError(err);
       throw err;
     } finally {
@@ -170,6 +217,15 @@ export const usePolicyMapping = (): UsePolicyMappingReturn => {
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+
+  // ✅ CARGAR MAESTROS AUTOMÁTICAMENTE AL INICIALIZAR
+  const [initialized, setInitialized] = useState(false);
+  
+  useEffect(() => {
+    if (!initialized) {
+      getMasterOptions().finally(() => setInitialized(true));
+    }
+  }, [initialized, getMasterOptions]);
 
   return {
     mappingResult,
@@ -182,4 +238,13 @@ export const usePolicyMapping = (): UsePolicyMappingReturn => {
     applyManualMapping,
     clearError
   };
+};
+
+// ✅ EXPORTAR TIPOS PARA USO EN OTROS COMPONENTES
+export type {
+  PolicyMappingResult,
+  MappedField,
+  PolicyMappingResponse,
+  ApplyMappingRequest,
+  ApplyMappingResponse
 };
