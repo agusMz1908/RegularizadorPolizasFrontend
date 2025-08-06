@@ -77,7 +77,9 @@ class ApiService {
       clearTimeout(timeoutId);
       
       if (!response.ok) {
-        throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('❌ API Error Response:', errorText);
+        throw new Error(`API Error: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
@@ -193,34 +195,61 @@ class ApiService {
   // ==============================================
 
   /**
-   * 📊 NUEVO: Obtener opciones de maestros para el formulario 
+   * 📊 CORREGIDO: Obtener opciones de maestros para el formulario 
    * Endpoint principal para cargar todos los selects del nuevo formulario
    */
   async getMasterDataOptions(): Promise<VelneoMasterDataOptions> {
     try {
-      console.log('🔄 Cargando opciones de maestros...');
+      console.log('📊 Obteniendo opciones de maestros...');
+      console.log('🔗 URL completa:', `${this.baseUrl}/Velneo/mapping-options`);
       
-      const response = await this.request<MasterDataResponse>(
-        '/velneo/mapping-options',
+      // ✅ CORREGIDO: Usar el endpoint correcto con mayúscula
+      const response = await this.request<any>(
+        '/Velneo/mapping-options',
         { method: 'GET' }
       );
 
-      if (!response.success) {
-        throw new Error('Error en respuesta del servidor');
+      console.log('📋 Respuesta cruda del servidor:', response);
+
+      // ✅ CORREGIDO: Manejar la respuesta directa sin wrapper .success/.data
+      // Según tu VelneoController, devuelve directamente el objeto MasterDataOptionsDto
+      if (!response) {
+        throw new Error('Respuesta vacía del servidor');
       }
 
       console.log('✅ Opciones de maestros cargadas exitosamente', {
-        categorias: response.data.Categorias?.length || 0,
-        destinos: response.data.Destinos?.length || 0,
-        calidades: response.data.Calidades?.length || 0,
-        combustibles: response.data.Combustibles?.length || 0,
-        monedas: response.data.Monedas?.length || 0
+        categorias: response.Categorias?.length || 0,
+        destinos: response.Destinos?.length || 0,
+        calidades: response.Calidades?.length || 0,
+        combustibles: response.Combustibles?.length || 0,
+        monedas: response.Monedas?.length || 0,
+        estadosPoliza: response.EstadosPoliza?.length || 0,
+        tiposTramite: response.TiposTramite?.length || 0
       });
 
-      return response.data;
+      return response;
     } catch (error) {
       console.error('❌ Error cargando opciones de maestros:', error);
-      throw new Error(`Error cargando maestros: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Mejorar el mensaje de error
+      let errorMessage = 'Error desconocido cargando maestros';
+      if (error instanceof Error) {
+        if (error.message.includes('401')) {
+          errorMessage = 'No autorizado. Por favor, inicie sesión nuevamente.';
+        } else if (error.message.includes('403')) {
+          errorMessage = 'No tiene permisos para acceder a los maestros.';
+        } else if (error.message.includes('404')) {
+          errorMessage = 'Endpoint de maestros no encontrado. Verifique la configuración.';
+        } else if (error.message.includes('500')) {
+          errorMessage = 'Error interno del servidor al cargar maestros.';
+        } else if (error.message.includes('timeout')) {
+          errorMessage = 'Timeout cargando maestros. Verifique su conexión.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      throw new Error(errorMessage);
     }
   }
 
@@ -274,21 +303,84 @@ class ApiService {
   }
 
   /**
-   * Obtener maestros de combustibles
-   * GET /api/combustible
+   * ⛽ CORREGIDO: Obtener maestros de combustibles
+   * Usando el método principal de maestros
    */
-  async getCombustibles() {
-    const response = await this.request<any>('/combustible');
-    return response.data || response || [];
+  async getCombustibles(): Promise<any[]> {
+    try {
+      const masterOptions = await this.getMasterDataOptions();
+      return masterOptions.Combustibles || [];
+    } catch (error) {
+      console.error('❌ Error obteniendo combustibles:', error);
+      // Fallback: intentar endpoint directo
+      try {
+        const response = await this.request<any>('/combustible');
+        return response.data || response || [];
+      } catch (fallbackError) {
+        console.error('❌ Error en fallback de combustibles:', fallbackError);
+        return [];
+      }
+    }
   }
 
   /**
-   * Obtener maestros de categorías
-   * GET /api/categoria
+   * 🏷️ CORREGIDO: Obtener maestros de categorías
+   * Usando el método principal de maestros
    */
-  async getCategorias() {
-    const response = await this.request<any>('/categoria');
-    return response.data || response || [];
+  async getCategorias(): Promise<any[]> {
+    try {
+      const masterOptions = await this.getMasterDataOptions();
+      return masterOptions.Categorias || [];
+    } catch (error) {
+      console.error('❌ Error obteniendo categorías:', error);
+      // Fallback: intentar endpoint directo
+      try {
+        const response = await this.request<any>('/categoria');
+        return response.data || response || [];
+      } catch (fallbackError) {
+        console.error('❌ Error en fallback de categorías:', fallbackError);
+        return [];
+      }
+    }
+  }
+
+  /**
+   * 🎯 NUEVO: Obtener destinos
+   */
+  async getDestinos(): Promise<any[]> {
+    try {
+      const masterOptions = await this.getMasterDataOptions();
+      return masterOptions.Destinos || [];
+    } catch (error) {
+      console.error('❌ Error obteniendo destinos:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 💎 NUEVO: Obtener calidades
+   */
+  async getCalidades(): Promise<any[]> {
+    try {
+      const masterOptions = await this.getMasterDataOptions();
+      return masterOptions.Calidades || [];
+    } catch (error) {
+      console.error('❌ Error obteniendo calidades:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 💰 NUEVO: Obtener monedas
+   */
+  async getMonedas(): Promise<any[]> {
+    try {
+      const masterOptions = await this.getMasterDataOptions();
+      return masterOptions.Monedas || [];
+    } catch (error) {
+      console.error('❌ Error obteniendo monedas:', error);
+      return [];
+    }
   }
 
   /**
@@ -514,17 +606,20 @@ class ApiService {
   }
 }
 
+// Exportar instancia singleton
+export const apiService = new ApiService();
+
 /**
- * 🔧 HELPER FUNCTIONS PARA APIS ESPECÍFICAS
+ * 🔧 HELPER FUNCTIONS PARA APIS ESPECÍFICAS - CORREGIDAS
  * Mantienen compatibilidad con el código existente
  */
 export const MasterDataApi = {
   getCategorias: () => apiService.getCategorias(),
-  getDestinos: () => apiService.searchMaestro('destinos', ''),
-  getCalidades: () => apiService.searchMaestro('calidades', ''),
+  getDestinos: () => apiService.getDestinos(),       // ✅ CORREGIDO
+  getCalidades: () => apiService.getCalidades(),     // ✅ CORREGIDO
   getCombustibles: () => apiService.getCombustibles(),
-  getMonedas: () => apiService.searchMaestro('monedas', ''),
-  // NUEVO: Para el formulario
+  getMonedas: () => apiService.getMonedas(),         // ✅ CORREGIDO
+  // PRINCIPAL: Para el formulario
   getMasterDataOptions: () => apiService.getMasterDataOptions()
 };
 
@@ -543,6 +638,4 @@ export const AzureApi = {
   processDocument: (file: File) => apiService.processDocument(file)
 };
 
-// Exportar instancia singleton (mantener compatibilidad)
-export const apiService = new ApiService();
 export default apiService;

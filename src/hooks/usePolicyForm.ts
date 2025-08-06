@@ -1,4 +1,4 @@
-// src/hooks/usePolicyForm.ts - Hook principal del formulario (CORREGIDO PARA TU ESTRUCTURA)
+// src/hooks/usePolicyForm.ts - Hook principal del formulario (CORREGIDO SIN BUCLES)
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { PolicyFormData, FormTabId, FormValidationResult } from '../types/policyForm';
@@ -56,9 +56,14 @@ export const usePolicyForm = ({
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [masterError, setMasterError] = useState<string | null>(null);
 
-  // ===== CARGAR OPCIONES DE MAESTROS =====
+  // ===== 🔧 CORREGIDO: CARGAR OPCIONES DE MAESTROS SIN BUCLE =====
   useEffect(() => {
     const loadMasterOptions = async () => {
+      // Evitar cargas múltiples
+      if (masterOptions || !loadingMasters) {
+        return;
+      }
+
       try {
         setLoadingMasters(true);
         setMasterError(null);
@@ -70,25 +75,25 @@ export const usePolicyForm = ({
         console.log('✅ Opciones de maestros cargadas exitosamente');
       } catch (error) {
         console.error('❌ Error cargando opciones de maestros:', error);
-        setMasterError(error instanceof Error ? error.message : 'Error desconocido');
-        onError('Error cargando opciones de maestros. Algunos campos pueden no funcionar correctamente.');
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+        setMasterError(errorMessage);
+        
+        // ✅ CORREGIDO: NO llamar onError aquí para evitar bucles
+        // Solo guardamos el error en el estado y lo manejamos en el componente
+        console.warn('Error de maestros guardado en estado:', errorMessage);
       } finally {
         setLoadingMasters(false);
       }
     };
 
     loadMasterOptions();
-  }, [onError]);
+  }, []); // ✅ CORREGIDO: Array vacío - solo se ejecuta una vez
 
-  // ===== INICIALIZAR FORMULARIO CON DATOS DEL ESCANEO =====
-  useEffect(() => {
-    if (scannedData && selectedClient && masterOptions && !loadingMasters) {
-      initializeFormFromAzure();
-    }
-  }, [scannedData, selectedClient, selectedCompany, masterOptions, loadingMasters]);
-
+  // ===== 🔧 CORREGIDO: CALLBACK ESTABLE PARA INICIALIZACIÓN =====
   const initializeFormFromAzure = useCallback(() => {
-    if (!scannedData || !selectedClient || !masterOptions) return;
+    if (!scannedData || !selectedClient || !masterOptions) {
+      return;
+    }
 
     try {
       console.log('🔄 Inicializando formulario con datos de Azure...');
@@ -120,45 +125,18 @@ export const usePolicyForm = ({
       });
     } catch (error) {
       console.error('❌ Error inicializando formulario:', error);
-      onError('Error procesando datos del documento escaneado');
+      setMasterError('Error procesando datos del documento escaneado');
     }
-  }, [scannedData, selectedClient, selectedCompany, masterOptions, onError]);
+  }, [scannedData, selectedClient, selectedCompany, masterOptions]); // ✅ DEPENDENCIAS CORRECTAS
 
-  // ===== ACTUALIZAR CAMPO DEL FORMULARIO =====
-  const updateFormData = useCallback((field: keyof PolicyFormData, value: any) => {
-    setFormData(prev => {
-      const newData = { ...prev, [field]: value };
-      
-      // Sincronizar campos relacionados
-      if (field === 'monedaId') {
-        newData.moneda = value;
-      }
-      
-      return newData;
-    });
-    
-    setTouchedFields(prev => new Set(prev.add(field as string)));
-    setIsDirty(true);
-    
-    // Limpiar error del campo si existe
-    if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
+  // ===== INICIALIZAR FORMULARIO CON DATOS DEL ESCANEO =====
+  useEffect(() => {
+    if (scannedData && selectedClient && masterOptions && !loadingMasters) {
+      initializeFormFromAzure();
     }
-    
-    // Validación en tiempo real para campos críticos
-    if (ALL_REQUIRED_FIELDS.includes(field as any)) {
-      const error = validateField(field, value);
-      if (error) {
-        setErrors(prev => ({ ...prev, [field]: error }));
-      }
-    }
-  }, [errors]);
+  }, [scannedData, selectedClient, selectedCompany, masterOptions, loadingMasters, initializeFormFromAzure]);
 
-  // ===== VALIDACIÓN INDIVIDUAL DE CAMPO =====
+  // ===== VALIDACIÓN INDIVIDUAL DE CAMPO (ESTABILIZADA) =====
   const validateField = useCallback((field: keyof PolicyFormData, value: any): string | null => {
     // Validaciones requeridas
     if (ALL_REQUIRED_FIELDS.includes(field as any)) {
@@ -221,7 +199,42 @@ export const usePolicyForm = ({
     }
 
     return null;
-  }, [formData]);
+  }, [formData]); // ✅ Solo formData como dependencia
+
+  // ===== ACTUALIZAR CAMPO DEL FORMULARIO (OPTIMIZADO) =====
+  const updateFormData = useCallback((field: keyof PolicyFormData, value: any) => {
+    setFormData(prev => {
+      const newData = { ...prev, [field]: value };
+      
+      // Sincronizar campos relacionados
+      if (field === 'monedaId') {
+        newData.moneda = value;
+      }
+      
+      return newData;
+    });
+    
+    setTouchedFields(prev => new Set(prev.add(field as string)));
+    setIsDirty(true);
+    
+    // Limpiar error del campo si existe
+    setErrors(prev => {
+      if (prev[field]) {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      }
+      return prev;
+    });
+    
+    // Validación en tiempo real para campos críticos
+    if (ALL_REQUIRED_FIELDS.includes(field as any)) {
+      const error = validateField(field, value);
+      if (error) {
+        setErrors(prev => ({ ...prev, [field]: error }));
+      }
+    }
+  }, [validateField]); // ✅ Solo validateField como dependencia
 
   // ===== VALIDACIÓN COMPLETA DEL FORMULARIO =====
   const validateForm = useCallback((): FormValidationResult => {
@@ -339,6 +352,17 @@ export const usePolicyForm = ({
     }
   }, []);
 
+  // ===== 🔧 CORREGIDO: CALLBACKS ESTABLES PARA ENVÍO =====
+  const handleFormError = useCallback((message: string) => {
+    console.error('Form error:', message);
+    onError(message);
+  }, [onError]);
+
+  const handleFormSuccess = useCallback((result: any) => {
+    console.log('Form success:', result);
+    onSuccess(result);
+  }, [onSuccess]);
+
   // ===== ENVÍO DEL FORMULARIO =====
   const submitForm = useCallback(async () => {
     setIsSubmitting(true);
@@ -360,7 +384,7 @@ export const usePolicyForm = ({
           goToFieldError(firstErrorField);
         }
         
-        onError(`Se encontraron ${Object.keys(validationResult.errors).length} errores en el formulario`);
+        handleFormError(`Se encontraron ${Object.keys(validationResult.errors).length} errores en el formulario`);
         return;
       }
 
@@ -393,15 +417,25 @@ export const usePolicyForm = ({
       // Resetear estados
       setIsDirty(false);
       
-      onSuccess(result);
+      handleFormSuccess(result);
     } catch (error) {
       console.error('❌ Error enviando formulario:', error);
       const errorMessage = error instanceof Error ? error.message : 'Error enviando póliza a Velneo';
-      onError(errorMessage);
+      handleFormError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, selectedClient, selectedCompany, selectedSection, masterOptions, validateForm, goToFieldError, onSuccess, onError]);
+  }, [
+    formData, 
+    selectedClient, 
+    selectedCompany, 
+    selectedSection, 
+    masterOptions, 
+    validateForm, 
+    goToFieldError, 
+    handleFormSuccess, 
+    handleFormError
+  ]);
 
   // ===== RESETEAR FORMULARIO =====
   const resetForm = useCallback(() => {

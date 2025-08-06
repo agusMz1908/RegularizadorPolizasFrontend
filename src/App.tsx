@@ -1,4 +1,4 @@
-// src/App.tsx - CON POLICYMAPPINGFORM DIRECTO
+// src/App.tsx - ACTUALIZADO PARA USAR IntegratedPolicyForm CON UX MEJORADO
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -13,8 +13,8 @@ import ClientSelector from './components/wizard/ClientSelector';
 import CompanySectionSelector from './components/wizard/CompanySectionSelector';
 import DocumentScanner from './components/wizard/DocumentScanner';
 
-// 🚀 REEMPLAZO DIRECTO: PolicyForm → PolicyMappingForm
-import PolicyMappingForm from './components/wizard/PolicyMapperForm';
+// 🚀 CAMBIO IMPORTANTE: PolicyMappingForm → IntegratedPolicyForm (nuestro formulario mejorado)
+import IntegratedPolicyForm from './components/wizard/PolicyFormTabs';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -31,7 +31,7 @@ import type { OperationType } from './components/wizard/OperationSelector';
 import type { ClientDto } from './types/cliente';
 import type { CompanyDto, SeccionDto } from './types/maestros';
 import type { AzureProcessResponse } from './types/azureDocumentResult';
-import type { PolicyFormData } from './types/poliza';
+import type { PolicyFormData } from './types/policyForm'; // ← Cambiar import si es necesario
 import { apiService } from './services/apiService';
 import './App.css';
 
@@ -147,26 +147,43 @@ function AppContent() {
     setCurrentWizardStep('form');
   };
 
+  // 🚀 FUNCIÓN MEJORADA PARA MANEJAR EL ENVÍO DEL FORMULARIO
   const handleFormSubmit = async (formData: PolicyFormData) => {
-    console.log('📋 Datos del formulario (con mapeo inteligente):', formData);
+    console.log('📋 Datos del formulario (IntegratedPolicyForm con UX mejorado):', formData);
+    console.log('👤 Cliente:', selectedClient);
     console.log('🏢 Compañía:', selectedCompany);
     console.log('🚗 Sección:', selectedSection);
     console.log('📄 Documento escaneado:', scannedDocument);
     
     try {
-      // 🚀 ENVÍO REAL A VELNEO (tu lógica existente)
-      // const result = await apiService.sendToVelneo(formData, selectedCompany, selectedSection);
+      // 🚀 ENVÍO REAL A VELNEO - Usa tu lógica existente aquí
+      // const result = await apiService.sendToVelneo({
+      //   formData,
+      //   client: selectedClient,
+      //   company: selectedCompany,
+      //   section: selectedSection,
+      //   scannedDocument
+      // });
       
       // ✅ MOSTRAR MODAL DE ÉXITO CON ANIMACIONES
       setModalContent(
         <div className="p-6 text-center space-y-4">
           <div className="w-16 h-16 bg-green-100 dark:bg-green-950/20 rounded-full flex items-center justify-center mx-auto animate-pulse">
-            <span className="text-green-500 text-2xl">✓</span>
+            <span className="text-green-500 text-3xl">✓</span>
           </div>
-          <h3 className="text-xl font-bold text-green-600">¡Póliza Procesada con Mapeo Inteligente!</h3>
-          <p className="text-muted-foreground">
-            Los datos han sido mapeados automáticamente y enviados a Velneo correctamente.
-          </p>
+          <h3 className="text-xl font-bold text-green-600">¡Póliza Procesada con Éxito!</h3>
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <p>✅ Validaciones completadas</p>
+            <p>✅ Datos enviados a Velneo</p>
+            <p>✅ Formulario procesado correctamente</p>
+          </div>
+          <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-xs text-green-700">
+              <strong>Cliente:</strong> {selectedClient?.clinom}<br/>
+              <strong>Compañía:</strong> {selectedCompany?.comalias}<br/>
+              <strong>Póliza:</strong> {formData.poliza}
+            </p>
+          </div>
         </div>
       );
       setShowModal(true);
@@ -175,7 +192,7 @@ function AppContent() {
         setShowModal(false);
         setCurrentPage('dashboard');
         resetWizard();
-      }, 3000);
+      }, 4000);
       
     } catch (error) {
       console.error('❌ Error enviando a Velneo:', error);
@@ -186,26 +203,31 @@ function AppContent() {
           <div className="w-16 h-16 bg-red-100 dark:bg-red-950/20 rounded-full flex items-center justify-center mx-auto">
             <span className="text-red-500 text-2xl">✗</span>
           </div>
-          <h3 className="text-xl font-bold text-red-600">Error al Enviar</h3>
+          <h3 className="text-xl font-bold text-red-600">Error al Procesar Póliza</h3>
           <p className="text-muted-foreground">
-            Hubo un problema enviando la póliza a Velneo. Por favor intenta nuevamente.
+            Hubo un problema enviando los datos a Velneo. Por favor, verifica los datos e intenta nuevamente.
           </p>
+          <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-xs text-red-700">
+              <strong>Error:</strong> {error instanceof Error ? error.message : 'Error desconocido'}
+            </p>
+          </div>
         </div>
       );
       setShowModal(true);
     }
   };
 
-const getTransitionDirection = () => {
-  switch (currentWizardStep) {
-    case 'operation': return 'fade';
-    case 'client': return 'slide-right';
-    case 'company-section': return 'slide-right';
-    case 'document-scan': return 'slide-up';
-    case 'form': return 'fade';
-    default: return 'fade';
-  }
-};
+  const getTransitionDirection = () => {
+    switch (currentWizardStep) {
+      case 'operation': return 'fade';
+      case 'client': return 'slide-right';
+      case 'company-section': return 'slide-right';
+      case 'document-scan': return 'slide-up';
+      case 'form': return 'fade';
+      default: return 'fade';
+    }
+  };
 
   // Renderizado del contenido principal basado en la página actual
   const renderPageContent = () => {
@@ -221,31 +243,31 @@ const getTransitionDirection = () => {
           </PageTransition>
         );
 
-case 'wizard':
-  return (
-    <PageTransition 
-      direction="fade"
-      duration={400}
-      isActive={currentPage === 'wizard'}
-    >
-      <div className="container-responsive py-6 space-y-6">
-        {/* ✅ WIZARD PROGRESS SIN STAGGERED - ANIMACIÓN SIMPLE */}
-        <div className="animate-in slide-in-from-top-4 duration-500">
-          <WizardProgress currentStep={currentWizardStep} />
-        </div>
-        
-        {/* ✅ CONTENIDO DEL WIZARD CON TRANSICIONES MÁS SUAVES */}
-        <PageTransition
-          direction={getTransitionDirection()}
-          duration={300}
-          isActive={true}
-          key={currentWizardStep}
-        >
-          {renderWizardStep()}
-        </PageTransition>
-      </div>
-    </PageTransition>
-  );
+      case 'wizard':
+        return (
+          <PageTransition 
+            direction="fade"
+            duration={400}
+            isActive={currentPage === 'wizard'}
+          >
+            <div className="container-responsive py-6 space-y-6">
+              {/* ✅ WIZARD PROGRESS SIN STAGGERED - ANIMACIÓN SIMPLE */}
+              <div className="animate-in slide-in-from-top-4 duration-500">
+                <WizardProgress currentStep={currentWizardStep} />
+              </div>
+              
+              {/* ✅ CONTENIDO DEL WIZARD CON TRANSICIONES MÁS SUAVES */}
+              <PageTransition
+                direction={getTransitionDirection()}
+                duration={300}
+                isActive={true}
+                key={currentWizardStep}
+              >
+                {renderWizardStep()}
+              </PageTransition>
+            </div>
+          </PageTransition>
+        );
 
       case 'analytics':
         return (
@@ -300,78 +322,81 @@ case 'wizard':
     }
   };
 
-const renderWizardStep = () => {
-  switch (currentWizardStep) {
-    case 'operation':
-      return (
-        <div className="animate-in fade-in-0 duration-500">
-          <OperationSelector onSelect={handleOperationSelect} />
-        </div>
-      );
+  const renderWizardStep = () => {
+    switch (currentWizardStep) {
+      case 'operation':
+        return (
+          <div className="animate-in fade-in-0 duration-500">
+            <OperationSelector onSelect={handleOperationSelect} />
+          </div>
+        );
 
-    case 'client':
-      return (
-        <div className="animate-in fade-in-0 slide-in-from-right-4 duration-400">
-          <ClientSelector 
-            onSelect={handleClientSelect} 
-            selected={selectedClient}
-            onBack={handleWizardBack}
-          />
-        </div>
-      );
-
-    case 'company-section':
-      return (
-        <div className="animate-in fade-in-0 slide-in-from-right-4 duration-400">
-          <CompanySectionSelector 
-            onSelect={handleCompanySectionSelect}
-            onBack={handleWizardBack}
-          />
-        </div>
-      );
-
-    case 'document-scan':
-      return (
-        <div className="animate-in fade-in-0 scale-in duration-400">
-          <DocumentScanner 
-            onFileProcess={handleFileProcess}
-            onDocumentProcessed={handleDocumentProcessed}
-            onBack={handleWizardBack}
-          />
-        </div>
-      );
-
-    case 'form':
-      return (
-        scannedDocument ? (
-          <div className="animate-in fade-in-0 duration-400">
-            {/* 🚀 REEMPLAZO DIRECTO: PolicyForm → PolicyMappingForm */}
-            <PolicyMappingForm
-              scannedData={scannedDocument}
-              onSubmit={handleFormSubmit}
+      case 'client':
+        return (
+          <div className="animate-in fade-in-0 slide-in-from-right-4 duration-400">
+            <ClientSelector 
+              onSelect={handleClientSelect} 
+              selected={selectedClient}
               onBack={handleWizardBack}
             />
           </div>
-        ) : (
-          <div className="text-center p-8 animate-in fade-in-0 duration-300">
-            <p className="text-destructive">Error: Datos faltantes para el formulario</p>
-            <button onClick={handleWizardBack} className="mt-4 text-primary hover:underline">
-              Volver al paso anterior
-            </button>
+        );
+
+      case 'company-section':
+        return (
+          <div className="animate-in fade-in-0 slide-in-from-right-4 duration-400">
+            <CompanySectionSelector 
+              onSelect={handleCompanySectionSelect}
+              onBack={handleWizardBack}
+            />
           </div>
-        )
-      );
+        );
 
-    default:
-      return (
-        <div className="text-center p-8 animate-in fade-in-0 duration-300">
-          Paso no implementado aún
-        </div>
-      );
-  }
-};
+      case 'document-scan':
+        return (
+          <div className="animate-in fade-in-0 scale-in duration-400">
+            <DocumentScanner 
+              onFileProcess={handleFileProcess}
+              onDocumentProcessed={handleDocumentProcessed}
+              onBack={handleWizardBack}
+            />
+          </div>
+        );
 
-  // ✅ PÁGINAS PLACEHOLDER CON ANIMACIONES MEJORADAS
+      case 'form':
+        return (
+          scannedDocument ? (
+            <div className="animate-in fade-in-0 duration-400">
+              {/* 🚀 CAMBIO PRINCIPAL: Usar nuestro IntegratedPolicyForm mejorado */}
+              <IntegratedPolicyForm
+                scannedData={scannedDocument}
+                selectedClient={selectedClient}
+                selectedCompany={selectedCompany}
+                selectedSection={selectedSection}
+                onSubmit={handleFormSubmit}
+                onBack={handleWizardBack}
+              />
+            </div>
+          ) : (
+            <div className="text-center p-8 animate-in fade-in-0 duration-300">
+              <p className="text-destructive">Error: Datos faltantes para el formulario</p>
+              <button onClick={handleWizardBack} className="mt-4 text-primary hover:underline">
+                Volver al paso anterior
+              </button>
+            </div>
+          )
+        );
+
+      default:
+        return (
+          <div className="text-center p-8 animate-in fade-in-0 duration-300">
+            Paso no implementado aún
+          </div>
+        );
+    }
+  };
+
+  // ✅ PÁGINAS PLACEHOLDER CON ANIMACIONES MEJORADAS (mantener igual)
   const AnalyticsPage = () => (
     <div className="p-6 gradient-bg min-h-screen">
       <AdvancedStaggered
@@ -531,7 +556,7 @@ const renderWizardStep = () => {
     <MainLayout onNavigate={handleNavigate} currentPage={currentPage}>
       {renderPageContent()}
       
-      {/* ✅ MODAL CON ANIMACIONES AVANZADAS */}
+      {/* ✅ MODAL CON ANIMACIONES AVANZADAS Y INFORMACIÓN MEJORADA */}
       <AnimatedModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}

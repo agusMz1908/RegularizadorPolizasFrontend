@@ -1,8 +1,8 @@
-import React from 'react';
 import { usePolicyForm } from '../../hooks/usePolicyForm';
 import { FORM_TABS, TabsUtils } from '../../constants/formTabs';
 import { FormField, SelectField, InfoField, FormSection } from './FormComponents';
 import { User, FileText, Car, Shield, CreditCard, MessageSquare, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Building2, MapPin, Calendar, UserCheck, Briefcase, Zap } from 'lucide-react';
+import type { FormTabId } from '@/types/policyForm';
 
 // Mapeo de iconos
 const ICON_MAP = {
@@ -57,7 +57,7 @@ export default function IntegratedPolicyForm({
 
   // Renderizar indicador de progreso de pestaña
   const renderTabProgress = (tabId: string) => {
-    const progress = formProgress.byTab[tabId];
+    const progress = formProgress.byTab[tabId as FormTabId];
     if (!progress) return null;
 
     const completion = progress.completion;
@@ -88,7 +88,7 @@ export default function IntegratedPolicyForm({
   const renderTab = (tab: any) => {
     const Icon = ICON_MAP[tab.icon as keyof typeof ICON_MAP];
     const isActive = activeTab === tab.id;
-    const progress = formProgress.byTab[tab.id];
+    const progress = formProgress.byTab[tab.id as FormTabId];
     const hasErrors = progress?.errors > 0;
     
     return (
@@ -521,30 +521,43 @@ function DatosPolizaTab({ formData, updateFormData, errors, selectedCompany }: a
 }
 
 function DatosVehiculoTab({ formData, updateFormData, errors, masterOptions }: any) {
-  // Preparar opciones de maestros
-  const destinoOptions = masterOptions?.destinos?.map((item: any) => ({
+  // ✅ CORREGIDO: Preparar opciones de maestros con la estructura correcta
+  const destinoOptions = masterOptions?.Destinos?.map((item: any) => ({
     id: item.id,
-    name: item.descripcion || item.nombre
+    name: item.desnom || item.nombre || `Destino ${item.id}` // ← CORREGIDO: usar 'desnom'
   })) || [];
 
-  const combustibleOptions = masterOptions?.combustibles?.map((item: any) => ({
+  const combustibleOptions = masterOptions?.Combustibles?.map((item: any) => ({
     id: item.id,
-    name: item.descripcion || item.nombre
+    name: item.name || `Combustible ${item.id}` // ← CORREGIDO: usar 'name'
   })) || [];
 
-  const calidadOptions = masterOptions?.calidades?.map((item: any) => ({
+  const calidadOptions = masterOptions?.Calidades?.map((item: any) => ({
     id: item.id,
-    name: item.descripcion || item.nombre
+    name: item.caldsc || item.nombre || `Calidad ${item.id}` // ← CORREGIDO: usar 'caldsc'
   })) || [];
 
-  const categoriaOptions = masterOptions?.categorias?.map((item: any) => ({
+  const categoriaOptions = masterOptions?.Categorias?.map((item: any) => ({
     id: item.id,
-    name: item.descripcion || item.nombre
+    name: item.catdsc || item.nombre || `Categoría ${item.id}` // ← CORREGIDO: usar 'catdsc'
   })) || [];
+
+  // ✅ DEBUG: Agregar logs para verificar que los datos llegan
+  console.log('🔍 Debug masterOptions:', {
+    destinos: masterOptions?.Destinos?.length || 0,
+    combustibles: masterOptions?.Combustibles?.length || 0,
+    calidades: masterOptions?.Calidades?.length || 0,
+    categorias: masterOptions?.Categorias?.length || 0,
+    destinoOptions: destinoOptions.length,
+    combustibleOptions: combustibleOptions.length
+  });
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold text-gray-900 mb-4">Datos del Vehículo</h3>
+      <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+        <Car className="w-5 h-5 text-blue-600" />
+        Datos del Vehículo
+      </h3>
       
       {/* Sección 1: Identificación del Vehículo */}
       <FormSection 
@@ -614,7 +627,7 @@ function DatosVehiculoTab({ formData, updateFormData, errors, masterOptions }: a
         </div>
       </FormSection>
 
-      {/* Sección 3: Características del Vehículo */}
+      {/* Sección 3: Características del Vehículo - CORREGIDA */}
       <FormSection 
         title="Características del Vehículo" 
         description="Destino, combustible, calidad y categoría"
@@ -644,6 +657,8 @@ function DatosVehiculoTab({ formData, updateFormData, errors, masterOptions }: a
             required={true}
             error={errors.combustibleId}
             loading={!masterOptions}
+            // ✅ CORREGIDO: combustible es STRING, no number
+            isNumeric={false}
             icon={<Zap className="w-4 h-4" />}
           />
           
@@ -677,6 +692,30 @@ function DatosVehiculoTab({ formData, updateFormData, errors, masterOptions }: a
         </div>
       </FormSection>
 
+      {/* ✅ DEBUG: Mostrar información de los maestros para verificar */}
+      {process.env.NODE_ENV === 'development' && masterOptions && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <h4 className="text-sm font-medium text-yellow-900 mb-2">🔍 Debug - Maestros cargados:</h4>
+          <div className="text-xs text-yellow-800 space-y-1">
+            <div>Destinos: {destinoOptions.length} opciones</div>
+            <div>Combustibles: {combustibleOptions.length} opciones</div>
+            <div>Calidades: {calidadOptions.length} opciones</div>
+            <div>Categorías: {categoriaOptions.length} opciones</div>
+            
+            {destinoOptions.length > 0 && (
+              <details className="mt-2">
+                <summary className="cursor-pointer">Ver destinos:</summary>
+                <div className="mt-1 max-h-20 overflow-y-auto">
+                  {destinoOptions.slice(0, 3).map(d => (
+                    <div key={d.id}>ID: {d.id}, Nombre: {d.name}</div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Información de ayuda */}
       <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
@@ -699,18 +738,17 @@ function DatosVehiculoTab({ formData, updateFormData, errors, masterOptions }: a
 }
 
 function DatosCoberturaTab({ formData, updateFormData, errors, masterOptions }: any) {
-  // Preparar opciones de maestros
-  const coberturaOptions = masterOptions?.coberturas?.map((item: any) => ({
+  // ✅ CORREGIDO: Preparar opciones de maestros con estructura correcta
+  const coberturaOptions = masterOptions?.Coberturas?.map((item: any) => ({
     id: item.id,
-    name: item.descripcion || item.nombre
+    name: item.nombre || item.descripcion || `Cobertura ${item.id}`
   })) || [];
 
-  const monedaOptions = masterOptions?.monedas?.map((item: any) => ({
+  const monedaOptions = masterOptions?.Monedas?.map((item: any) => ({
     id: item.id,
-    name: `${item.descripcion || item.nombre} (${item.codigo || item.simbolo || ''})`
+    name: `${item.nombre || 'Moneda'} ${item.codigo ? `(${item.codigo})` : ''}`
   })) || [];
 
-  // Opciones de departamentos de Uruguay
   const departamentoOptions = [
     'MONTEVIDEO', 'ARTIGAS', 'CANELONES', 'CERRO LARGO', 'COLONIA', 
     'DURAZNO', 'FLORES', 'FLORIDA', 'LAVALLEJA', 'MALDONADO', 
@@ -721,8 +759,7 @@ function DatosCoberturaTab({ formData, updateFormData, errors, masterOptions }: 
   return (
     <div className="space-y-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">Datos de la Cobertura</h3>
-      
-      {/* Sección 1: Tipo de Cobertura */}
+
       <FormSection 
         title="Tipo de Cobertura" 
         description="Cobertura contratada para el vehículo"
@@ -807,7 +844,7 @@ function DatosCoberturaTab({ formData, updateFormData, errors, masterOptions }: 
   );
 }
 
-function CondicionesPagoTab({ formData, updateFormData, errors, masterOptions }: any) {
+function CondicionesPagoTab({ formData, updateFormData, errors }: any) {
   // Opciones de forma de pago
   const formaPagoOptions = [
     'Contado', 'Tarjeta de Crédito', 'Débito Automático', 
