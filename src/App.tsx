@@ -1,4 +1,4 @@
-// src/App.tsx - ACTUALIZADO CON NUEVO PolicyFormWizard
+// src/App.tsx - CORREGIDO FINAL
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
@@ -13,26 +13,15 @@ import ClientSelector from './components/wizard/ClientSelector';
 import CompanySectionSelector from './components/wizard/CompanySectionSelector';
 import DocumentScanner from './components/wizard/DocumentScanner';
 
-// 🚀 CAMBIO IMPORTANTE: Ahora usando el nuevo PolicyFormWizard
-import PolicyFormWizard from '@/features/policy-form/PolicyFormWizard';
+// ✅ IMPORTAR EL COMPONENTE CORRECTO QUE REALMENTE EXISTE
+import PolicyForm from './components/wizard/PolicyForm';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { BarChart3, DollarSign, Clock, Settings, Construction } from 'lucide-react';
-
-// ✅ IMPORTAR COMPONENTES DE ANIMACIONES AVANZADAS
-import { 
-  PageTransition, 
-  AdvancedStaggered,
-  AnimatedModal 
-} from '@/components/enhanced/AdavancedAnimation';
-
-// ✅ CORREGIDO: USAR TIPOS OFICIALES EN LUGAR DE DEFINICIONES LOCALES
+// ✅ TIPOS OFICIALES
 import type { OperationType } from './components/wizard/OperationSelector';
-import type { PolicyFormData } from './types/poliza';  // Cambiar a la ruta correcta
+import type { PolicyFormData } from './types/poliza';
 import type { AzureProcessResponse } from './types/azureDocumentResult';
-import type { ClientDto } from './types/cliente';  // ✅ IMPORTAR TIPO OFICIAL
-import type { CompanyDto, SeccionDto } from './types/masterData';  // ✅ IMPORTAR TIPOS OFICIALES
+import type { ClientDto } from './types/cliente';
+import type { CompanyDto, SeccionDto } from './types/masterData';
 
 import { apiService } from './services/apiService';
 import './App.css';
@@ -48,7 +37,7 @@ const queryClient = new QueryClient({
 });
 
 // ✅ FUNCIÓN PARA PROCESAR DOCUMENTOS CON AZURE
-const handleFileProcess = async (file: File): Promise<any> => {
+const handleFileProcess = async (file: File): Promise<AzureProcessResponse> => {
   try {
     console.log('🚀 Procesando archivo con Azure:', file.name);
     const result = await apiService.processDocument(file);
@@ -67,7 +56,7 @@ function AppContent() {
   // Estados para el sistema de navegación
   const [currentPage, setCurrentPage] = useState<'dashboard' | 'wizard' | 'analytics' | 'billing' | 'history' | 'settings'>('dashboard');
   
-  // Estados del wizard - ✅ AHORA USANDO TIPOS OFICIALES
+  // Estados del wizard
   const [currentWizardStep, setCurrentWizardStep] = useState<'operation' | 'client' | 'company-section' | 'document-scan' | 'form'>('operation');
   const [selectedOperation, setSelectedOperation] = useState<OperationType | undefined>();
   const [selectedClient, setSelectedClient] = useState<ClientDto | undefined>();
@@ -75,10 +64,11 @@ function AppContent() {
   const [selectedSection, setSelectedSection] = useState<SeccionDto | undefined>();
   const [scannedDocument, setScannedDocument] = useState<AzureProcessResponse | undefined>();
 
-  // ✅ ESTADOS PARA MODALES CON ANIMACIONES
+  // Estados para modales
   const [showModal, setShowModal] = useState(false);
   const [modalContent, setModalContent] = useState<React.ReactNode>(null);
 
+  // ✅ NAVEGACIÓN DEL WIZARD - CORREGIDA
   const handleWizardBack = () => {
     switch (currentWizardStep) {
       case 'client':
@@ -97,6 +87,9 @@ function AppContent() {
       case 'form':
         setCurrentWizardStep('document-scan');
         setScannedDocument(undefined);
+        break;
+      default:
+        setCurrentWizardStep('operation');
         break;
     }
   };
@@ -123,20 +116,19 @@ function AppContent() {
     resetWizard();
   };
 
+  // ✅ HANDLERS DEL WIZARD - CORREGIDOS CON TIPOS
   const handleOperationSelect = (operation: OperationType) => {
     setSelectedOperation(operation);
     console.log('Operación seleccionada:', operation);
     setCurrentWizardStep('client');
   };
 
-  // ✅ CORREGIDO: FUNCIÓN USANDO TIPO OFICIAL ClientDto
   const handleClientSelect = (client: ClientDto) => {
     setSelectedClient(client);
     console.log('Cliente seleccionado:', client);
     setCurrentWizardStep('company-section');
   };
 
-  // ✅ CORREGIDO: FUNCIÓN USANDO TIPOS OFICIALES
   const handleCompanySectionSelect = (company: CompanyDto, section: SeccionDto) => {
     setSelectedCompany(company);
     setSelectedSection(section);
@@ -151,64 +143,70 @@ function AppContent() {
     setCurrentWizardStep('form');
   };
 
-  // 🚀 FUNCIÓN MEJORADA PARA MANEJAR EL ENVÍO DEL FORMULARIO
+  // ✅ HANDLER DE SUBMIT DEL FORMULARIO - MEJORADO
   const handleFormSubmit = async (formData: PolicyFormData) => {
-    console.log('📋 Datos del formulario (PolicyFormWizard):', formData);
-    console.log('👤 Cliente:', selectedClient);
-    console.log('🏢 Compañía:', selectedCompany);
-    console.log('🚗 Sección:', selectedSection);
-    console.log('📄 Documento escaneado:', scannedDocument);
+    console.log('📋 Enviando datos del formulario completo:');
+    console.log('- Formulario:', formData);
+    console.log('- Cliente:', selectedClient);
+    console.log('- Compañía:', selectedCompany);
+    console.log('- Sección:', selectedSection);
+    console.log('- Documento escaneado:', scannedDocument);
     
     try {
-      // 🚀 ENVÍO REAL A VELNEO - Usa tu lógica existente aquí
-      // const result = await apiService.sendToVelneo({
-      //   formData,
-      //   client: selectedClient,
-      //   company: selectedCompany,
-      //   section: selectedSection,
-      //   document: scannedDocument
-      // });
+      // ✅ AQUÍ LLAMARÍAS A TU API REAL PARA ENVIAR A VELNEO
+      /*
+      const result = await apiService.sendToVelneo({
+        formData,
+        clientId: selectedClient?.id,
+        companyId: selectedCompany?.id,
+        sectionId: selectedSection?.id,
+        scannedDocument
+      });
+      */
       
-      // Por ahora, simulación de éxito
+      // Simulación de éxito por ahora
       setModalContent(
-        <div className="text-center space-y-4">
-          <div className="p-3 bg-green-100 rounded-full w-16 h-16 mx-auto flex items-center justify-center">
-            <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="text-center space-y-4 p-6">
+          <div className="p-4 bg-green-100 rounded-full w-20 h-20 mx-auto flex items-center justify-center">
+            <svg className="w-10 h-10 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-green-600">¡Éxito!</h3>
+          <h3 className="text-xl font-semibold text-green-600">¡Póliza Creada Exitosamente!</h3>
           <p className="text-sm text-gray-600">
-            Los datos se han enviado correctamente a Velneo
+            La póliza se ha enviado correctamente a Velneo.
           </p>
+          <div className="text-xs text-gray-500 bg-gray-50 p-3 rounded-lg">
+            <p><strong>Póliza:</strong> {formData.poliza || 'N/A'}</p>
+            <p><strong>Cliente:</strong> {selectedClient?.clinom || 'N/A'}</p>
+            <p><strong>Compañía:</strong> {selectedCompany?.comalias || 'N/A'}</p>
+          </div>
         </div>
       );
       setShowModal(true);
       
-      // Reiniciar wizard después de 2 segundos
+      // Reiniciar wizard después de mostrar el éxito
       setTimeout(() => {
         setShowModal(false);
         resetWizard();
-      }, 2000);
+        setCurrentPage('dashboard');
+      }, 3000);
       
     } catch (error) {
       console.error('❌ Error al enviar formulario:', error);
       setModalContent(
-        <div className="text-center space-y-4">
-          <div className="p-3 bg-red-100 rounded-full w-16 h-16 mx-auto flex items-center justify-center">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="text-center space-y-4 p-6">
+          <div className="p-4 bg-red-100 rounded-full w-20 h-20 mx-auto flex items-center justify-center">
+            <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-red-600">Error al enviar</h3>
+          <h3 className="text-xl font-semibold text-red-600">Error al Crear Póliza</h3>
           <p className="text-sm text-gray-600">
-            No se pudo enviar el formulario a Velneo. 
-            Por favor, verifica los datos e intenta nuevamente.
+            No se pudo enviar la póliza a Velneo. Por favor verifica los datos e intenta nuevamente.
           </p>
-          <div className="mt-4 p-3 bg-red-50 rounded-lg border border-red-200">
-            <p className="text-xs text-red-700">
-              <strong>Error:</strong> {error instanceof Error ? error.message : 'Error desconocido'}
-            </p>
+          <div className="text-xs text-red-700 bg-red-50 p-3 rounded-lg border border-red-200">
+            <strong>Error:</strong> {error instanceof Error ? error.message : 'Error desconocido'}
           </div>
         </div>
       );
@@ -216,18 +214,7 @@ function AppContent() {
     }
   };
 
-  const getTransitionDirection = () => {
-    switch (currentWizardStep) {
-      case 'operation': return 'fade';
-      case 'client': return 'slide-right';
-      case 'company-section': return 'slide-right';
-      case 'document-scan': return 'slide-up';
-      case 'form': return 'fade';
-      default: return 'fade';
-    }
-  };
-
-  // Renderizado del contenido del wizard basado en el paso actual
+  // ✅ RENDERIZADO DEL CONTENIDO DEL WIZARD
   const renderWizardContent = () => {
     switch (currentWizardStep) {
       case 'operation':
@@ -264,8 +251,11 @@ function AppContent() {
           </div>
         ) : (
           <div className="text-center p-8 animate-in fade-in-0 duration-300">
-            <p className="text-destructive">Error: Cliente no seleccionado</p>
-            <button onClick={handleWizardBack} className="mt-4 text-primary hover:underline">
+            <p className="text-red-600">Error: Cliente no seleccionado</p>
+            <button 
+              onClick={handleWizardBack} 
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
               Volver al paso anterior
             </button>
           </div>
@@ -283,89 +273,129 @@ function AppContent() {
           </div>
         ) : (
           <div className="text-center p-8 animate-in fade-in-0 duration-300">
-            <p className="text-destructive">Error: Compañía o sección no seleccionadas</p>
-            <button onClick={handleWizardBack} className="mt-4 text-primary hover:underline">
+            <p className="text-red-600">Error: Compañía o sección no seleccionadas</p>
+            <button 
+              onClick={handleWizardBack} 
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
               Volver al paso anterior
             </button>
           </div>
         );
       
-      // case 'form':
-      //   return selectedClient && selectedCompany && selectedSection ? (
-      //     <div className="animate-in fade-in-0 duration-400">
-      //       {/* 🚀 CAMBIO PRINCIPAL: Usar PolicyFormWizard en lugar de IntegratedPolicyForm */}
-      //       <PolicyFormWizard
-      //         scannedData={scannedDocument}
-      //         selectedClient={selectedClient}
-      //         selectedCompany={selectedCompany}
-      //         selectedSection={selectedSection}
-      //         onSubmit={handleFormSubmit}
-      //         onBack={handleWizardBack}
-      //       />
-      //     </div>
-      //   ) : (
-      //     <div className="text-center p-8 animate-in fade-in-0 duration-300">
-      //       <p className="text-destructive">Error: Datos faltantes para el formulario</p>
-      //       <button onClick={handleWizardBack} className="mt-4 text-primary hover:underline">
-      //         Volver al paso anterior
-      //       </button>
-      //     </div>
-      //   );
+      case 'form':
+        return selectedClient && selectedCompany && selectedSection ? (
+          <div className="animate-in fade-in-0 duration-400">
+            {/* ✅ USAR PolicyForm QUE ES EL COMPONENTE QUE REALMENTE EXISTE */}
+            <PolicyForm
+              scannedData={scannedDocument}  // Opcional - funciona con o sin datos escaneados
+              selectedClient={selectedClient}
+              selectedCompany={selectedCompany}
+              selectedSection={selectedSection}
+              onSubmit={handleFormSubmit}
+              onBack={handleWizardBack}
+            />
+          </div>
+        ) : (
+          <div className="text-center p-8 animate-in fade-in-0 duration-300">
+            <p className="text-red-600">Error: Datos insuficientes para el formulario</p>
+            <div className="mt-4 text-sm text-gray-600">
+              <p>Cliente: {selectedClient ? '✅' : '❌'}</p>
+              <p>Compañía: {selectedCompany ? '✅' : '❌'}</p>
+              <p>Sección: {selectedSection ? '✅' : '❌'}</p>
+              <p>Documento: {scannedDocument ? '✅ Escaneado' : '⚠️ Opcional'}</p>
+            </div>
+            <button 
+              onClick={handleWizardBack} 
+              className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Volver al paso anterior
+            </button>
+          </div>
+        );
 
       default:
         return (
           <div className="text-center p-8 animate-in fade-in-0 duration-300">
-            Paso no implementado aún
+            <p>Paso no implementado: {currentWizardStep}</p>
           </div>
         );
     }
   };
 
-  // El resto del código permanece igual...
-  // (Páginas de Analytics, Billing, etc.)
-
-  // Renderizado del contenido principal basado en la página actual
+  // ✅ RENDERIZADO DEL CONTENIDO PRINCIPAL
   const renderPageContent = () => {
     switch (currentPage) {
       case 'dashboard':
         return (
-          <PageTransition 
-            direction="fade" 
-            duration={600}
-            isActive={currentPage === 'dashboard'}
-          >
+          <div className="animate-in fade-in-0 duration-600">
             <Dashboard onStartWizard={handleStartWizard} />
-          </PageTransition>
+          </div>
         );
 
       case 'wizard':
         return (
-          <PageTransition 
-            direction="fade"
-            duration={400}
-            isActive={currentPage === 'wizard'}
-          >
-            <div className="container-responsive py-6 space-y-6">
-              {/* ✅ WIZARD PROGRESS SIN STAGGERED - ANIMACIÓN SIMPLE */}
+          <div className="animate-in fade-in-0 duration-400">
+            <div className="container mx-auto px-4 py-6 space-y-6 max-w-7xl">
+              {/* Progress del Wizard */}
               <div className="animate-in slide-in-from-top-4 duration-500">
                 <WizardProgress currentStep={currentWizardStep} />
               </div>
               
-              {/* ✅ CONTENIDO DEL WIZARD CON TRANSICIONES MÁS SUAVES */}
-              <PageTransition 
-                direction={getTransitionDirection()}
-                duration={400}
-                isActive={true}
-              >
+              {/* Contenido del Wizard */}
+              <div className="animate-in fade-in-0 duration-400 delay-200">
                 {renderWizardContent()}
-              </PageTransition>
+              </div>
             </div>
-          </PageTransition>
+          </div>
         );
 
-      // El resto de las páginas permanecen igual...
+      case 'analytics':
+        return (
+          <div className="animate-in fade-in-0 duration-600">
+            <div className="container mx-auto px-4 py-8">
+              <h1 className="text-2xl font-bold">Analytics (En desarrollo)</h1>
+              <p className="text-gray-600 mt-4">Esta sección estará disponible pronto.</p>
+            </div>
+          </div>
+        );
+
+      case 'billing':
+        return (
+          <div className="animate-in fade-in-0 duration-600">
+            <div className="container mx-auto px-4 py-8">
+              <h1 className="text-2xl font-bold">Facturación (En desarrollo)</h1>
+              <p className="text-gray-600 mt-4">Esta sección estará disponible pronto.</p>
+            </div>
+          </div>
+        );
+
+      case 'history':
+        return (
+          <div className="animate-in fade-in-0 duration-600">
+            <div className="container mx-auto px-4 py-8">
+              <h1 className="text-2xl font-bold">Historial (En desarrollo)</h1>
+              <p className="text-gray-600 mt-4">Esta sección estará disponible pronto.</p>
+            </div>
+          </div>
+        );
+
+      case 'settings':
+        return (
+          <div className="animate-in fade-in-0 duration-600">
+            <div className="container mx-auto px-4 py-8">
+              <h1 className="text-2xl font-bold">Configuración (En desarrollo)</h1>
+              <p className="text-gray-600 mt-4">Esta sección estará disponible pronto.</p>
+            </div>
+          </div>
+        );
+
       default:
-        return null;
+        return (
+          <div className="animate-in fade-in-0 duration-600">
+            <Dashboard onStartWizard={handleStartWizard} />
+          </div>
+        );
     }
   };
 
@@ -374,19 +404,28 @@ function AppContent() {
     return <LoginForm />;
   }
 
-  // Renderizado principal
+  // ✅ RENDERIZADO PRINCIPAL - SIMPLIFICADO
   return (
     <ThemeProvider>
       <MainLayout onNavigate={handleNavigate} currentPage={currentPage}>
         {renderPageContent()}
         
-        {/* ✅ MODAL CON ANIMACIONES */}
-        <AnimatedModal 
-          isOpen={showModal} 
-          onClose={() => setShowModal(false)}
-        >
-          {modalContent}
-        </AnimatedModal>
+        {/* Modal Simple para Mensajes */}
+        {showModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 animate-in fade-in-0 duration-200">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 animate-in slide-in-from-bottom-4 duration-300">
+              {modalContent}
+              <div className="p-4 border-t">
+                <button
+                  onClick={() => setShowModal(false)}
+                  className="w-full px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded text-gray-700 transition-colors"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </MainLayout>
     </ThemeProvider>
   );

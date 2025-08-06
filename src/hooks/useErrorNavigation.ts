@@ -1,13 +1,14 @@
 import { useCallback } from 'react';
 import type { FormTabId } from '../types/policyForm';
+import type { PolicyFormData } from '../types/poliza';
 import { TabsUtils } from '../constants/formTabs';
 
 export const useErrorNavigation = (
   setActiveTab: (tab: FormTabId) => void,
-  errors: Record<string, string>
+  errors: Record<keyof PolicyFormData, string> // ✅ CORREGIDO: tipado más específico
 ) => {
   const goToFirstError = useCallback(() => {
-    const errorFields = Object.keys(errors);
+    const errorFields = Object.keys(errors) as (keyof PolicyFormData)[];
     if (errorFields.length === 0) return;
 
     const firstErrorField = errorFields[0];

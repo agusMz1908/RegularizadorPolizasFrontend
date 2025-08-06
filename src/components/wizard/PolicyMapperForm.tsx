@@ -1,4 +1,4 @@
-// src/components/wizard/PolicyMappingForm.tsx
+// src/components/wizard/PolicyMapperForm.tsx - CORREGIDO CON TIPOS ACTUALES
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,7 +22,7 @@ import SmartFieldMapper from './SmartFieldMapper';
 import { usePolicyMapping } from '../../hooks/usePolicyMapping';
 import type { AzureProcessResponse } from '../../types/azureDocumentResult';
 import type { PolicyFormData } from '../../types/poliza';
-import type { MasterDataOptions } from  '../../types/mappings';
+import type { MasterDataOptionsDto } from '../../types/masterData'; // ✅ CORREGIDO: Importación correcta
 
 interface PolicyMappingFormProps {
   scannedData: AzureProcessResponse;
@@ -30,45 +30,57 @@ interface PolicyMappingFormProps {
   onBack: () => void;
 }
 
-// Field configuration
+// ✅ CORREGIDO: Configuración de campos actualizada
 interface FieldConfig {
-  id: string;
+  id: keyof PolicyFormData; // ✅ CORREGIDO: Tipado más fuerte
   label: string;
   category: 'basicos' | 'poliza' | 'vehiculo' | 'cobertura';
-  masterDataKey?: keyof MasterDataOptions;
+  masterDataKey?: keyof MasterDataOptionsDto; // ✅ CORREGIDO: Usar tipo correcto
   required?: boolean;
 }
 
+// ✅ CORREGIDO: Campos basados en PolicyFormData real
 const FIELD_CONFIGS: FieldConfig[] = [
   // Datos Básicos
-  { id: 'corredor', label: 'Corredor', category: 'basicos' },
+  { id: 'corredor', label: 'Corredor', category: 'basicos', required: true },
   { id: 'asegurado', label: 'Asegurado', category: 'basicos', required: true },
-  { id: 'documento', label: 'Documento', category: 'basicos', required: true },
+  { id: 'tomador', label: 'Tomador', category: 'basicos' },
   { id: 'domicilio', label: 'Domicilio', category: 'basicos' },
-  { id: 'telefono', label: 'Teléfono', category: 'basicos' },
-  { id: 'email', label: 'Email', category: 'basicos' },
+  { id: 'dirCobro', label: 'Dirección de Cobro', category: 'basicos' },
+  { id: 'estadoTramite', label: 'Estado del Trámite', category: 'basicos' },
+  { id: 'tramite', label: 'Tipo de Trámite', category: 'basicos' },
+  { id: 'fecha', label: 'Fecha', category: 'basicos' },
+  { id: 'asignado', label: 'Asignado', category: 'basicos' },
+  { id: 'tipo', label: 'Tipo', category: 'basicos' },
+  { id: 'estadoPoliza', label: 'Estado de la Póliza', category: 'basicos' },
   
   // Datos Póliza
-  { id: 'numeroPoliza', label: 'Número de Póliza', category: 'poliza', required: true },
+  { id: 'poliza', label: 'Número de Póliza', category: 'poliza', required: true },
+  { id: 'certificado', label: 'Certificado', category: 'poliza' },
   { id: 'desde', label: 'Vigencia Desde', category: 'poliza' },
   { id: 'hasta', label: 'Vigencia Hasta', category: 'poliza' },
-  { id: 'endoso', label: 'Endoso', category: 'poliza' },
   
   // Datos Vehículo
-  { id: 'marca', label: 'Marca', category: 'vehiculo' },
-  { id: 'modelo', label: 'Modelo', category: 'vehiculo' },
+  { id: 'marcaModelo', label: 'Marca y Modelo', category: 'vehiculo' },
   { id: 'anio', label: 'Año', category: 'vehiculo' },
-  { id: 'combustible', label: 'Combustible', category: 'vehiculo', masterDataKey: 'combustibles' },
-  { id: 'categoria', label: 'Categoría', category: 'vehiculo', masterDataKey: 'categorias' },
-  { id: 'chasis', label: 'Chasis', category: 'vehiculo' },
   { id: 'matricula', label: 'Matrícula', category: 'vehiculo' },
+  { id: 'motor', label: 'Motor', category: 'vehiculo' },
+  { id: 'chasis', label: 'Chasis', category: 'vehiculo' },
+  { id: 'destinoId', label: 'Destino', category: 'vehiculo', masterDataKey: 'destinos' },
+  { id: 'combustibleId', label: 'Combustible', category: 'vehiculo', masterDataKey: 'combustibles' },
+  { id: 'calidadId', label: 'Calidad', category: 'vehiculo', masterDataKey: 'calidades' },
+  { id: 'categoriaId', label: 'Categoría', category: 'vehiculo', masterDataKey: 'categorias' },
   
   // Datos Cobertura
-  { id: 'cobertura', label: 'Cobertura', category: 'cobertura', masterDataKey: 'coberturas' },
+  { id: 'zonaCirculacion', label: 'Zona de Circulación', category: 'cobertura' },
+  { id: 'monedaId', label: 'Moneda', category: 'cobertura', masterDataKey: 'monedas' },
+  
+  // Condiciones de Pago
+  { id: 'formaPago', label: 'Forma de Pago', category: 'cobertura' },
   { id: 'premio', label: 'Premio', category: 'cobertura' },
   { id: 'total', label: 'Total', category: 'cobertura' },
-  { id: 'formaPago', label: 'Forma de Pago', category: 'cobertura', masterDataKey: 'formasPago' },
-  { id: 'cuotas', label: 'Cuotas', category: 'cobertura' }
+  { id: 'cuotas', label: 'Cuotas', category: 'cobertura' },
+  { id: 'valorCuota', label: 'Valor de Cuota', category: 'cobertura' }
 ];
 
 const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
@@ -91,14 +103,19 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
   const [activeTab, setActiveTab] = useState('basicos');
   const [manualOverrides, setManualOverrides] = useState<Record<string, any>>({});
 
-  // Validate automatic mapping on component mount
+  // ✅ CORREGIDO: Pasar el objeto completo AzureProcessResponse, no solo datosVelneo
   useEffect(() => {
-    if (scannedData?.datosVelneo) {
-      validateMapping(scannedData.datosVelneo);
+    if (scannedData) {
+      console.log('🔍 [PolicyMappingForm] Validando mapeo automático con datos:', {
+        archivo: scannedData.archivo,
+        completitud: scannedData.porcentajeCompletitud,
+        estado: scannedData.estado
+      });
+      validateMapping(scannedData);
     }
   }, [scannedData, validateMapping]);
 
-  // Load master options
+  // Cargar opciones maestras
   useEffect(() => {
     getMasterOptions();
   }, [getMasterOptions]);
@@ -113,7 +130,7 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
   const handleSubmit = () => {
     if (!mappingResult) return;
 
-    // Combine automatic mapping with manual overrides
+    // Combinar mapeo automático con overrides manuales
     const finalFormData: Partial<PolicyFormData> = {};
 
     FIELD_CONFIGS.forEach(config => {
@@ -127,6 +144,7 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
       }
     });
 
+    console.log('📋 [PolicyMappingForm] Enviando datos finales:', finalFormData);
     onSubmit(finalFormData as PolicyFormData);
   };
 
@@ -200,7 +218,7 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
         <Alert>
           <XCircle className="h-4 w-4" />
           <AlertDescription>
-            Error al validar el mapeo automático. Intente nuevamente.
+            Error al validar el mapeo automático. Los datos no se pudieron mapear correctamente.
           </AlertDescription>
         </Alert>
         <div className="flex gap-2">
@@ -208,7 +226,7 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
             <ArrowLeft className="h-4 w-4 mr-2" />
             Volver
           </Button>
-          <Button onClick={() => scannedData?.datosVelneo && validateMapping(scannedData.datosVelneo)}>
+          <Button onClick={() => scannedData && validateMapping(scannedData)}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Reintentar
           </Button>
@@ -298,6 +316,7 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
           <TrendingUp className="h-4 w-4" />
           <AlertDescription>
             <div className="space-y-1">
+              <div className="font-medium">Recomendaciones del Sistema:</div>
               {recommendations.map((rec, index) => (
                 <div key={index} className="text-sm">{rec}</div>
               ))}
@@ -369,7 +388,7 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
                         mappedField={mappedField}
                         masterOptions={Array.isArray(masterOptionsForField) ? masterOptionsForField : []}
                         onManualOverride={handleManualOverride}
-                        onValidationRequest={() => scannedData?.datosVelneo && validateMapping(scannedData.datosVelneo)}
+                        onValidationRequest={() => scannedData && validateMapping(scannedData)}
                       />
                     );
                   })}
@@ -388,7 +407,7 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
         
         <div className="flex gap-2">
           <Button 
-            onClick={() => scannedData?.datosVelneo && validateMapping(scannedData.datosVelneo)} 
+            onClick={() => scannedData && validateMapping(scannedData)} 
             variant="outline"
           >
             <RefreshCw className="h-4 w-4 mr-2" />
@@ -401,7 +420,7 @@ const PolicyMappingForm: React.FC<PolicyMappingFormProps> = ({
             className="bg-primary"
           >
             <Send className="h-4 w-4 mr-2" />
-            Enviar a Velneo ({successfulFields}/{totalFields} campos)
+            Continuar ({successfulFields}/{totalFields} campos)
           </Button>
         </div>
       </div>
