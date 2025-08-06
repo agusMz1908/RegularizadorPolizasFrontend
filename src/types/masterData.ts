@@ -7,18 +7,18 @@ import type { SelectOption } from './ui';  // ← IMPORTAR desde ui.ts
  * 🎯 DATOS MAESTROS DEL BACKEND
  */
 export interface MasterDataOptionsDto {
-  Categorias: CategoriaDto[];
-  Destinos: DestinoDto[];
-  Calidades: CalidadDto[];
-  Combustibles: CombustibleDto[];
-  Monedas: MonedaDto[];
+  categorias: CategoriaDto[];
+  destinos: DestinoDto[];
+  calidades: CalidadDto[];
+  combustibles: CombustibleDto[];
+  monedas: MonedaDto[];
   
   // Arrays de string (texto plano)
-  EstadosPoliza: string[];
-  TiposTramite: string[];
-  EstadosBasicos: string[];
-  TiposLinea: string[];
-  FormasPago: string[];
+  estadosPoliza: string[];
+  tiposTramite: string[];
+  estadosBasicos: string[];
+  tiposLinea: string[];
+  formasPago: string[];
 }
 
 // ===== MAESTROS INDIVIDUALES (COINCIDIR CON BACKEND) =====

@@ -1,8 +1,7 @@
 // src/hooks/useMasterData.ts - VERSIÓN CORREGIDA Y ACTUALIZADA
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { CalidadDto, CategoriaDto, CombustibleDto, DestinoDto, MasterDataOptionsDto, MonedaDto } from '../types/masterData';
-import type { SelectOption } from '../components/form/SelectField';
+import type { CalidadDto, CategoriaDto, CombustibleDto, DestinoDto, MasterDataOptionsDto, MonedaDto, SelectOption } from '../types/masterData';
 import { MasterDataApi } from '../services/apiService';
 import { TEXT_PLAIN_OPTIONS } from '../constants/textPlainOptions';
 

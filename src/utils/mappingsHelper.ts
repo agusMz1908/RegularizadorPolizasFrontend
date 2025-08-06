@@ -440,7 +440,7 @@ static getMappingSummary(azureData: AzureProcessResponse): {
     };
 
     if (!summary.hasData) {
-      errors.push('No se encontraron datosVelneo en la respuesta'); // ✅ PUSH A LA VARIABLE TIPADA
+      errors.push('No se encontraron datosVelneo en la respuesta');
     }
 
     return summary;
