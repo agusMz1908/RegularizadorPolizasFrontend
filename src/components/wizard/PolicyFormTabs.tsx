@@ -2,7 +2,7 @@ import { usePolicyForm } from '../../hooks/usePolicyForm';
 import { FORM_TABS, TabsUtils } from '../../constants/formTabs';
 import { FormField, SelectField, InfoField, FormSection } from './FormComponents';
 import { User, FileText, Car, Shield, CreditCard, MessageSquare, ChevronLeft, ChevronRight, CheckCircle2, AlertCircle, Building2, MapPin, Calendar, UserCheck, Briefcase, Zap } from 'lucide-react';
-import type { FormTabId } from '@/types/policyForm';
+import type { FormTabId, SelectOption } from '@/types/policyForm';
 
 // Mapeo de iconos
 const ICON_MAP = {
@@ -706,7 +706,7 @@ function DatosVehiculoTab({ formData, updateFormData, errors, masterOptions }: a
               <details className="mt-2">
                 <summary className="cursor-pointer">Ver destinos:</summary>
                 <div className="mt-1 max-h-20 overflow-y-auto">
-                  {destinoOptions.slice(0, 3).map(d => (
+                  {destinoOptions.slice(0, 3).map((d: SelectOption) => (
                     <div key={d.id}>ID: {d.id}, Nombre: {d.name}</div>
                   ))}
                 </div>

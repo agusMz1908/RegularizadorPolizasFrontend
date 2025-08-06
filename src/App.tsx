@@ -14,7 +14,7 @@ import CompanySectionSelector from './components/wizard/CompanySectionSelector';
 import DocumentScanner from './components/wizard/DocumentScanner';
 
 // 🚀 CAMBIO IMPORTANTE: PolicyMappingForm → IntegratedPolicyForm (nuestro formulario mejorado)
-import IntegratedPolicyForm from './components/wizard/PolicyFormTabs';
+import IntegratedPolicyForm from './components/wizard/IntegratedPolicyForm';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -28,12 +28,40 @@ import {
 } from '@/components/enhanced/AdavancedAnimation';
 
 import type { OperationType } from './components/wizard/OperationSelector';
-import type { ClientDto } from './types/cliente';
-import type { CompanyDto, SeccionDto } from './types/maestros';
+import type { PolicyFormData } from './types/policyForm';
 import type { AzureProcessResponse } from './types/azureDocumentResult';
-import type { PolicyFormData } from './types/policyForm'; // ← Cambiar import si es necesario
 import { apiService } from './services/apiService';
 import './App.css';
+
+// ✅ AGREGAR TIPOS FALTANTES LOCALMENTE
+interface ClientDto {
+  id: number;
+  clinom: string;
+  cliced: string;
+  clidir: string;
+  clidircob?: string;
+  cliemail?: string;
+  clitelcel?: string;
+  clidptnom?: string;
+  clilocnom?: string;
+  activo: boolean;
+}
+
+interface CompanyDto {
+  id: number;
+  comnom: string;
+  comalias: string;
+  nombre?: string;
+  alias?: string;
+  activo: boolean;
+}
+
+interface SeccionDto {
+  id: number;
+  seccion: string;
+  nombre?: string;
+  activo: boolean;
+}
 
 // Query Client con configuración optimizada
 const queryClient = new QueryClient({

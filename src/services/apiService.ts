@@ -1,17 +1,48 @@
-// src/services/apiService.ts - Servicio API actualizado para el nuevo formulario
-
 import type { LoginRequest, LoginResponse } from '@/types/auth';
-import type { ClientDto } from '../types/cliente';
-import type { CompanyDto, SeccionDto } from '@/types/maestros';
-import type { VelneoMasterDataOptions, VelneoPolizaRequest } from '../types/velneo';
-import type { MasterDataResponse } from '../types/masterData';
+import type { MasterDataOptionsDto } from '../types/masterData';
 import { API_CONFIG } from '../constants/velneoDefault';
 
-/**
- * 🌐 SERVICIO API UNIFICADO
- * Maneja todas las comunicaciones con el backend de forma consistente
- * Actualizado para mantener compatibilidad con el sistema existente
- */
+// ✅ AGREGAR TIPOS FALTANTES
+interface CompanyDto {
+  id: number;
+  comnom: string;
+  comalias: string;
+  nombre?: string;
+  alias?: string;
+  activo: boolean;
+}
+
+interface SeccionDto {
+  id: number;
+  seccion: string;
+  nombre?: string;
+  activo: boolean;
+}
+
+interface ClientDto {
+  id: number;
+  clinom: string;
+  cliced: string;
+  clidir: string;
+  clidircob?: string;
+  cliemail?: string;
+  clitelcel?: string;
+  clidptnom?: string;
+  clilocnom?: string;
+  activo: boolean;
+}
+
+interface VelneoPolizaRequest {
+  // Campos principales
+  clinom: string;
+  conpol: string;
+  com_alias: string;
+  seccionId: number;
+  
+  // Otros campos que necesite tu backend
+  [key: string]: any;
+}
+
 class ApiService {
   private baseUrl: string;
   private token: string | null = null;
@@ -37,6 +68,11 @@ class ApiService {
       return localStorage.getItem('authToken') || null;
     }
     return null;
+  }
+
+  // ✅ AGREGAR MÉTODO FALTANTE
+  private getAuthToken(): string | null {
+    return this.token || this.getStoredToken();
   }
 
   /**
@@ -198,58 +234,96 @@ class ApiService {
    * 📊 CORREGIDO: Obtener opciones de maestros para el formulario 
    * Endpoint principal para cargar todos los selects del nuevo formulario
    */
-  async getMasterDataOptions(): Promise<VelneoMasterDataOptions> {
+  async getMasterDataOptions(): Promise<MasterDataOptionsDto> {
     try {
-      console.log('📊 Obteniendo opciones de maestros...');
-      console.log('🔗 URL completa:', `${this.baseUrl}/Velneo/mapping-options`);
+      console.log('🔄 [DEBUG] Cargando opciones de maestros...');
+      console.log('🌐 [DEBUG] Base URL:', this.baseUrl);
+      console.log('🔑 [DEBUG] Auth token exists:', !!this.getAuthToken());
       
-      // ✅ CORREGIDO: Usar el endpoint correcto con mayúscula
-      const response = await this.request<any>(
-        '/Velneo/mapping-options',
-        { method: 'GET' }
-      );
-
-      console.log('📋 Respuesta cruda del servidor:', response);
-
-      // ✅ CORREGIDO: Manejar la respuesta directa sin wrapper .success/.data
-      // Según tu VelneoController, devuelve directamente el objeto MasterDataOptionsDto
-      if (!response) {
-        throw new Error('Respuesta vacía del servidor');
-      }
-
-      console.log('✅ Opciones de maestros cargadas exitosamente', {
-        categorias: response.Categorias?.length || 0,
-        destinos: response.Destinos?.length || 0,
-        calidades: response.Calidades?.length || 0,
-        combustibles: response.Combustibles?.length || 0,
-        monedas: response.Monedas?.length || 0,
-        estadosPoliza: response.EstadosPoliza?.length || 0,
-        tiposTramite: response.TiposTramite?.length || 0
+      const url = `${this.baseUrl}/velneo/mapping-options`;
+      console.log('📡 [DEBUG] Full URL:', url);
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          // Solo incluir auth si existe
+          ...(this.getAuthToken() && {
+            'Authorization': `Bearer ${this.getAuthToken()}`
+          })
+        }
       });
 
-      return response;
-    } catch (error) {
-      console.error('❌ Error cargando opciones de maestros:', error);
+      console.log('📊 [DEBUG] Response status:', response.status);
+      console.log('📊 [DEBUG] Response ok:', response.ok);
+      console.log('📊 [DEBUG] Content-Type:', response.headers.get('content-type'));
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ [DEBUG] Error response:', errorText);
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const rawData = await response.json();
+      console.log('📦 [DEBUG] Raw response type:', typeof rawData);
+      console.log('📦 [DEBUG] Raw response keys:', Object.keys(rawData));
+
+      // ✅ VERIFICAR ESTRUCTURA DE RESPUESTA
+      let data: MasterDataOptionsDto;
       
-      // Mejorar el mensaje de error
-      let errorMessage = 'Error desconocido cargando maestros';
-      if (error instanceof Error) {
-        if (error.message.includes('401')) {
-          errorMessage = 'No autorizado. Por favor, inicie sesión nuevamente.';
-        } else if (error.message.includes('403')) {
-          errorMessage = 'No tiene permisos para acceder a los maestros.';
-        } else if (error.message.includes('404')) {
-          errorMessage = 'Endpoint de maestros no encontrado. Verifique la configuración.';
-        } else if (error.message.includes('500')) {
-          errorMessage = 'Error interno del servidor al cargar maestros.';
-        } else if (error.message.includes('timeout')) {
-          errorMessage = 'Timeout cargando maestros. Verifique su conexión.';
-        } else {
-          errorMessage = error.message;
-        }
+      if (rawData.success && rawData.data) {
+        // Formato: { success: true, data: {...} }
+        data = rawData.data;
+        console.log('📦 [DEBUG] Using wrapped response format');
+      } else if (rawData.Categorias && rawData.Destinos) {
+        // Formato directo: { Categorias: [...], Destinos: [...] }
+        data = rawData;
+        console.log('📦 [DEBUG] Using direct response format');
+      } else {
+        console.error('❌ [DEBUG] Unrecognized response structure:', rawData);
+        throw new Error('Estructura de respuesta no válida del servidor');
+      }
+
+      // ✅ VERIFICAR DATOS
+      const summary = {
+        categorias: data.Categorias?.length || 0,
+        destinos: data.Destinos?.length || 0,
+        calidades: data.Calidades?.length || 0,
+        combustibles: data.Combustibles?.length || 0,
+        monedas: data.Monedas?.length || 0,
+        estadosPoliza: data.EstadosPoliza?.length || 0
+      };
+      
+      console.log('📊 [DEBUG] Data summary:', summary);
+
+      if (summary.categorias === 0 && summary.destinos === 0) {
+        throw new Error('El servidor devolvió datos vacíos para todos los maestros');
+      }
+
+      // ✅ LOG DE EJEMPLOS
+      console.log('🔍 [DEBUG] Sample data:', {
+        firstCategoria: data.Categorias?.[0],
+        firstDestino: data.Destinos?.[0],
+        firstCombustible: data.Combustibles?.[0],
+        firstMoneda: data.Monedas?.[0]
+      });
+
+      console.log('✅ [DEBUG] Master data loaded successfully!');
+      return data;
+      
+    } catch (error) {
+      console.error('❌ [DEBUG] Complete error in getMasterDataOptions:', error);
+      
+      if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
+        throw new Error('Error de conectividad. Verifica que el backend esté ejecutándose en el puerto correcto.');
       }
       
-      throw new Error(errorMessage);
+      if (error instanceof SyntaxError && error.message.includes('JSON')) {
+        throw new Error('El servidor devolvió HTML en lugar de JSON. Posible problema de autenticación o configuración.');
+      }
+      
+      throw error;
     }
   }
 
@@ -615,10 +689,10 @@ export const apiService = new ApiService();
  */
 export const MasterDataApi = {
   getCategorias: () => apiService.getCategorias(),
-  getDestinos: () => apiService.getDestinos(),       // ✅ CORREGIDO
-  getCalidades: () => apiService.getCalidades(),     // ✅ CORREGIDO
+  getDestinos: () => apiService.getDestinos(),
+  getCalidades: () => apiService.getCalidades(),
   getCombustibles: () => apiService.getCombustibles(),
-  getMonedas: () => apiService.getMonedas(),         // ✅ CORREGIDO
+  getMonedas: () => apiService.getMonedas(),
   // PRINCIPAL: Para el formulario
   getMasterDataOptions: () => apiService.getMasterDataOptions()
 };

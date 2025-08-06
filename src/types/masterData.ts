@@ -1,24 +1,11 @@
-export interface MasterDataResponse {
-  success: boolean;
-  data: VelneoMasterDataOptions;
-  timestamp: string;
-  source: string;
-}
-
-/**
- * 📊 OPCIONES DE MAESTROS DESDE VELNEO
- */
-export interface VelneoMasterDataOptions {
-  // Maestros con IDs numéricos
+export interface MasterDataOptionsDto {
   Categorias: CategoriaDto[];
   Destinos: DestinoDto[];
   Calidades: CalidadDto[];
+  Combustibles: CombustibleDto[];
   Monedas: MonedaDto[];
   
-  // Maestros con IDs string (COMBUSTIBLE ES ESPECIAL)
-  Combustibles: CombustibleDto[];
-  
-  // Opciones de texto plano (no vienen de BD)
+  // Arrays de string (texto plano)
   EstadosPoliza: string[];
   TiposTramite: string[];
   EstadosBasicos: string[];
@@ -26,34 +13,42 @@ export interface VelneoMasterDataOptions {
   FormasPago: string[];
 }
 
-// ===== MAESTROS INDIVIDUALES =====
+// ===== MAESTROS INDIVIDUALES (COINCIDIR CON BACKEND) =====
 
 /**
- * 🚗 CATEGORÍA (ID numérico)
+ * 🚗 CATEGORÍA - Basado en tu backend real
  */
 export interface CategoriaDto {
   id: number;
-  catdsc: string;              // Descripción/nombre
+  catdsc: string;              // ← Campo exacto del backend
 }
 
 /**
- * 🎯 DESTINO (ID numérico)
+ * 🎯 DESTINO - Basado en tu backend real  
  */
 export interface DestinoDto {
   id: number;
-  desnom: string;              // Nombre del destino
+  desnom: string;              // ← Campo exacto del backend
 }
 
 /**
- * ⭐ CALIDAD (ID numérico)
+ * ⭐ CALIDAD - Basado en tu backend real
  */
 export interface CalidadDto {
   id: number;
-  caldsc: string;              // Descripción
+  caldsc: string;              // ← Campo exacto del backend
 }
 
 /**
- * 💰 MONEDA (ID numérico)
+ * ⛽ COMBUSTIBLE - ESPECIAL: ID es STRING
+ */
+export interface CombustibleDto {
+  id: string;                  // "GAS", "DIS", "ELE", "HYB" 
+  name: string;                // "GASOLINA", "DIESEL", "ELECTRICO", "HIBRIDO"
+}
+
+/**
+ * 💰 MONEDA - Basado en tu backend real
  */
 export interface MonedaDto {
   id: number;
@@ -62,16 +57,7 @@ export interface MonedaDto {
   simbolo?: string;            // "$U", "$", "€"
 }
 
-/**
- * ⛽ COMBUSTIBLE (ID string - ESPECIAL)
- * Basado en tu JSON real: {"id": "GAS", "name": "GASOLINA"}
- */
-export interface CombustibleDto {
-  id: string;                  // "DIS", "ELE", "GAS", "HYB"
-  name: string;                // "DISEL", "ELECTRICOS", "GASOLINA", "HYBRIDO"
-}
-
-// ===== TIPOS LEGACY (para compatibilidad con el código existente) =====
+// ===== OTROS TIPOS DEL SISTEMA =====
 
 /**
  * 🏢 COMPAÑÍA
@@ -80,8 +66,8 @@ export interface CompanyDto {
   id: number;
   comnom: string;              // Nombre completo
   comalias: string;            // Alias (BSE)
-  nombre: string;              // Alias para compatibilidad
-  alias: string;               // Alias para compatibilidad
+  nombre: string;              // Para compatibilidad
+  alias: string;               // Para compatibilidad
   activo: boolean;
 }
 
@@ -96,7 +82,7 @@ export interface SeccionDto {
 }
 
 /**
- * 👤 CLIENTE (simplificado para selects)
+ * 👤 CLIENTE (simplificado)
  */
 export interface ClienteDto {
   id: number;
@@ -111,183 +97,88 @@ export interface ClienteDto {
   activo: boolean;
 }
 
-// ===== MAPEO Y BÚSQUEDA =====
+// ===== TIPOS PARA COMPONENTES UI =====
 
 /**
- * 🔍 RESULTADO DE BÚSQUEDA EN MAESTROS
+ * 🎨 OPCIÓN PARA SELECT COMPONENTS
  */
-export interface MasterSearchResult<T> {
-  exact: T | null;             // Coincidencia exacta
-  fuzzy: T[];                  // Coincidencias parciales
-  confidence: number;          // 0-100
-  suggestions: string[];       // Sugerencias de texto
-}
-
-/**
- * 🎯 MAPEO INTELIGENTE DE TEXTO A MAESTRO
- */
-export interface TextToMasterMapping {
-  // Mapeo de combustibles (más común)
-  combustibles: Record<string, string>; // "DIESEL" -> "DIS"
-  
-  // Mapeo de monedas
-  monedas: Record<string, string>; // "UYU" -> código interno
-  
-  // Mapeo de destinos comunes
-  destinos: Record<string, string>; // "PARTICULAR" -> ID
-  
-  // Mapeo de calidades comunes
-  calidades: Record<string, string>; // "PROPIETARIO" -> ID
-}
-
-/**
- * ⚙️ CONFIGURACIÓN DE MAESTROS
- */
-export interface MasterConfig {
-  // URLs de endpoints
-  endpoints: {
-    mappingOptions: string;
-    categorias: string;
-    destinos: string;
-    calidades: string;
-    combustibles: string;
-    monedas: string;
-  };
-  
-  // Cache settings
-  cache: {
-    ttl: number;               // Time to live en minutos
-    maxSize: number;           // Máximo número de items en cache
-  };
-  
-  // Configuración de búsqueda fuzzy
-  search: {
-    threshold: number;         // Umbral de similitud 0-1
-    maxResults: number;        // Máximo resultados fuzzy
-  };
-  
-  // Valores por defecto
-  defaults: {
-    combustible: string;       // "GAS"
-    destino: number;           // 2 (PARTICULAR)
-    calidad: number;           // 2 (PROPIETARIO)
-    moneda: number;            // 1 (PESO URUGUAYO)
-    categoria: number;         // 0
-  };
-}
-
-/**
- * 📦 ESTADO DEL STORE DE MAESTROS
- */
-export interface MasterDataState {
-  // Datos
-  options: VelneoMasterDataOptions | null;
-  
-  // Estado de carga
-  loading: boolean;
-  error: string | null;
-  lastUpdated: Date | null;
-  
-  // Cache individual por tipo
-  categorias: CategoriaDto[];
-  destinos: DestinoDto[];
-  calidades: CalidadDto[];
-  combustibles: CombustibleDto[];
-  monedas: MonedaDto[];
-  
-  // Mapeo precalculado
-  mappingTables: TextToMasterMapping;
-}
-
-/**
- * 🔄 ACCIONES DEL STORE DE MAESTROS
- */
-export interface MasterDataActions {
-  // Cargar datos
-  loadMasterData: () => Promise<void>;
-  refreshMasterData: () => Promise<void>;
-  
-  // Búsqueda
-  searchCombustible: (text: string) => MasterSearchResult<CombustibleDto>;
-  searchDestino: (text: string) => MasterSearchResult<DestinoDto>;
-  searchCalidad: (text: string) => MasterSearchResult<CalidadDto>;
-  searchCategoria: (text: string) => MasterSearchResult<CategoriaDto>;
-  searchMoneda: (text: string) => MasterSearchResult<MonedaDto>;
-  
-  // Mapeo directo
-  mapCombustibleTextoAId: (text: string) => string;
-  mapDestinoTextoAId: (text: string) => number;
-  mapCalidadTextoAId: (text: string) => number;
-  mapCategoriaTextoAId: (text: string) => number;
-  mapMonedaTextoAId: (text: string) => number;
-  
-  // Obtener por ID
-  getCombustibleById: (id: string) => CombustibleDto | null;
-  getDestinoById: (id: number) => DestinoDto | null;
-  getCalidadById: (id: number) => CalidadDto | null;
-  getCategoriaById: (id: number) => CategoriaDto | null;
-  getMonedaById: (id: number) => MonedaDto | null;
-}
-
-/**
- * 🎨 OPCIONES PARA COMPONENTES SELECT
- */
-export interface SelectMasterOption {
+export interface SelectOption {
   id: string | number;
   name: string;
   description?: string;
-  group?: string;              // Para agrupar opciones
   disabled?: boolean;
 }
 
 /**
- * 📋 CONFIGURACIÓN DE CAMPO CON MAESTRO
+ * 🔄 RESPUESTA DE API WRAPPER (si tu API envuelve respuestas)
  */
-export interface MasterFieldConfig {
-  type: 'categoria' | 'destino' | 'calidad' | 'combustible' | 'moneda';
-  required: boolean;
+export interface MasterDataResponse {
+  success: boolean;
+  data: MasterDataOptionsDto;
+  timestamp?: string;
+  message?: string;
+}
+
+// ===== UTILITARIOS Y HELPERS =====
+
+/**
+ * 🔍 RESULTADO DE BÚSQUEDA
+ */
+export interface MasterSearchResult<T> {
+  exact: T | null;
+  fuzzy: T[];
+  confidence: number;
+}
+
+/**
+ * 🎯 MAPEO DE TEXTO A MAESTRO (para Azure Document Intelligence)
+ */
+export interface TextToMasterMapping {
+  combustibles: Record<string, string>;  // "DIESEL" -> "DIS"
+  destinos: Record<string, number>;      // "PARTICULAR" -> 2
+  calidades: Record<string, number>;     // "PROPIETARIO" -> 1
+  categorias: Record<string, number>;    // "AUTO" -> 1
+}
+
+// ===== VALIDACIÓN Y BUSINESS RULES =====
+
+/**
+ * ✅ VALIDACIÓN DE MAESTROS
+ */
+export interface MasterValidation {
+  isRequired: boolean;
   allowEmpty: boolean;
   defaultValue?: string | number;
-  placeholder?: string;
-  
-  // Para búsqueda automática
-  autoMapFromAzure?: string;   // Campo de Azure a mapear
-  fallbackValue?: string | number;
-  
-  // Para validación
   validator?: (value: any) => string | null;
 }
 
 /**
- * 🔧 UTILITARIOS
+ * 📋 CONFIGURACIÓN DE CAMPO DE MAESTRO
  */
-export interface MasterUtils {
-  // Formateo
-  formatCombustibleName: (combustible: CombustibleDto) => string;
-  formatMonedaDisplay: (moneda: MonedaDto) => string;
-  
-  // Validación
-  isValidCombustibleId: (id: string) => boolean;
-  isValidMasterNumericId: (id: number) => boolean;
-  
-  // Conversión
-  maestroToSelectOption: <T extends { id: any; name?: string }>(maestro: T, nameField: string) => SelectMasterOption;
-  maestrosToSelectOptions: <T extends { id: any }>(maestros: T[], nameField: string) => SelectMasterOption[];
+export interface MasterFieldConfig {
+  type: 'categoria' | 'destino' | 'calidad' | 'combustible' | 'moneda';
+  validation: MasterValidation;
+  placeholder?: string;
+  helpText?: string;
 }
 
-/**
- * ⚡ PERFORMANCE Y CACHE
- */
-export interface MasterCacheEntry<T> {
-  data: T;
-  timestamp: number;
-  ttl: number;
-  hits: number;
-}
+// ===== ALIASES PARA COMPATIBILIDAD =====
+// Usa estos si necesitas mantener código legacy temporalmente
 
-export interface MasterCache {
-  get: <T>(key: string) => MasterCacheEntry<T> | null;
-  set: <T>(key: string, data: T, ttl?: number) => void;
-  clear: () => void;
-  cleanup: () => void; // Limpia entries expirados
-}
+/** @deprecated Usar MasterDataOptionsDto */
+export type VelneoMasterDataOptions = MasterDataOptionsDto;
+
+/** @deprecated Usar CategoriaDto */
+export type CategoriaVelneoDto = CategoriaDto;
+
+/** @deprecated Usar DestinoDto */
+export type DestinoVelneoDto = DestinoDto;
+
+/** @deprecated Usar CalidadDto */
+export type CalidadVelneoDto = CalidadDto;
+
+/** @deprecated Usar CombustibleDto */
+export type CombustibleVelneoDto = CombustibleDto;
+
+/** @deprecated Usar MonedaDto */
+export type MonedaVelneoDto = MonedaDto;

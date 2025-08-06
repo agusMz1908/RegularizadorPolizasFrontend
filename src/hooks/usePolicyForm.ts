@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { PolicyFormData, FormTabId, FormValidationResult } from '../types/policyForm';
-import type { VelneoMasterDataOptions } from '../types/velneo';
 import type { AzureProcessResponse } from '../types/azureDocumentResult';
 import { VelneoMappingService } from '../services/velneoMapping';
 import { apiService, MasterDataApi } from '../services/apiService';
+import type { MasterDataOptionsDto } from '../types/masterData';
 import { 
   EMPTY_POLICY_FORM, 
   ALL_REQUIRED_FIELDS,
@@ -52,7 +52,7 @@ export const usePolicyForm = ({
   const [isDirty, setIsDirty] = useState(false);
   
   // ===== ESTADOS DE MAESTROS =====
-  const [masterOptions, setMasterOptions] = useState<VelneoMasterDataOptions | null>(null);
+  const [masterOptions, setMasterOptions] = useState<MasterDataOptionsDto | null>(null);  
   const [loadingMasters, setLoadingMasters] = useState(true);
   const [masterError, setMasterError] = useState<string | null>(null);
 

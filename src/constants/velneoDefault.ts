@@ -1,7 +1,37 @@
-// src/constants/velneoDefaults.ts - Valores por defecto y constantes
-
 import type { PolicyFormData } from '../types/policyForm';
-import type { VelneoPolizaRequest } from '../types/velneo';
+
+interface VelneoPolizaRequest {
+  // Campos principales
+  id: number;
+  clinom: string;
+  conpol: string;
+  com_alias: string;
+  seccionId: number;
+  ramo: string;
+  procesadoConIA: boolean;
+  conend: string;
+  
+  // Campos numéricos
+  flocod: number;
+  conclaaut: number;
+  condedaut: number;
+  conresciv: number;
+  conbonnsin: number;
+  conbonant: number;
+  concaraut: number;
+  concapaut: number;
+  
+  // Campos string
+  conpadaut: string;
+  forpagvid: string;
+  concesnom: string;
+  concestel: string;
+  conges: string;
+  plan: string;
+  
+  // Otros campos que pueda necesitar
+  [key: string]: any;
+}
 
 /**
  * 🎯 VALORES POR DEFECTO PARA BUSINESS RULES AUTOMÁTICAS
