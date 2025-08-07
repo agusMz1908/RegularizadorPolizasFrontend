@@ -76,116 +76,173 @@ export class VelneoMappingService {
    * 🔄 MÉTODO PRINCIPAL: Mapear datos del formulario al formato correcto del backend
    * ✅ CORREGIDO: Ahora devuelve PolizaCreateRequest con todos los campos obligatorios
    */
-  static mapFormDataToVelneoRequest(
-    formData: PolicyFormData,
-    selectedClient: any,
-    selectedCompany: any,
-    selectedSection: any,
-    masterOptions?: MasterDataOptionsDto
-  ): PolizaCreateRequest {
-    
-    console.log('🔄 [VelneoMappingService] Iniciando mapeo de formulario a request Velneo');
-    console.log('📋 [VelneoMappingService] Datos de entrada:', {
-      cliente: selectedClient?.clinom || selectedClient?.nombre,
-      compania: selectedCompany?.comalias || selectedCompany?.alias,
-      seccion: selectedSection?.seccion,
-      poliza: formData.poliza,
-      premio: formData.premio,
-      masterOptions: masterOptions ? {
-        combustibles: masterOptions.combustibles?.length || 0,
-        categorias: masterOptions.categorias?.length || 0,
-        destinos: masterOptions.destinos?.length || 0,
-        calidades: masterOptions.calidades?.length || 0
-      } : 'NO_DISPONIBLE'
-    });
+static mapFormDataToVelneoRequest(
+  formData: PolicyFormData,
+  selectedClient: any,
+  selectedCompany: any,
+  selectedSection: any,
+  masterOptions?: MasterDataOptionsDto,
+  scannedData?: any  // 🆕 Agregar parámetro opcional para datos del escaneo
+): PolizaCreateRequest {
 
-    // ✅ CONSTRUIR REQUEST COMPATIBLE CON PolizaCreateRequest.cs
-    const request: PolizaCreateRequest = {
-      // ===== CAMPOS OBLIGATORIOS DEL BACKEND =====
-      Comcod: selectedCompany?.id || selectedCompany?.comcod || VELNEO_DEFAULTS.COMPANIA_BSE,
-      Seccod: selectedSection?.id || selectedSection?.seccod || VELNEO_DEFAULTS.SECCION_AUTOMOVILES,
-      Clinro: selectedClient?.id || selectedClient?.clinro || 0,
-      Conpol: formData.poliza || '',
-      Confchdes: this.formatDateForBackend(formData.desde),
-      Confchhas: this.formatDateForBackend(formData.hasta),
-      Conpremio: Number(formData.premio) || 0,
-      Asegurado: selectedClient?.clinom || selectedClient?.nombre || formData.asegurado || '',
-
-      // ===== DATOS BÁSICOS =====
-      Clinom: selectedClient?.clinom || selectedClient?.nombre || formData.asegurado || '',
-      Concar: formData.certificado || formData.poliza || '',
-      Conend: '0',
-      Convig: this.mapEstadoPolizaParaBackend(formData.estadoPoliza),
-      Contra: this.mapTramiteParaBackend(formData.tramite),
-      Congesti: this.mapEstadoTramiteParaBackend(formData.estadoTramite),
-      Congeses: '1',
-
-      // ===== DATOS DEL CLIENTE =====
-      Condom: formData.dirCobro || formData.domicilio || selectedClient?.clidir || '',
-
-      // ===== DATOS DEL VEHÍCULO =====
-      Marca: this.extractMarcaFromMarcaModelo(formData.marcaModelo),
-      Modelo: this.extractModeloFromMarcaModelo(formData.marcaModelo),
-      Conmaraut: formData.marcaModelo || '',
-      Anio: formData.anio ? Number(formData.anio) : undefined,
-      Conanioaut: formData.anio ? Number(formData.anio) : undefined,
-      Matricula: formData.matricula || '',
-      Conmataut: formData.matricula || '',
-      Motor: formData.motor || '',
-      Conmotor: formData.motor || '',
-      Chasis: formData.chasis || '',
-      Conchasis: formData.chasis || '',
-
-      // ===== MAESTROS DEL VEHÍCULO - CORREGIDO PARA BACKEND REAL =====
-      Combustibles: this.resolveMaestroId(formData.combustibleId, 'combustible'), // ✅ STRING para combustible
-      CategoriaId: this.resolveMaestroId(formData.categoriaId, 'categoria'),       // ✅ NUMBER para categoría
-      DestinoId: this.resolveMaestroId(formData.destinoId, 'destino'),             // ✅ NUMBER para destino
-      CalidadId: this.resolveMaestroId(formData.calidadId, 'calidad'),             // ✅ NUMBER para calidad
-      
-      // ===== NOMBRES PARA LOGGING/DEBUG (opcionales) =====
-      Categoria: this.resolveCategoriaNombre(
-        this.resolveMaestroId(formData.categoriaId, 'categoria'),
-        masterOptions?.categorias
-      ),
-      Destino: this.resolveDestinoNombre(
-        this.resolveMaestroId(formData.destinoId, 'destino'),
-        masterOptions?.destinos
-      ),
-      Calidad: this.resolveCalidadNombre(
-        this.resolveMaestroId(formData.calidadId, 'calidad'),
-        masterOptions?.calidades
-      ),
-
-      // ===== DATOS FINANCIEROS =====
-      Contot: Number(formData.total) || Number(formData.premio) || 0,
-      CantidadCuotas: Number(formData.cuotas) || 1,
-      Concuo: Number(formData.cuotas) || 1,
-      Moneda: this.mapMonedaIdToString(formData.monedaId),
-      Moncod: Number(formData.monedaId) || VELNEO_DEFAULTS.MONEDA_DEFAULT,
-      FormaPago: formData.formaPago || 'Efectivo',
-      Consta: this.mapFormaPagoParaBackend(formData.formaPago),
-
-      // ===== OTROS CAMPOS =====
-      Ramo: 'AUTOMOVILES',
-      Cobertura: 'Responsabilidad Civil',
-      Observaciones: formData.observaciones || '',
-      ProcesadoConIA: true
-    };
-
-    // ✅ LIMPIAR VALORES UNDEFINED
-    const cleanRequest = this.cleanUndefinedValues(request);
-
-    console.log('✅ [VelneoMappingService] Mapeo completado:', {
-      camposMapeados: Object.keys(cleanRequest).length,
-      cliente: cleanRequest.Clinom,
-      poliza: cleanRequest.Conpol,
-      premio: cleanRequest.Conpremio,
-      cuotas: cleanRequest.CantidadCuotas,
-      vehiculo: `${cleanRequest.Marca} ${cleanRequest.Modelo} ${cleanRequest.Anio}`.trim()
-    });
-
-    return cleanRequest;
+  // 🆕 Construir las observaciones con toda la información
+  let observacionesCompletas = formData.observaciones || '';
+  
+  // Agregar información de procesamiento con IA si existe
+  if (scannedData) {
+    observacionesCompletas += '\n\n========== PROCESADO CON INTELIGENCIA ARTIFICIAL ==========';
+    observacionesCompletas += `\nArchivo: ${scannedData.archivo || 'Documento PDF'}`;
+    observacionesCompletas += `\nFecha procesamiento: ${new Date().toLocaleDateString('es-UY')} ${new Date().toLocaleTimeString('es-UY')}`;
+    observacionesCompletas += `\nPrecisión del escaneo: ${Math.round(scannedData.porcentajeCompletitud || 0)}%`;
+    observacionesCompletas += `\nEstado: ${scannedData.estado || 'PROCESADO'}`;
   }
+
+  // Agregar desglose de cuotas si hay más de una
+  if (formData.cuotas > 1) {
+    observacionesCompletas += '\n\n========== PLAN DE PAGOS ==========';
+    observacionesCompletas += `\nForma de pago: ${formData.formaPago}`;
+    observacionesCompletas += `\nTotal de cuotas: ${formData.cuotas}`;
+    observacionesCompletas += `\nPremio: $${this.formatNumber(formData.premio)}`;
+    observacionesCompletas += `\nTotal a pagar: $${this.formatNumber(formData.total)}`;
+    observacionesCompletas += `\nValor por cuota: $${this.formatNumber(formData.valorCuota)}`;
+    
+    // Si tenemos el detalle de cuotas del escaneo
+    const cuotasDetalle = scannedData?.datosVelneo?.condicionesPago?.detalleCuotas?.cuotas;
+    
+    if (cuotasDetalle && cuotasDetalle.length > 0) {
+      observacionesCompletas += '\n\n--- CRONOGRAMA DE PAGOS ---';
+      
+      cuotasDetalle.forEach((cuota: any) => {
+        const fecha = this.formatDateForDisplay(cuota.fechaVencimiento);
+        const monto = this.formatNumber(cuota.monto);
+        observacionesCompletas += `\nCuota ${cuota.numero}: Vence ${fecha} - $${monto} - ${cuota.estado || 'PENDIENTE'}`;
+      });
+    } else {
+      // Si no hay detalle, generar un cronograma estimado
+      observacionesCompletas += '\n\n--- CRONOGRAMA ESTIMADO ---';
+      
+      for (let i = 0; i < formData.cuotas; i++) {
+        const fecha = this.calcularFechaVencimientoEstimada(i);
+        observacionesCompletas += `\nCuota ${i + 1}: Vence ${fecha} - $${this.formatNumber(formData.valorCuota)} - PENDIENTE`;
+      }
+    }
+  }
+
+  // Agregar información adicional
+  observacionesCompletas += '\n\n========== INFORMACIÓN ADICIONAL ==========';
+  observacionesCompletas += `\nOperación: ${formData.tramite || 'EMISIÓN'}`;
+  observacionesCompletas += `\nUsuario: ${formData.asignado || 'Sistema Automático'}`;
+  observacionesCompletas += `\nCliente: ${selectedClient?.clinom || formData.asegurado}`;
+  observacionesCompletas += `\nCompañía: ${selectedCompany?.comalias || 'BSE'}`;
+  observacionesCompletas += `\nSección: ${selectedSection?.seccion || 'AUTOMÓVILES'}`;
+
+  const request: PolizaCreateRequest = {
+    Comcod: selectedCompany?.id || selectedCompany?.comcod || VELNEO_DEFAULTS.COMPANIA_BSE,
+    Seccod: selectedSection?.id || selectedSection?.seccod || VELNEO_DEFAULTS.SECCION_AUTOMOVILES,
+    Clinro: selectedClient?.id || selectedClient?.clinro || 0,
+    Conpol: formData.poliza || '',
+    Confchdes: this.formatDateForBackend(formData.desde),
+    Confchhas: this.formatDateForBackend(formData.hasta),
+    Conpremio: Number(formData.premio) || 0,
+    Asegurado: selectedClient?.clinom || selectedClient?.nombre || formData.asegurado || '',
+
+    // ===== DATOS BÁSICOS =====
+    Clinom: selectedClient?.clinom || selectedClient?.nombre || formData.asegurado || '',
+    Concar: formData.certificado || formData.poliza || '',
+    Conend: '0',
+    Convig: this.mapEstadoPolizaParaBackend(formData.estadoPoliza),
+    Contra: this.mapTramiteParaBackend(formData.tramite),
+    Congesti: this.mapEstadoTramiteParaBackend(formData.estadoTramite),
+    Congeses: '1',
+
+    // ===== DATOS DEL CLIENTE =====
+    Condom: formData.dirCobro || formData.domicilio || selectedClient?.clidir || '',
+
+    // ===== DATOS DEL VEHÍCULO =====
+    Marca: this.extractMarcaFromMarcaModelo(formData.marcaModelo),
+    Modelo: this.extractModeloFromMarcaModelo(formData.marcaModelo),
+    Conmaraut: formData.marcaModelo || '',
+    Anio: formData.anio ? Number(formData.anio) : undefined,
+    Conanioaut: formData.anio ? Number(formData.anio) : undefined,
+    Matricula: formData.matricula || '',
+    Conmataut: formData.matricula || '',
+    Motor: formData.motor || '',
+    Conmotor: formData.motor || '',
+    Chasis: formData.chasis || '',
+    Conchasis: formData.chasis || '',
+
+    // ===== MAESTROS DEL VEHÍCULO =====
+    Combustibles: this.resolveMaestroId(formData.combustibleId, 'combustible'),
+    CategoriaId: this.resolveMaestroId(formData.categoriaId, 'categoria'),
+    DestinoId: this.resolveMaestroId(formData.destinoId, 'destino'),
+    CalidadId: this.resolveMaestroId(formData.calidadId, 'calidad'),
+    
+    // ===== NOMBRES PARA LOGGING/DEBUG =====
+    Categoria: this.resolveCategoriaNombre(
+      this.resolveMaestroId(formData.categoriaId, 'categoria'),
+      masterOptions?.categorias
+    ),
+    Destino: this.resolveDestinoNombre(
+      this.resolveMaestroId(formData.destinoId, 'destino'),
+      masterOptions?.destinos
+    ),
+    Calidad: this.resolveCalidadNombre(
+      this.resolveMaestroId(formData.calidadId, 'calidad'),
+      masterOptions?.calidades
+    ),
+
+    // ===== DATOS FINANCIEROS =====
+    Contot: Number(formData.total) || Number(formData.premio) || 0,
+    CantidadCuotas: Number(formData.cuotas) || 1,
+    Concuo: Number(formData.cuotas) || 1,
+    Moneda: this.mapMonedaIdToString(formData.monedaId),
+    Moncod: Number(formData.monedaId) || VELNEO_DEFAULTS.MONEDA_DEFAULT,
+    FormaPago: formData.formaPago || 'Efectivo',
+    Consta: this.mapFormaPagoParaBackend(formData.formaPago),
+
+    // ===== OTROS CAMPOS =====
+    Ramo: 'AUTOMOVILES',
+    Cobertura: 'Responsabilidad Civil',
+    Observaciones: observacionesCompletas,  // 🆕 Usar las observaciones formateadas
+    ProcesadoConIA: true
+  };
+
+  const cleanRequest = this.cleanUndefinedValues(request);
+  return cleanRequest;
+}
+
+// 🆕 Métodos auxiliares nuevos que necesitarás agregar:
+private static formatNumber(num: number): string {
+  return new Intl.NumberFormat('es-UY', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }).format(num || 0);
+}
+
+private static formatDateForDisplay(dateString: string): string {
+  if (!dateString) return 'Por definir';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('es-UY', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+  } catch {
+    return dateString;
+  }
+}
+
+private static calcularFechaVencimientoEstimada(indiceCuota: number): string {
+  const fecha = new Date();
+  fecha.setMonth(fecha.getMonth() + indiceCuota + 1);
+  fecha.setDate(5); // Día 5 de cada mes por defecto
+  return fecha.toLocaleDateString('es-UY', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric'
+  });
+}
 
   /**
    * ✅ MÉTODO CORREGIDO: Mapear datos de Azure a formulario con estructura real

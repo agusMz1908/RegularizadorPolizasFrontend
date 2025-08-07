@@ -187,10 +187,11 @@ class ApiService {
   // 🏢 MAESTROS
   // ==============================================
 
-  /**
-   * 📊 Obtener opciones de maestros para el formulario 
-   */
-async getMasterDataOptions(): Promise<MasterDataOptionsDto> {
+/**
+ * 📊 Obtener opciones de maestros para el formulario 
+ * @param companiaId - ID de la compañía para filtrar tarifas (opcional)
+ */
+async getMasterDataOptions(companiaId?: number): Promise<MasterDataOptionsDto> {
   try {
     console.log('🔄 [ApiService] Cargando opciones de maestros...');
     
@@ -198,30 +199,15 @@ async getMasterDataOptions(): Promise<MasterDataOptionsDto> {
       method: 'GET'
     });
 
-    console.log('🔍 [ApiService] Raw response structure:', {
-      hasSuccess: 'success' in response,
-      hasData: 'data' in response,
-      hasCategorias: 'categorias' in response,
-      hasDestinos: 'destinos' in response,
-      // ✅ TAMBIÉN VERIFICAR PASCALCASE PARA DEBUGGING
-      hasCategoriasUpper: 'Categorias' in response,
-      hasDestinosUpper: 'Destinos' in response,
-      topLevelKeys: Object.keys(response).slice(0, 10) // Primeras 10 keys para debugging
-    });
-
-    // ✅ VERIFICAR ESTRUCTURA DE RESPUESTA - AHORA CON CAMELCASE
     let data: MasterDataOptionsDto;
     
     if (response.success && response.data) {
-      // Formato wrapped: { success: true, data: {...} }
       data = response.data;
       console.log('📦 [ApiService] Using wrapped response format');
     } else if (response.categorias && response.destinos) {
-      // ✅ CORREGIDO: Formato directo camelCase: { categorias: [...], destinos: [...] }
       data = response;
       console.log('📦 [ApiService] Using direct camelCase response format');
     } else if (response.Categorias && response.Destinos) {
-      // ✅ FALLBACK: Si por alguna razón aún viene PascalCase
       data = response;
       console.log('📦 [ApiService] Using direct PascalCase response format (fallback)');
     } else {
@@ -232,32 +218,38 @@ async getMasterDataOptions(): Promise<MasterDataOptionsDto> {
       throw new Error('Estructura de respuesta no válida del servidor');
     }
 
-    // ✅ VERIFICAR DATOS - CORREGIDO PARA CAMELCASE
+    // 🆕 AGREGAR: Cargar tarifas para la compañía especificada
+    try {
+      const companyId = companiaId || 1; // Default a BSE si no se especifica
+      const tarifas = await this.getTarifas(companyId);
+      data.tarifas = tarifas;
+      console.log(`✅ [ApiService] ${tarifas.length} tarifas cargadas para compañía ID: ${companyId}`);
+    } catch (error) {
+      console.warn('⚠️ [ApiService] No se pudieron cargar tarifas:', error);
+      data.tarifas = [];
+    }
+
     const summary = {
-      // Intentar camelCase primero
-      categorias: data.categorias?.length || data.categorias?.length || 0,
-      destinos: data.destinos?.length || data.destinos?.length || 0,
-      calidades: data.calidades?.length || data.calidades?.length || 0,
-      combustibles: data.combustibles?.length || data.combustibles?.length || 0,
-      monedas: data.monedas?.length || data.monedas?.length || 0,
-      estadosPoliza: data.estadosPoliza?.length || data.estadosPoliza?.length || 0,
-      tiposTramite: data.tiposTramite?.length || data.tiposTramite?.length || 0,
-      formasPago: data.formasPago?.length || data.formasPago?.length || 0
+      categorias: data.categorias?.length || 0,
+      destinos: data.destinos?.length || 0,
+      calidades: data.calidades?.length || 0,
+      combustibles: data.combustibles?.length || 0,
+      monedas: data.monedas?.length || 0,
+      tarifas: data.tarifas?.length || 0, // 🆕 AGREGAR
+      estadosPoliza: data.estadosPoliza?.length || 0,
+      tiposTramite: data.tiposTramite?.length || 0,
+      formasPago: data.formasPago?.length || 0
     };
-    
+
     console.log('📊 [ApiService] Master data summary:', summary);
 
     if (summary.categorias === 0 && summary.destinos === 0) {
-      console.warn('⚠️ [ApiService] No master data found. Full response:', response);
       throw new Error('El servidor devolvió datos vacíos para todos los maestros');
     }
-
-    console.log('✅ [ApiService] Master data loaded successfully!');
+    
     return data;
     
   } catch (error) {
-    console.error('❌ [ApiService] Error in getMasterDataOptions:', error);
-    
     if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
       throw new Error('Error de conectividad. Verifica que el backend esté ejecutándose.');
     }
@@ -653,14 +645,14 @@ async getTarifaById(id: number): Promise<TarifaDto | null> {
 // Exportar instancia singleton
 export const apiService = new ApiService();
 
-// ✅ HELPERS CORREGIDOS CON EL TIPO CORRECTO
 export const MasterDataApi = {
-  getCategorias: () => apiService.getCategorias(),
-  getDestinos: () => apiService.getDestinos(),
-  getCalidades: () => apiService.getCalidades(),
-  getCombustibles: () => apiService.getCombustibles(),
-  getMonedas: () => apiService.getMonedas(),
-  getMasterDataOptions: () => apiService.getMasterDataOptions()
+  getCategorias: () => apiService.getCategorias(), 
+  getDestinos: () => apiService.getDestinos(),   
+  getCalidades: () => apiService.getCalidades(),  
+  getCombustibles: () => apiService.getCombustibles(), 
+  getMonedas: () => apiService.getMonedas(),     
+  getTarifas: (companiaId?: number) => apiService.getTarifas(companiaId || 1), 
+  getMasterDataOptions: (companiaId?: number) => apiService.getMasterDataOptions(companiaId) 
 };
 
 export const ClienteApi = {

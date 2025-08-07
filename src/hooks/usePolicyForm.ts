@@ -1,10 +1,10 @@
-// src/hooks/usePolicyForm.ts - VERSIÓN CON IMPORTS CORRECTOS
+// src/hooks/usePolicyForm.ts - VERSIÓN OPTIMIZADA
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { PolicyFormData } from '../types/poliza';
 import type { FormTabId } from '@/types/policyForm';
 import type { MasterDataOptionsDto } from '@/types/masterData';
-import { EMPTY_POLICY_FORM, VELNEO_DEFAULTS, mapFormDataToVelneoRequest } from '../constants/velneoDefault';
+import { EMPTY_POLICY_FORM, VELNEO_DEFAULTS } from '../constants/velneoDefault';
 import { MasterDataApi, PolizaApi } from '../services/apiService';  
 
 // ===== TIPOS =====
@@ -52,60 +52,20 @@ export function usePolicyForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeTab, setActiveTab] = useState<FormTabId>('datos_basicos');
   
-  // ===== EFECTOS =====
+  // ===== REFS PARA OPTIMIZACIÓN =====
+  const hasMappedData = useRef(false);
+  const scannedDataRef = useRef(scannedData);
+  const masterDataRef = useRef(masterData);
   
-  // Cargar datos maestros al montar
+  // Actualizar las refs cuando cambien los valores
   useEffect(() => {
-    loadMasterData();
-  }, []);
+    scannedDataRef.current = scannedData;
+  }, [scannedData]);
 
-  // Mapear datos del escaneo cuando estén disponibles
   useEffect(() => {
-    if (scannedData && masterData) {
-      mapScannedData();
-    }
-  }, [scannedData, masterData]);
-
-  // Actualizar datos del cliente
-  useEffect(() => {
-    if (selectedClient) {
-      setFormData(prev => ({
-        ...prev,
-        asegurado: selectedClient.clinom || selectedClient.nombre || '',
-        tomador: selectedClient.clinom || selectedClient.nombre || '',
-        domicilio: selectedClient.clidir || selectedClient.direccion || '',
-        dirCobro: selectedClient.clidircob || '',
-        clinro: selectedClient.clinro || selectedClient.id
-      }));
-    }
-  }, [selectedClient]);
-
-  // Actualizar datos de compañía
-  useEffect(() => {
-    if (selectedCompany) {
-      setFormData(prev => ({
-        ...prev,
-        compania: selectedCompany.comcod || selectedCompany.id || VELNEO_DEFAULTS.COMPANIA_BSE,
-        comalias: selectedCompany.comalias || selectedCompany.nombre || 'BSE'
-      }));
-    }
-  }, [selectedCompany]);
-
-  // Actualizar datos de sección
-  useEffect(() => {
-    if (selectedSection) {
-      setFormData(prev => ({
-        ...prev,
-        seccion: selectedSection.seccod || selectedSection.id || VELNEO_DEFAULTS.SECCION_AUTOMOVILES
-      }));
-    }
-  }, [selectedSection]);
-
-  // Aplicar business rules según operación
-  useEffect(() => {
-    applyBusinessRules();
-  }, [operationType]);
-
+    masterDataRef.current = masterData;
+  }, [masterData]);
+  
   // ===== FUNCIONES PRINCIPALES =====
 
   /**
@@ -114,13 +74,13 @@ export function usePolicyForm({
   const loadMasterData = async () => {
     setLoading(true);
     try {
-      // ✅ CORREGIDO: Usar MasterDataApi desde apiService
       const data = await MasterDataApi.getMasterDataOptions();
       setMasterData(data);
       console.log('✅ Datos maestros cargados:', {
         categorias: data.categorias?.length || 0,
         destinos: data.destinos?.length || 0,
-        combustibles: data.combustibles?.length || 0
+        combustibles: data.combustibles?.length || 0,
+        tarifas: data.tarifas?.length || 0
       });
     } catch (error) {
       console.error('❌ Error cargando maestros:', error);
@@ -134,12 +94,24 @@ export function usePolicyForm({
   };
 
   /**
-   * 🎯 Mapear datos del escaneo Azure al formulario
+   * 🎯 Mapear datos del escaneo Azure al formulario - OPTIMIZADO
    */
   const mapScannedData = useCallback(() => {
-    if (!scannedData?.datosVelneo || !masterData) return;
+    const currentScannedData = scannedDataRef.current;
+    const currentMasterData = masterDataRef.current;
+    
+    console.log('🚀 INICIANDO mapScannedData', {
+      tieneScannedData: !!currentScannedData,
+      tieneMasterData: !!currentMasterData,
+      condicionesPago: currentScannedData?.datosVelneo?.condicionesPago
+    });
 
-    const { datosBasicos, datosPoliza, datosVehiculo, datosCobertura } = scannedData.datosVelneo;
+    if (!currentScannedData?.datosVelneo) {
+      console.log('❌ No hay datosVelneo');
+      return;
+    }
+
+    const { datosBasicos, datosPoliza, datosVehiculo, datosCobertura, condicionesPago } = currentScannedData.datosVelneo;
 
     // Mapear datos básicos
     if (datosBasicos) {
@@ -175,64 +147,144 @@ export function usePolicyForm({
         chasis: datosVehiculo.chasis || prev.chasis
       }));
 
-      // ✅ Mapear maestros con búsqueda inteligente simple
-      if (datosVehiculo.combustible && masterData.combustibles) {
-        const combustible = findBestMatch(
-          masterData.combustibles,
-          datosVehiculo.combustible,
-          'name'
-        );
-        if (combustible) {
-          setFormData(prev => ({ ...prev, combustibleId: combustible.id }));
+      // Solo mapear maestros si están disponibles
+      if (currentMasterData) {
+        if (datosVehiculo.combustible && currentMasterData.combustibles) {
+          const combustible = findBestMatch(
+            currentMasterData.combustibles,
+            datosVehiculo.combustible,
+            'name'
+          );
+          if (combustible) {
+            setFormData(prev => ({ ...prev, combustibleId: combustible.id }));
+          }
         }
-      }
 
-      if (datosVehiculo.categoria && masterData.categorias) {
-        const categoria = findBestMatch(
-          masterData.categorias,
-          datosVehiculo.categoria,
-          'catdsc'
-        );
-        if (categoria) {
-          setFormData(prev => ({ ...prev, categoriaId: categoria.id }));
+        if (datosVehiculo.categoria && currentMasterData.categorias) {
+          const categoria = findBestMatch(
+            currentMasterData.categorias,
+            datosVehiculo.categoria,
+            'catdsc'
+          );
+          if (categoria) {
+            setFormData(prev => ({ ...prev, categoriaId: categoria.id }));
+          }
         }
-      }
 
-      if (datosVehiculo.destino && masterData.destinos) {
-        const destino = findBestMatch(
-          masterData.destinos,
-          datosVehiculo.destino,
-          'desnom'
-        );
-        if (destino) {
-          setFormData(prev => ({ ...prev, destinoId: destino.id }));
+        if (datosVehiculo.destino && currentMasterData.destinos) {
+          const destino = findBestMatch(
+            currentMasterData.destinos,
+            datosVehiculo.destino,
+            'desnom'
+          );
+          if (destino) {
+            setFormData(prev => ({ ...prev, destinoId: destino.id }));
+          }
         }
       }
     }
 
-    // Mapear datos financieros
+    // Mapear zona y moneda
     if (datosCobertura) {
       setFormData(prev => ({
         ...prev,
-        premio: parseFloat(datosCobertura.premio) || prev.premio,
-        total: parseFloat(datosCobertura.total) || parseFloat(datosCobertura.premio) || prev.total,
         zonaCirculacion: datosCobertura.zonaCirculacion || prev.zonaCirculacion
       }));
 
-      if (datosCobertura.moneda && masterData.monedas) {
+      // Mapear moneda
+      if (datosCobertura.codigoMoneda) {
+        setFormData(prev => ({ ...prev, monedaId: datosCobertura.codigoMoneda }));
+      } else if (datosCobertura.moneda && currentMasterData?.monedas) {
         const moneda = findBestMatch(
-          masterData.monedas,
+          currentMasterData.monedas,
+          datosCobertura.moneda,
+          'codigo'
+        ) || findBestMatch(
+          currentMasterData.monedas,
           datosCobertura.moneda,
           'nombre'
         );
+        
         if (moneda) {
           setFormData(prev => ({ ...prev, monedaId: moneda.id }));
         }
       }
     }
 
-    console.log('✅ Datos mapeados desde Azure');
-  }, [scannedData, masterData]);
+    // Mapear condiciones de pago
+    if (condicionesPago) {
+      console.log('💰 Mapeando condiciones de pago completas:', condicionesPago);
+      
+      // Extraer valor por cuota
+      let valorPorCuota = 0;
+      if (condicionesPago.valorCuota) {
+        valorPorCuota = parseFloat(condicionesPago.valorCuota);
+      } else if (condicionesPago.detalleCuotas?.primeraCuota?.monto) {
+        valorPorCuota = parseFloat(condicionesPago.detalleCuotas.primeraCuota.monto);
+      } else if (condicionesPago.detalleCuotas?.montoPromedio) {
+        valorPorCuota = parseFloat(condicionesPago.detalleCuotas.montoPromedio);
+      } else if (condicionesPago.detalleCuotas?.cuotas?.[0]?.monto) {
+        valorPorCuota = parseFloat(condicionesPago.detalleCuotas.cuotas[0].monto);
+      }
+      
+      // Buscar premio y total
+      let premio = 0;
+      let total = 0;
+      
+      if (condicionesPago.premio && condicionesPago.premio !== 0) {
+        premio = parseFloat(condicionesPago.premio);
+      }
+      
+      if (condicionesPago.total && condicionesPago.total !== 0) {
+        total = parseFloat(condicionesPago.total);
+      } else if (condicionesPago.detalleCuotas?.cuotas?.length > 0 && valorPorCuota > 0) {
+        const cantidadCuotas = condicionesPago.detalleCuotas.cuotas.length;
+        total = valorPorCuota * cantidadCuotas;
+        console.log(`📊 Total calculado: ${cantidadCuotas} cuotas x ${valorPorCuota} = ${total}`);
+      }
+      
+      if (premio === 0 && total > 0) {
+        premio = total;
+      }
+      
+      const datosFinancieros = {
+        premio: premio,
+        total: total,
+        cuotas: parseInt(condicionesPago.cuotas) || 
+                condicionesPago.detalleCuotas?.cuotas?.length ||
+                parseInt(condicionesPago.detalleCuotas?.cantidadTotal) || 1,
+        valorCuota: valorPorCuota,
+        formaPago: mapearFormaPago(condicionesPago.formaPago) || 'Contado'
+      };
+      
+      console.log('💳 Datos financieros finales:', datosFinancieros);
+      
+      setFormData(prev => ({
+        ...prev,
+        ...datosFinancieros
+      }));
+    }
+
+    console.log('✅ Mapeo completado');
+  }, []); // Sin dependencias
+
+  const mapearFormaPago = (formaPagoTexto: string): string => {
+    if (!formaPagoTexto) return 'Contado';
+    
+    const formaPagoUpper = formaPagoTexto.toUpperCase();
+    
+    if (formaPagoUpper.includes('TARJETA') || formaPagoUpper.includes('CRÉDITO')) {
+      return 'Tarjeta';
+    } else if (formaPagoUpper.includes('DÉBITO') || formaPagoUpper.includes('DEBITO')) {
+      return 'Débito Automático';
+    } else if (formaPagoUpper.includes('CUOTA')) {
+      return 'Cuotas';
+    } else if (formaPagoUpper.includes('CONTADO')) {
+      return 'Contado';
+    }
+    
+    return 'Contado';
+  };
 
   /**
    * 📋 Aplicar business rules según tipo de operación
@@ -270,42 +322,21 @@ export function usePolicyForm({
   }, [operationType]);
 
   /**
-   * 📝 Actualizar campo del formulario
+   * 📝 Actualizar campo del formulario - SIMPLIFICADO SIN CÁLCULOS
    */
   const updateField = useCallback((field: keyof PolicyFormData, value: any) => {
-    setFormData(prev => {
-      const updated = { ...prev, [field]: value };
-
-      // Auto-cálculos
-      if (field === 'premio' || field === 'cuotas') {
-        updated.total = updated.premio;
-        updated.valorCuota = updated.cuotas > 0 ? updated.total / updated.cuotas : 0;
-      }
-
-      return updated;
-    });
+    setFormData(prev => ({
+      ...prev,
+      [field]: value
+    }));
 
     // Marcar campo como tocado
-    setTouchedFields(prev => new Set(prev).add(field));
-
-    // Limpiar error del campo si existe
-    if (errors[field]) {
-      setErrors(prev => {
-        const newErrors = { ...prev };
-        delete newErrors[field];
-        return newErrors;
-      });
-    }
-
-    // Limpiar warning del campo si existe
-    if (warnings[field]) {
-      setWarnings(prev => {
-        const newWarnings = { ...prev };
-        delete newWarnings[field];
-        return newWarnings;
-      });
-    }
-  }, [errors, warnings]);
+    setTouchedFields(prev => {
+      const newSet = new Set(prev);
+      newSet.add(field);
+      return newSet;
+    });
+  }, []); // Sin dependencias
 
   /**
    * ✅ Validar formulario completo
@@ -400,16 +431,32 @@ export function usePolicyForm({
       };
     }
 
+    if (!masterData) {
+      console.log('❌ No hay datos maestros cargados');
+      return {
+        success: false,
+        error: 'Datos maestros no disponibles',
+        message: 'Por favor espere a que se carguen los datos maestros'
+      };
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Preparar datos para el backend
-      const payload = mapFormDataToVelneoRequest(formData);
+      const { VelneoMappingService } = await import('../services/velneoMapping');
+      
+      const payload = VelneoMappingService.mapFormDataToVelneoRequest(
+        formData,
+        selectedClient,
+        selectedCompany,
+        selectedSection,
+        masterData,
+        scannedData
+      );
 
       console.log('📤 Enviando a Velneo:', payload);
 
-      // ✅ CORREGIDO: Usar PolizaApi desde apiService
-      const response = await PolizaApi.create(payload);
+      const response = await PolizaApi.create(payload as any);
 
       console.log('✅ Póliza creada exitosamente:', response);
 
@@ -440,7 +487,7 @@ export function usePolicyForm({
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, validateForm]);
+  }, [formData, validateForm, selectedClient, selectedCompany, selectedSection, masterData, scannedData]);
 
   /**
    * 🔄 Resetear formulario
@@ -451,10 +498,11 @@ export function usePolicyForm({
     setWarnings({});
     setTouchedFields(new Set());
     setActiveTab('datos_basicos');
+    hasMappedData.current = false;
     console.log('📋 Formulario reseteado');
   }, []);
 
-    /**
+  /**
    * 📊 Calcular progreso por pestaña
    */
   const calculateProgressByTab = useCallback((): TabProgress => {
@@ -471,7 +519,7 @@ export function usePolicyForm({
 
     for (const [tab, fields] of Object.entries(tabs)) {
       if (fields.length === 0) {
-        progressByTab[tab] = 100; // Pestañas sin campos requeridos
+        progressByTab[tab] = 100;
       } else {
         const completed = fields.filter(field => {
           const value = formData[field];
@@ -510,7 +558,7 @@ export function usePolicyForm({
       total: Math.round((completedFields / totalFields) * 100),
       byTab: calculateProgressByTab()
     };
-  }, [formData]);
+  }, [formData, calculateProgressByTab]);
 
   /**
    * 🔍 Verificaciones de estado
@@ -518,6 +566,95 @@ export function usePolicyForm({
   const isValid = useMemo(() => Object.keys(errors).length === 0, [errors]);
   const isDirty = useMemo(() => touchedFields.size > 0, [touchedFields]);
   const canSubmit = useMemo(() => isValid && !isSubmitting, [isValid, isSubmitting]);
+
+  // ===== EFECTOS =====
+  
+  // Cargar datos maestros al montar
+  useEffect(() => {
+    loadMasterData();
+  }, []);
+
+  // Mapear datos del escaneo cuando estén disponibles
+  useEffect(() => {
+    console.log('🔄 useEffect para mapeo de escaneo:', {
+      tieneScannedData: !!scannedData,
+      tieneDataVelneo: !!scannedData?.datosVelneo,
+      tieneMasterData: !!masterData,
+      yaMapeado: hasMappedData.current
+    });
+    
+    // Solo mapear una vez cuando lleguen los datos
+    if (scannedData?.datosVelneo && !hasMappedData.current) {
+      console.log('✅ Ejecutando mapScannedData por primera vez');
+      mapScannedData();
+      hasMappedData.current = true;
+    }
+    
+    // Reset el flag si cambia el scannedData
+    if (!scannedData) {
+      hasMappedData.current = false;
+    }
+  }, [scannedData?.datosVelneo, mapScannedData]);
+
+  // Efecto separado para limpiar errores cuando se modifica un campo
+  useEffect(() => {
+    touchedFields.forEach(field => {
+      if (errors[field]) {
+        const value = formData[field as keyof PolicyFormData];
+        // Solo limpiar el error si el campo tiene valor
+        if (value !== '' && value !== null && value !== undefined && value !== 0) {
+          setErrors(prev => {
+            if (prev[field]) {
+              const newErrors = { ...prev };
+              delete newErrors[field];
+              return newErrors;
+            }
+            return prev;
+          });
+        }
+      }
+    });
+  }, [formData, touchedFields, errors]);
+
+  // Actualizar datos del cliente
+  useEffect(() => {
+    if (selectedClient) {
+      setFormData(prev => ({
+        ...prev,
+        asegurado: selectedClient.clinom || selectedClient.nombre || '',
+        tomador: selectedClient.clinom || selectedClient.nombre || '',
+        domicilio: selectedClient.clidir || selectedClient.direccion || '',
+        dirCobro: selectedClient.clidircob || '',
+        clinro: selectedClient.clinro || selectedClient.id
+      }));
+    }
+  }, [selectedClient]);
+
+  // Actualizar datos de compañía
+  useEffect(() => {
+    if (selectedCompany) {
+      setFormData(prev => ({
+        ...prev,
+        compania: selectedCompany.comcod || selectedCompany.id || VELNEO_DEFAULTS.COMPANIA_BSE,
+        comalias: selectedCompany.comalias || selectedCompany.nombre || 'BSE'
+      }));
+    }
+  }, [selectedCompany]);
+
+  // Actualizar datos de sección
+  useEffect(() => {
+    if (selectedSection) {
+      setFormData(prev => ({
+        ...prev,
+        seccion: selectedSection.seccod || selectedSection.id || VELNEO_DEFAULTS.SECCION_AUTOMOVILES
+      }));
+    }
+  }, [selectedSection]);
+
+  // Aplicar business rules según operación
+  useEffect(() => {
+    applyBusinessRules();
+  }, [operationType, applyBusinessRules]);
 
   // ===== RETURN DEL HOOK =====
   return {

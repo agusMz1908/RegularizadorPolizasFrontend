@@ -282,10 +282,9 @@ function AppContent() {
           </div>
         );
       
-      case 'form':
-        return selectedClient && selectedCompany && selectedSection ? (
-          <div className="animate-in fade-in-0 duration-400">
-            {/* ✅ USAR PolicyForm QUE ES EL COMPONENTE QUE REALMENTE EXISTE */}
+        case 'form':
+          return selectedClient && selectedCompany && selectedSection ? (
+            // Sin animación en el contenedor
             <PolicyFormTabs
               scannedData={scannedDocument}
               selectedClient={selectedClient}
@@ -295,8 +294,7 @@ function AppContent() {
               onSubmit={handleFormSubmit}
               onBack={handleWizardBack}
             />
-          </div>
-        ) : (
+          ) : (
           <div className="text-center p-8 animate-in fade-in-0 duration-300">
             <p className="text-red-600">Error: Datos insuficientes para el formulario</p>
             <div className="mt-4 text-sm text-gray-600">
