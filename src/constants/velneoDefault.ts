@@ -86,6 +86,7 @@ export const EMPTY_POLICY_FORM: PolicyFormData = {
   zonaCirculacion: VELNEO_DEFAULTS.ZONA_CIRCULACION_DEFAULT,
   departamentoId: VELNEO_DEFAULTS.DEPARTAMENTO_DEFAULT_ID,  // Corregido: era 'departamento'
   monedaId: VELNEO_DEFAULTS.MONEDA_DEFAULT,
+  tarifaId: undefined,
 
   // ===== PESTAÑA 5: CONDICIONES DE PAGO =====
   premio: VELNEO_DEFAULTS.PREMIO_DEFAULT,

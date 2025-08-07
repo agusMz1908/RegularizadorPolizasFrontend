@@ -13,6 +13,7 @@ export interface MasterDataOptionsDto {
   calidades: CalidadDto[];
   combustibles: CombustibleDto[];
   monedas: MonedaDto[];
+  tarifas?: TarifaDto[];
   
   // Opciones de texto plano (arrays de strings)
   estadosPoliza: string[];
@@ -91,20 +92,13 @@ export interface SeccionDto {
   activo: boolean;
 }
 
-/**
- * 👤 CLIENTE (simplificado)
- */
-export interface ClienteDto {
+export interface TarifaDto {
   id: number;
-  clinom: string;     // Nombre completo
-  cliced: string;     // Documento
-  clidir: string;     // Dirección
-  clidircob: string;  // Dirección de cobro
-  cliemail: string;   // Email
-  clitelcel: string;  // Teléfono
-  clidptnom: string;  // Departamento
-  clilocnom: string;  // Localidad
-  activo: boolean;
+  companiaId: number;
+  nombre: string;
+  descripcion?: string;
+  codigo?: string;
+  activa: boolean;
 }
 
 // ===== TIPOS PARA RESPUESTAS DE API =====

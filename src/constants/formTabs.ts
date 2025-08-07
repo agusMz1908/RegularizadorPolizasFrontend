@@ -46,7 +46,7 @@ export const FORM_TABS: FormTab[] = [
     label: 'Datos Cobertura',
     description: 'Cobertura y zona',
     icon: Shield,
-    fields: ['zonaCirculacion', 'monedaId'],
+    fields: ['zonaCirculacion', 'monedaId', 'tarifaId'], // AGREGAR tarifaId
     required: true,
     order: 4
   },

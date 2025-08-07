@@ -1,23 +1,4 @@
-// ===== ENTIDAD PRINCIPAL DE PÓLIZA EN VELNEO =====
-export interface PolizaDto {
-  id: number;
-  comcod: number;        // ID de compañía
-  seccod: number;        // ID de sección
-  clinro: number;        // ID de cliente
-  conpol: string;        // Número de póliza
-  confchdes: string;     // Fecha desde
-  confchhas: string;     // Fecha hasta
-  convig: string;        // Estado vigencia
-  conmaraut: string;     // Marca auto
-  conanioaut: number;    // Año auto
-  combustibles: string;  // Combustible
-  conpremio: number;     // Premio/monto
-  conend?: string;       // Endoso
-  conpadre?: number;     // ID póliza padre (para renovaciones)
-  // Campos adicionales según necesidad
-  comAlias?: string;     // Alias de compañía para display
-  seccionNombre?: string; // Nombre de sección para display
-}
+// === ACTUALIZACIÓN para src/types/poliza.ts ===
 
 export interface PolicyFormData {
   // ===== PESTAÑA 1: DATOS BÁSICOS =====
@@ -58,6 +39,7 @@ export interface PolicyFormData {
 
   // ===== PESTAÑA 4: DATOS DE COBERTURA =====
   coberturaId: number;           // Select maestro Cobertura
+  tarifaId?: number;             // Select maestro Tarifa (NUEVO CAMPO)
   zonaCirculacion: string;       // Input texto o select departamentos
   departamentoId: number;        // Select maestro Departamento (opcional)
   monedaId: number;              // Select maestro Moneda
@@ -135,6 +117,8 @@ export interface PolizaCreateRequest {
   // ===== DATOS DE COBERTURA =====
   CoberturaId?: number;              // ID Cobertura
   Cobertura?: string;                // Nombre cobertura
+  TarifaId?: number;                 // ID Tarifa (NUEVO CAMPO)
+  TarifaNombre?: string;             // Nombre de la tarifa (NUEVO CAMPO)
   ZonaCirculacion?: string;          // Zona de circulación
   DepartamentoId?: number;           // ID Departamento
   
@@ -147,12 +131,4 @@ export interface PolizaCreateRequest {
   
   // ===== CAMPOS FLEXIBLES =====
   [key: string]: any;                // Para campos adicionales
-}
-
-export interface PolicyValidationState {
-  isValid: boolean;
-  errors: Record<keyof PolicyFormData, string>;
-  warnings: Record<string, string>;
-  touchedFields: Set<keyof PolicyFormData>;
-  dirtyFields: Set<keyof PolicyFormData>;
 }

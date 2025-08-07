@@ -1,7 +1,7 @@
 // src/services/apiService.ts - VERSIÓN CORREGIDA CON TIPOS COMPATIBLES
 
 import type { LoginRequest, LoginResponse } from '@/types/auth';
-import type { CompanyDto, MasterDataOptionsDto, SeccionDto } from '../types/masterData';
+import type { CompanyDto, MasterDataOptionsDto, SeccionDto, TarifaDto } from '../types/masterData';
 import { API_CONFIG } from '../constants/velneoDefault';
 import type { ClientDto } from '@/types/cliente';
 import type { PolizaCreateRequest } from '@/types/poliza';
@@ -506,6 +506,63 @@ async getMasterDataOptions(): Promise<MasterDataOptionsDto> {
     }
   }
 
+async getTarifas(companiaId: number = 1): Promise<any[]> {
+  try {
+    console.log(`📋 [ApiService] Obteniendo tarifas para compañía ${companiaId}...`);
+    
+    // Intentar primero con el endpoint directo
+    const response = await this.request<any>('/Tarifa', {
+      method: 'GET'
+    });
+    
+    console.log('🔍 [ApiService] Respuesta de tarifas:', response);
+    
+    // El formato de tu respuesta parece ser { success: true, data: [...] }
+    let tarifas: any[] = [];
+    
+    if (response && response.success && response.data) {
+      tarifas = response.data;
+    } else if (Array.isArray(response)) {
+      tarifas = response;
+    }
+    
+    // Filtrar por companiaId si es necesario
+    if (companiaId && tarifas.length > 0) {
+      tarifas = tarifas.filter(t => t.companiaId === companiaId);
+    }
+    
+    // Filtrar solo las activas
+    tarifas = tarifas.filter(t => t.activa !== false);
+    
+    console.log(`✅ [ApiService] ${tarifas.length} tarifas encontradas para compañía ${companiaId}`);
+    
+    return tarifas;
+  } catch (error) {
+    console.error(`❌ [ApiService] Error obteniendo tarifas:`, error);
+    // No lanzar error, retornar array vacío para no romper la UI
+    return [];
+  }
+}
+
+async getTarifaById(id: number): Promise<TarifaDto | null> {
+  try {
+    const response = await this.request<any>(`/Tarifa/${id}`, {
+      method: 'GET'
+    });
+    
+    if (response.success && response.data) {
+      return response.data;
+    } else if (response.id) {
+      return response;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error(`❌ Error obteniendo tarifa ${id}:`, error);
+    return null;
+  }
+}
+
   // ==============================================
   // 🔧 UTILIDADES - MÉTODOS FALTANTES AGREGADOS
   // ==============================================
@@ -619,6 +676,12 @@ export const PolizaApi = {
 
 export const AzureApi = {
   processDocument: (file: File) => apiService.processDocument(file)
+};
+
+export const TarifaApi = {
+  getAll: (companiaId?: number) => apiService.getTarifas(companiaId),
+  getById: (id: number) => apiService.getTarifaById(id),
+  getForBSE: () => apiService.getTarifas(1) // BSE = companiaId 1
 };
 
 // ✅ EXPORTAR TIPO PARA USO EN OTROS ARCHIVOS

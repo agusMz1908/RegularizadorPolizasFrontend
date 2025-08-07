@@ -872,7 +872,7 @@ export default function PolicyFormTabs({
                   "text-sm mt-1",
                   isDark ? "text-gray-400" : "text-gray-600"
                 )}>
-                  Zona de circulación y moneda
+                  Zona de circulación, moneda y tarifa de cobertura
                 </p>
               </div>
               
@@ -907,7 +907,51 @@ export default function PolicyFormTabs({
                     error={errors.monedaId}
                     icon={<DollarSign className="w-4 h-4" />}
                   />
+                  
+                  {/* NUEVO CAMPO: TARIFA */}
+                  <SelectField
+                    id="tarifaId"
+                    label="Tarifa / Plan de Cobertura"
+                    value={formData.tarifaId}
+                    onChange={(value: string) => {
+                      const tarifaId = parseInt(value);
+                      updateField('tarifaId', tarifaId);
+                      
+                      // Log para debugging (opcional)
+                      if (process.env.NODE_ENV === 'development') {
+                        const tarifaSeleccionada = masterData?.tarifas?.find(t => t.id === tarifaId);
+                        console.log('📋 Tarifa seleccionada:', tarifaSeleccionada);
+                      }
+                    }}
+                    options={masterData?.tarifas || []}
+                    placeholder="Seleccione una tarifa"
+                    required
+                    loading={loading}
+                    error={errors.tarifaId}
+                    icon={<FileText className="w-4 h-4" />}
+                    helperText="Seleccione el plan de cobertura para el vehículo"
+                  />
                 </div>
+                
+                {/* Info de tarifa seleccionada */}
+                {formData.tarifaId && (() => {
+                  const tarifa = masterData?.tarifas?.find(t => t.id === formData.tarifaId);
+                  if (!tarifa) return null;
+                  
+                  return (
+                    <div className={cn(
+                      "mt-4 p-3 rounded-lg border flex items-start gap-2",
+                      isDark 
+                        ? "bg-blue-900/10 border-blue-800/50 text-blue-300" 
+                        : "bg-blue-50/50 border-blue-200 text-blue-700"
+                    )}>
+                      <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                      <div className="text-sm">
+                        <span className="font-medium">Tarifa seleccionada:</span> {tarifa.nombre}
+                      </div>
+                    </div>
+                  );
+                })()}
               </FormSection>
             </div>
           </TabsContent>
