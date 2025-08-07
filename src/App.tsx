@@ -13,8 +13,7 @@ import ClientSelector from './components/wizard/ClientSelector';
 import CompanySectionSelector from './components/wizard/CompanySectionSelector';
 import DocumentScanner from './components/wizard/DocumentScanner';
 
-// ✅ IMPORTAR EL COMPONENTE CORRECTO QUE REALMENTE EXISTE
-import PolicyForm from './components/wizard/PolicyForm';
+import PolicyFormTabs from './components/wizard/PolicyFormTabs';
 
 // ✅ TIPOS OFICIALES
 import type { OperationType } from './components/wizard/OperationSelector';
@@ -287,11 +286,12 @@ function AppContent() {
         return selectedClient && selectedCompany && selectedSection ? (
           <div className="animate-in fade-in-0 duration-400">
             {/* ✅ USAR PolicyForm QUE ES EL COMPONENTE QUE REALMENTE EXISTE */}
-            <PolicyForm
-              scannedData={scannedDocument}  // Opcional - funciona con o sin datos escaneados
+            <PolicyFormTabs
+              scannedData={scannedDocument}
               selectedClient={selectedClient}
               selectedCompany={selectedCompany}
               selectedSection={selectedSection}
+              operationType={selectedOperation as 'EMISION' | 'RENOVACION' | 'CAMBIO'}
               onSubmit={handleFormSubmit}
               onBack={handleWizardBack}
             />

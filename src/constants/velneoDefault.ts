@@ -1,88 +1,6 @@
-// src/constants/velneoDefault.ts - VERSIÓN CORREGIDA CON TIPOS COMPATIBLES
+// src/constants/velneoDefaults.ts - VERSIÓN CORREGIDA
 
 import type { PolicyFormData } from '../types/poliza';
-
-// ✅ TIPO CORRECTO BASADO EN TU BACKEND REAL
-interface PolizaCreateRequest {
-  // ===== CAMPOS PRINCIPALES OBLIGATORIOS =====
-  Clinro: number;                    // ID Cliente
-  Clinom?: string;                   // Nombre cliente
-  Comcod: number;                    // ID Compañía
-  Conpremio: number;                 // Premio (OBLIGATORIO)
-  
-  // ===== CAMPOS OPCIONALES =====
-  Seccod?: number;                   // ID Sección
-  SeccionId?: number;                // ID Sección alternativo
-  Conpol?: string;                   // Número de póliza
-  Concar?: string;                   // Certificado
-  Conend?: string;                   // Endoso
-  Confchdes?: string;                // Fecha desde
-  Confchhas?: string;                // Fecha hasta
-  Convig?: string;                   // Estado vigencia
-  Contra?: string;                   // Tipo trámite
-  Consta?: string;                   // Forma de pago
-  Congesti?: string;                 // Tipo gestión
-  Congeses?: string;                 // Estado gestión
-  Congesfi?: string;                 // Fecha gestión
-  Asegurado?: string;                // Nombre asegurado
-  Direccion?: string;                // Dirección
-  Condom?: string;                   // Domicilio
-  Marca?: string;                    // Marca
-  Modelo?: string;                   // Modelo
-  Conmaraut?: string;                // Marca + modelo completo
-  Anio?: number;                     // Año
-  Conanioaut?: number;               // Año (campo Velneo)
-  Matricula?: string;                // Matrícula
-  Conmataut?: string;                // Matrícula (campo Velneo)
-  Motor?: string;                    // Motor
-  Conmotor?: string;                 // Motor (campo Velneo)
-  Chasis?: string;                   // Chasis
-  Conchasis?: string;                // Chasis (campo Velneo)
-  CombustibleId?: string;            // ID Combustible (STRING)
-  CombustibleNombre?: string;        // Nombre combustible
-  CategoriaId?: number;              // ID Categoría
-  CategoriaNombre?: string;          // Nombre categoría
-  DestinoId?: number;                // ID Destino
-  DestinoNombre?: string;            // Nombre destino
-  CalidadId?: number;                // ID Calidad
-  CalidadNombre?: string;            // Nombre calidad
-  PremioTotal?: number;              // Premio total
-  Contot?: number;                   // Total
-  CantidadCuotas?: number;           // Cantidad de cuotas
-  Concuo?: number;                   // Cuotas (campo Velneo)
-  Moneda?: string;                   // Moneda como string
-  Moncod?: number;                   // Moneda ID
-  FormaPago?: string;                // Forma de pago como string
-  CoberturaId?: number;              // ID Cobertura
-  Cobertura?: string;                // Nombre cobertura
-  ZonaCirculacion?: string;          // Zona de circulación
-  DepartamentoId?: number;           // ID Departamento
-  Ramo?: string;                     // Ramo (ej: "AUTOMOVILES")
-  EstadoPoliza?: string;             // Estado de la póliza
-  Tramite?: string;                  // Tipo de trámite
-  Observaciones?: string;            // Observaciones generales
-  ProcesadoConIA?: boolean;          // Flag de procesamiento con IA
-  
-  // ===== CAMPOS ADICIONALES DEL ORIGINAL =====
-  id?: number;
-  flocod?: number;
-  conclaaut?: number;
-  condedaut?: number;
-  conresciv?: number;
-  conbonnsin?: number;
-  conbonant?: number;
-  concaraut?: number;
-  concapaut?: number;
-  conpadaut?: string;
-  forpagvid?: string;
-  concesnom?: string;
-  concestel?: string;
-  conges?: string;
-  plan?: string;
-  
-  // ===== CAMPOS FLEXIBLES =====
-  [key: string]: any;                // Para campos adicionales
-}
 
 /**
  * 🎯 VALORES POR DEFECTO PARA BUSINESS RULES AUTOMÁTICAS
@@ -105,34 +23,37 @@ export const VELNEO_DEFAULTS = {
   RAMO: 'AUTOMOVILES',
   
   // ===== MAESTROS POR DEFECTO =====
-  COMBUSTIBLE_DEFAULT: 'GAS',          // ✅ CORREGIDO: STRING para combustibles
+  COMBUSTIBLE_DEFAULT: 'GAS',          // STRING para combustibles
   DESTINO_DEFAULT: 2,                  // PARTICULAR por defecto
   CALIDAD_DEFAULT: 2,                  // PROPIETARIO por defecto
   MONEDA_DEFAULT: 1,                   // PESO URUGUAYO por defecto
+  CATEGORIA_DEFAULT: 20,  
+  CAMPOS_NUMERICOS_DEFAULT: 0,             // AUTOMÓVIL por defecto
   
   // ===== VALORES NUMÉRICOS =====
   CUOTAS_DEFAULT: 1,
-  FLOCOD_DEFAULT: 0,
-  CAMPOS_NUMERICOS_DEFAULT: 0,
+  PREMIO_DEFAULT: 0,
+  COBERTURA_DEFAULT: 1,
+  DEPARTAMENTO_DEFAULT_ID: 1,
   
   // ===== CAMPOS VACÍOS POR DEFECTO =====
   EMPTY_STRING: '',
   
-  // ===== DEPARTAMENTO POR DEFECTO =====
-  DEPARTAMENTO_DEFAULT: 'MONTEVIDEO'
+  // ===== ZONA POR DEFECTO =====
+  ZONA_CIRCULACION_DEFAULT: 'MONTEVIDEO'
 } as const;
 
 /**
- * 📋 FORMULARIO VACÍO INICIAL
+ * 📋 FORMULARIO VACÍO INICIAL - CORREGIDO
  */
 export const EMPTY_POLICY_FORM: PolicyFormData = {
   // ===== PESTAÑA 1: DATOS BÁSICOS =====
   corredor: VELNEO_DEFAULTS.EMPTY_STRING,
   asegurado: VELNEO_DEFAULTS.EMPTY_STRING,
-  dirCobro: VELNEO_DEFAULTS.EMPTY_STRING,
-  estadoTramite: VELNEO_DEFAULTS.ESTADO_TRAMITE_DEFAULT,
   tomador: VELNEO_DEFAULTS.EMPTY_STRING,
   domicilio: VELNEO_DEFAULTS.EMPTY_STRING,
+  dirCobro: VELNEO_DEFAULTS.EMPTY_STRING,
+  estadoTramite: VELNEO_DEFAULTS.ESTADO_TRAMITE_DEFAULT,
   tramite: VELNEO_DEFAULTS.TRAMITE_DEFAULT,
   fecha: new Date().toISOString().split('T')[0],
   asignado: VELNEO_DEFAULTS.EMPTY_STRING,
@@ -141,66 +62,40 @@ export const EMPTY_POLICY_FORM: PolicyFormData = {
 
   // ===== PESTAÑA 2: DATOS DE LA PÓLIZA =====
   compania: VELNEO_DEFAULTS.COMPANIA_BSE,
-  desde: VELNEO_DEFAULTS.EMPTY_STRING,
-  hasta: VELNEO_DEFAULTS.EMPTY_STRING,
+  comalias: 'BSE',                    // Agregado: alias de compañía
+  seccion: VELNEO_DEFAULTS.SECCION_AUTOMOVILES,  // Agregado: sección
   poliza: VELNEO_DEFAULTS.EMPTY_STRING,
   certificado: VELNEO_DEFAULTS.EMPTY_STRING,
+  endoso: VELNEO_DEFAULTS.ENDOSO_DEFAULT,        // Agregado: endoso
+  desde: VELNEO_DEFAULTS.EMPTY_STRING,
+  hasta: VELNEO_DEFAULTS.EMPTY_STRING,
 
   // ===== PESTAÑA 3: DATOS DEL VEHÍCULO =====
   marcaModelo: VELNEO_DEFAULTS.EMPTY_STRING,
   anio: VELNEO_DEFAULTS.EMPTY_STRING,
   matricula: VELNEO_DEFAULTS.EMPTY_STRING,
   motor: VELNEO_DEFAULTS.EMPTY_STRING,
-  destinoId: VELNEO_DEFAULTS.DESTINO_DEFAULT,
-  combustibleId: VELNEO_DEFAULTS.COMBUSTIBLE_DEFAULT, // ✅ STRING
   chasis: VELNEO_DEFAULTS.EMPTY_STRING,
+  destinoId: VELNEO_DEFAULTS.DESTINO_DEFAULT,
+  combustibleId: VELNEO_DEFAULTS.COMBUSTIBLE_DEFAULT, // STRING
   calidadId: VELNEO_DEFAULTS.CALIDAD_DEFAULT,
-  categoriaId: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
+  categoriaId: VELNEO_DEFAULTS.CATEGORIA_DEFAULT,
 
   // ===== PESTAÑA 4: DATOS DE LA COBERTURA =====
-  coberturaId: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  zonaCirculacion: VELNEO_DEFAULTS.DEPARTAMENTO_DEFAULT,
+  coberturaId: VELNEO_DEFAULTS.COBERTURA_DEFAULT,
+  zonaCirculacion: VELNEO_DEFAULTS.ZONA_CIRCULACION_DEFAULT,
+  departamentoId: VELNEO_DEFAULTS.DEPARTAMENTO_DEFAULT_ID,  // Corregido: era 'departamento'
   monedaId: VELNEO_DEFAULTS.MONEDA_DEFAULT,
 
   // ===== PESTAÑA 5: CONDICIONES DE PAGO =====
+  premio: VELNEO_DEFAULTS.PREMIO_DEFAULT,
+  total: VELNEO_DEFAULTS.PREMIO_DEFAULT,
   formaPago: VELNEO_DEFAULTS.FORMA_PAGO_DEFAULT,
-  premio: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  total: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  moneda: VELNEO_DEFAULTS.MONEDA_DEFAULT,
-  valorCuota: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
   cuotas: VELNEO_DEFAULTS.CUOTAS_DEFAULT,
+  valorCuota: 0,
 
   // ===== PESTAÑA 6: OBSERVACIONES =====
   observaciones: VELNEO_DEFAULTS.EMPTY_STRING
-};
-
-/**
- * 🏗️ OBJETO VELNEO VACÍO (para referencia) - CORREGIDO CON TIPO ADECUADO
- */
-export const EMPTY_VELNEO_REQUEST: Partial<PolizaCreateRequest> = {
-  // ===== VALORES FIJOS =====
-  id: 0,
-  Ramo: VELNEO_DEFAULTS.RAMO,
-  ProcesadoConIA: true,
-  Conend: VELNEO_DEFAULTS.ENDOSO_DEFAULT,
-  
-  // ===== CAMPOS NUMÉRICOS POR DEFECTO =====
-  flocod: VELNEO_DEFAULTS.FLOCOD_DEFAULT,
-  conclaaut: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  condedaut: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  conresciv: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  conbonnsin: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  conbonant: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  concaraut: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  concapaut: VELNEO_DEFAULTS.CAMPOS_NUMERICOS_DEFAULT,
-  
-  // ===== CAMPOS STRING VACÍOS =====
-  conpadaut: VELNEO_DEFAULTS.EMPTY_STRING,
-  forpagvid: VELNEO_DEFAULTS.EMPTY_STRING,
-  concesnom: VELNEO_DEFAULTS.EMPTY_STRING,
-  concestel: VELNEO_DEFAULTS.EMPTY_STRING,
-  conges: VELNEO_DEFAULTS.EMPTY_STRING,
-  plan: VELNEO_DEFAULTS.EMPTY_STRING
 };
 
 /**
@@ -208,11 +103,11 @@ export const EMPTY_VELNEO_REQUEST: Partial<PolizaCreateRequest> = {
  */
 export const REQUIRED_FIELDS_BY_TAB = {
   datos_basicos: ['corredor', 'estadoTramite', 'tramite', 'tipo', 'estadoPoliza'],
-  datos_poliza: ['desde', 'hasta', 'poliza'],
-  datos_vehiculo: ['marcaModelo', 'anio', 'destinoId', 'combustibleId', 'calidadId', 'categoriaId'],
-  datos_cobertura: ['coberturaId', 'zonaCirculacion', 'monedaId'],
-  condiciones_pago: ['formaPago', 'premio', 'total', 'cuotas'],
-  observaciones: [] as string[] // Sin campos requeridos
+  datos_poliza: ['poliza', 'desde', 'hasta'],
+  datos_vehiculo: ['marcaModelo', 'anio', 'destinoId', 'combustibleId'],
+  datos_cobertura: ['monedaId', 'zonaCirculacion'],
+  condiciones_pago: ['premio', 'formaPago'],
+  observaciones: [] as string[]
 } as const;
 
 /**
@@ -262,7 +157,7 @@ export const VALIDATION_CONFIG = {
     INVALID_DATE: 'Fecha inválida',
     DATE_RANGE: 'La fecha hasta debe ser posterior a la fecha desde',
     INVALID_YEAR: `Año debe estar entre ${1900} y ${new Date().getFullYear() + 1}`,
-    INVALID_CUOTAS: `Cuotas debe estar entre ${1} y ${48}`,
+    INVALID_CUOTAS: 'Cuotas debe estar entre 1 y 48',
     NEGATIVE_AMOUNT: 'El monto no puede ser negativo',
     MAX_LENGTH: (max: number) => `Máximo ${max} caracteres`,
     INVALID_FORMAT: 'Formato inválido'
@@ -294,12 +189,12 @@ export const UI_CONFIG = {
   },
   
   // Timeouts y delays
-  DEBOUNCE_DELAY: 300,           // ms para validación en tiempo real
-  SAVE_DELAY: 1000,              // ms para auto-save (si se implementa)
+  DEBOUNCE_DELAY: 300,
+  SAVE_DELAY: 1000,
   
   // Animaciones
-  TAB_TRANSITION_DURATION: 300,  // ms
-  FORM_ANIMATION_DELAY: 100      // ms
+  TAB_TRANSITION_DURATION: 300,
+  FORM_ANIMATION_DELAY: 100
 } as const;
 
 /**
@@ -307,14 +202,14 @@ export const UI_CONFIG = {
  */
 export const REGIONAL_CONFIG = {
   // Formato de fechas
-  DATE_FORMAT: 'yyyy-MM-dd',     // Para inputs HTML5
+  DATE_FORMAT: 'yyyy-MM-dd',
   DISPLAY_DATE_FORMAT: 'dd/MM/yyyy',
   
   // Formato de números
   CURRENCY_LOCALE: 'es-UY',
   CURRENCY_SYMBOL: '$U',
   
-  // Departamentos de Uruguay (para zona de circulación)
+  // Departamentos de Uruguay
   DEPARTAMENTOS_URUGUAY: [
     'MONTEVIDEO',
     'ARTIGAS',
@@ -351,13 +246,84 @@ export const API_CONFIG = {
   },
   
   // Timeouts
-  REQUEST_TIMEOUT: 30000,        // 30 segundos
-  MASTER_DATA_TIMEOUT: 10000,    // 10 segundos para maestros
+  REQUEST_TIMEOUT: 30000,
+  MASTER_DATA_TIMEOUT: 10000,
   
   // Retry
   MAX_RETRIES: 3,
-  RETRY_DELAY: 1000              // ms entre reintentos
+  RETRY_DELAY: 1000
 } as const;
+
+/**
+ * 📝 TIPO REQUEST PARA CREAR PÓLIZA EN VELNEO
+ */
+export interface PolizaCreateRequest {
+  // Campos principales obligatorios
+  Clinro: number;
+  Clinom?: string;
+  Comcod: number;
+  Seccod: number;
+  Conpremio: number;
+  
+  // Campos de póliza
+  Conpol?: string;
+  Concar?: string;
+  Conend?: string;
+  Confchdes?: string;
+  Confchhas?: string;
+  Convig?: string;
+  Contra?: string;
+  Consta?: string;
+  
+  // Datos del asegurado
+  Asegurado?: string;
+  Direccion?: string;
+  Condom?: string;
+  
+  // Datos del vehículo
+  Marca?: string;
+  Modelo?: string;
+  Conmaraut?: string;
+  Anio?: number;
+  Conanioaut?: number;
+  Matricula?: string;
+  Conmataut?: string;
+  Motor?: string;
+  Conmotor?: string;
+  Chasis?: string;
+  Conchasis?: string;
+  
+  // Maestros
+  Combustibles?: string;  // STRING!
+  CategoriaId?: number;
+  DestinoId?: number;
+  CalidadId?: number;
+  
+  // Financiero
+  PremioTotal?: number;
+  Contot?: number;
+  CantidadCuotas?: number;
+  Concuo?: number;
+  Moneda?: string;
+  Moncod?: number;
+  FormaPago?: string;
+  
+  // Cobertura
+  CoberturaId?: number;
+  Cobertura?: string;
+  ZonaCirculacion?: string;
+  DepartamentoId?: number;
+  
+  // Otros
+  Ramo?: string;
+  EstadoPoliza?: string;
+  Tramite?: string;
+  Observaciones?: string;
+  ProcesadoConIA?: boolean;
+  
+  // Campos adicionales
+  [key: string]: any;
+}
 
 /**
  * 📝 HELPERS PARA ACCESO RÁPIDO
@@ -375,3 +341,75 @@ export const getTabColor = (tabId: keyof typeof UI_CONFIG.TAB_COLORS) =>
 
 export const getTabIcon = (tabId: keyof typeof UI_CONFIG.TAB_ICONS) => 
   UI_CONFIG.TAB_ICONS[tabId];
+
+/**
+ * 🔄 MAPEO DE FORM DATA A VELNEO REQUEST
+ */
+export const mapFormDataToVelneoRequest = (formData: PolicyFormData): PolizaCreateRequest => {
+  // Separar marca y modelo si están unidos
+  const [marca, ...modeloParts] = formData.marcaModelo.split(' ');
+  const modelo = modeloParts.join(' ');
+
+  return {
+    // IDs principales
+    Clinro: formData.clinro || 0,
+    Clinom: formData.asegurado,
+    Comcod: formData.compania,
+    Seccod: formData.seccion,
+    
+    // Datos de póliza
+    Conpol: formData.poliza,
+    Concar: formData.certificado,
+    Conend: formData.endoso,
+    Confchdes: formData.desde,
+    Confchhas: formData.hasta,
+    Convig: formData.estadoPoliza,
+    Contra: formData.tramite,
+    Consta: formData.formaPago,
+    
+    // Datos del asegurado
+    Asegurado: formData.asegurado,
+    Direccion: formData.domicilio,
+    Condom: formData.domicilio,
+    
+    // Datos del vehículo
+    Marca: marca,
+    Modelo: modelo,
+    Conmaraut: formData.marcaModelo,
+    Anio: parseInt(formData.anio) || 0,
+    Conanioaut: parseInt(formData.anio) || 0,
+    Matricula: formData.matricula,
+    Conmataut: formData.matricula,
+    Motor: formData.motor,
+    Conmotor: formData.motor,
+    Chasis: formData.chasis,
+    Conchasis: formData.chasis,
+    
+    // Maestros
+    Combustibles: formData.combustibleId,  // STRING!
+    CategoriaId: formData.categoriaId,
+    DestinoId: formData.destinoId,
+    CalidadId: formData.calidadId,
+    
+    // Financiero
+    Conpremio: formData.premio,
+    PremioTotal: formData.total,
+    Contot: formData.total,
+    CantidadCuotas: formData.cuotas,
+    Concuo: formData.cuotas,
+    Moncod: formData.monedaId,
+    FormaPago: formData.formaPago,
+    
+    // Cobertura
+    CoberturaId: formData.coberturaId,
+    ZonaCirculacion: formData.zonaCirculacion,
+    DepartamentoId: formData.departamentoId,
+    
+    // Otros
+    Ramo: VELNEO_DEFAULTS.RAMO,
+    EstadoPoliza: formData.estadoPoliza,
+    Tramite: formData.tramite,
+    Observaciones: formData.observaciones,
+    ProcesadoConIA: true
+  };
+};

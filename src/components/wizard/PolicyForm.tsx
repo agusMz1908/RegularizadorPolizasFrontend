@@ -1,4 +1,3 @@
-// src/components/wizard/PolicyForm.tsx - CORREGIDO CON TIPOS REALES
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';

@@ -1,632 +1,599 @@
-// src/hooks/usePolicyForm.ts - VERSIÓN CORREGIDA Y OPTIMIZADA
+// src/hooks/usePolicyForm.ts - VERSIÓN CON IMPORTS CORRECTOS
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import type { FormTabId, FormValidationResult } from '../types/policyForm';
-import type { AzureProcessResponse } from '../types/azureDocumentResult';
-import { VelneoMappingService } from '../services/velneoMapping';
-import { apiService, MasterDataApi } from '../services/apiService';
-import type { MasterDataOptionsDto } from '../types/masterData';
-import { 
-  EMPTY_POLICY_FORM, 
-} from '../constants/velneoDefault';
-import { FORM_TABS } from '../constants/formTabs';
-import type { PolicyFormData } from '@/types/poliza';
+import type { PolicyFormData } from '../types/poliza';
+import type { FormTabId } from '@/types/policyForm';
+import type { MasterDataOptionsDto } from '@/types/masterData';
+import { EMPTY_POLICY_FORM, VELNEO_DEFAULTS, mapFormDataToVelneoRequest } from '../constants/velneoDefault';
+import { MasterDataApi, PolizaApi } from '../services/apiService';  
 
-export interface UsePolicyFormProps {
-  scannedData?: AzureProcessResponse;
-  selectedClient: any;
-  selectedCompany: any;
-  selectedSection: any;
-  onSuccess: (result: any) => void;
-  onError: (error: string) => void;
-  onBack?: () => void;
+// ===== TIPOS =====
+interface UsePolicyFormProps {
+  scannedData?: any;
+  selectedClient?: any;
+  selectedCompany?: any;
+  selectedSection?: any;
+  operationType?: 'EMISION' | 'RENOVACION' | 'CAMBIO';
 }
 
-export interface FormValidationError {
-  field: keyof PolicyFormData;
-  message: string;
-  severity: 'error' | 'warning';
+interface SubmitResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  message?: string;
 }
 
-// ✅ UTILIDADES DE PESTAÑAS CORREGIDAS
-const TabsUtils = {
-  getRequiredFieldsForTab: (tabId: FormTabId): string[] => {
-    switch (tabId) {
-      case 'datos_basicos':
-        return ['poliza', 'desde', 'hasta', 'tramite', 'estadoPoliza'];
-      case 'datos_poliza':
-        return ['compania'];
-      case 'datos_vehiculo':
-        return ['marcaModelo', 'anio', 'destinoId', 'combustibleId'];
-      case 'datos_cobertura':
-        return ['premio', 'monedaId'];
-      case 'condiciones_pago':
-        return ['formaPago'];
-      case 'observaciones':
-        return [];
-      default:
-        return [];
-    }
-  },
+interface TabProgress {
+  [key: string]: number;
+}
 
-  getFieldsForTab: (tabId: FormTabId): string[] => {
-    switch (tabId) {
-      case 'datos_basicos':
-        return ['poliza', 'certificado', 'desde', 'hasta', 'tramite', 'estadoPoliza', 'corredor'];
-      case 'datos_poliza':
-        return ['compania', 'asegurado', 'tomador', 'domicilio'];
-      case 'datos_vehiculo':
-        return ['marcaModelo', 'anio', 'matricula', 'motor', 'chasis', 'destinoId', 'combustibleId', 'calidadId', 'categoriaId'];
-      case 'datos_cobertura':
-        return ['premio', 'total', 'monedaId', 'coberturaId'];
-      case 'condiciones_pago':
-        return ['formaPago', 'cuotas', 'valorCuota'];
-      case 'observaciones':
-        return ['observaciones'];
-      default:
-        return [];
-    }
-  },
+interface FormProgress {
+  required: number;
+  total: number;
+  byTab: TabProgress;
+}
 
-  getNextTab: (currentTab: FormTabId) => {
-    const currentIndex = FORM_TABS.findIndex(tab => tab.id === currentTab);
-    return currentIndex < FORM_TABS.length - 1 ? FORM_TABS[currentIndex + 1] : null;
-  },
-
-  getPreviousTab: (currentTab: FormTabId) => {
-    const currentIndex = FORM_TABS.findIndex(tab => tab.id === currentTab);
-    return currentIndex > 0 ? FORM_TABS[currentIndex - 1] : null;
-  },
-
-  getTabForField: (fieldName: string): FormTabId | null => {
-    for (const tab of FORM_TABS) {
-      if (TabsUtils.getFieldsForTab(tab.id).includes(fieldName)) {
-        return tab.id;
-      }
-    }
-    return null;
-  }
-};
-
-/**
- * 🎯 HOOK PRINCIPAL DEL FORMULARIO DE PÓLIZA
- * VERSIÓN CORREGIDA: Todos los errores solucionados
- */
-export const usePolicyForm = ({
+// ===== HOOK PRINCIPAL =====
+export function usePolicyForm({
   scannedData,
   selectedClient,
   selectedCompany,
   selectedSection,
-  onSuccess,
-  onError,
-  onBack
-}: UsePolicyFormProps) => {
+  operationType = 'EMISION'
+}: UsePolicyFormProps = {}) {
   
   // ===== ESTADOS PRINCIPALES =====
-  const [formData, setFormData] = useState<PolicyFormData>({ ...EMPTY_POLICY_FORM });
+  const [formData, setFormData] = useState<PolicyFormData>(EMPTY_POLICY_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [warnings, setWarnings] = useState<Record<string, string>>({});
   const [touchedFields, setTouchedFields] = useState<Set<string>>(new Set());
-  const [activeTab, setActiveTab] = useState<FormTabId>('datos_basicos');
+  const [masterData, setMasterData] = useState<MasterDataOptionsDto | null>(null);
+  const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
+  const [activeTab, setActiveTab] = useState<FormTabId>('datos_basicos');
   
-  // ===== ESTADOS DE MAESTROS =====
-  const [masterOptions, setMasterOptions] = useState<MasterDataOptionsDto | null>(null);  
-  const [loadingMasters, setLoadingMasters] = useState(true);
-  const [masterError, setMasterError] = useState<string | null>(null);
-
-  // ===== 🔧 CARGAR OPCIONES DE MAESTROS - OPTIMIZADO =====
+  // ===== EFECTOS =====
+  
+  // Cargar datos maestros al montar
   useEffect(() => {
-    let isComponentMounted = true;
-    
-    const loadMasterOptions = async () => {
-      // Evitar cargas múltiples o si ya están cargados
-      if (masterOptions !== null || !loadingMasters) {
-        console.log('🔒 [usePolicyForm] Maestros ya cargados o carga en progreso');
-        return;
-      }
+    loadMasterData();
+  }, []);
 
-      try {
-        console.log('🔄 [usePolicyForm] Cargando opciones de maestros...');
-        const options = await MasterDataApi.getMasterDataOptions();
-        
-        // Solo actualizar estado si el componente sigue montado
-        if (isComponentMounted) {
-          console.log('✅ [usePolicyForm] Opciones de maestros cargadas:', {
-            categorias: options.categorias?.length || 0,
-            destinos: options.destinos?.length || 0,
-            calidades: options.calidades?.length || 0,
-            combustibles: options.combustibles?.length || 0,
-            monedas: options.monedas?.length || 0
-          });
-          
-          setMasterOptions(options);
-          setMasterError(null);
-        }
-      } catch (error) {
-        console.error('❌ [usePolicyForm] Error cargando opciones de maestros:', error);
-        
-        if (isComponentMounted) {
-          const errorMessage = error instanceof Error ? error.message : 'Error desconocido cargando maestros';
-          setMasterError(errorMessage);
-          
-          // NO llamar onError aquí para evitar bucles
-          console.warn('⚠️ [usePolicyForm] Error de maestros guardado en estado local');
-        }
-      } finally {
-        if (isComponentMounted) {
-          setLoadingMasters(false);
-        }
-      }
-    };
-
-    loadMasterOptions();
-    
-    // Cleanup function
-    return () => {
-      isComponentMounted = false;
-    };
-  }, []); // ✅ Solo ejecutar una vez
-
-  // ===== 🔧 INICIALIZACIÓN CON DATOS DE AZURE - MEJORADO =====
-  const initializeFormFromAzure = useCallback(() => {
-    if (!scannedData || !selectedClient) {
-      console.log('🔒 [usePolicyForm] Esperando datos para inicialización...');
-      return;
+  // Mapear datos del escaneo cuando estén disponibles
+  useEffect(() => {
+    if (scannedData && masterData) {
+      mapScannedData();
     }
+  }, [scannedData, masterData]);
 
+  // Actualizar datos del cliente
+  useEffect(() => {
+    if (selectedClient) {
+      setFormData(prev => ({
+        ...prev,
+        asegurado: selectedClient.clinom || selectedClient.nombre || '',
+        tomador: selectedClient.clinom || selectedClient.nombre || '',
+        domicilio: selectedClient.clidir || selectedClient.direccion || '',
+        dirCobro: selectedClient.clidircob || '',
+        clinro: selectedClient.clinro || selectedClient.id
+      }));
+    }
+  }, [selectedClient]);
+
+  // Actualizar datos de compañía
+  useEffect(() => {
+    if (selectedCompany) {
+      setFormData(prev => ({
+        ...prev,
+        compania: selectedCompany.comcod || selectedCompany.id || VELNEO_DEFAULTS.COMPANIA_BSE,
+        comalias: selectedCompany.comalias || selectedCompany.nombre || 'BSE'
+      }));
+    }
+  }, [selectedCompany]);
+
+  // Actualizar datos de sección
+  useEffect(() => {
+    if (selectedSection) {
+      setFormData(prev => ({
+        ...prev,
+        seccion: selectedSection.seccod || selectedSection.id || VELNEO_DEFAULTS.SECCION_AUTOMOVILES
+      }));
+    }
+  }, [selectedSection]);
+
+  // Aplicar business rules según operación
+  useEffect(() => {
+    applyBusinessRules();
+  }, [operationType]);
+
+  // ===== FUNCIONES PRINCIPALES =====
+
+  /**
+   * 🔄 Cargar datos maestros del backend
+   */
+  const loadMasterData = async () => {
+    setLoading(true);
     try {
-      console.log('🔄 [usePolicyForm] Inicializando formulario con datos de Azure...');
-      
-      // ✅ VERIFICAR QUE EL MÉTODO EXISTE ANTES DE USAR
-      let mappedData = {};
-      if (VelneoMappingService.mapAzureToFormData) {
-        mappedData = VelneoMappingService.mapAzureToFormData(
-          scannedData, 
-          selectedClient, 
-          selectedCompany, 
-          masterOptions || undefined
-        );
-      } else {
-        console.warn('⚠️ [usePolicyForm] VelneoMappingService.mapAzureToFormData no está disponible');
-      }
-
-      // Datos básicos del contexto
-      const contextData = {
-        asegurado: selectedClient?.clinom || selectedClient?.nombre || '',
-        tomador: selectedClient?.clinom || selectedClient?.nombre || '',
-        domicilio: selectedClient?.clidir || selectedClient?.direccion || '',
-        compania: selectedCompany?.comcod || selectedCompany?.id || '',
-      };
-
-      // Combinar datos
-      const initialData: PolicyFormData = {
-        ...EMPTY_POLICY_FORM,
-        ...mappedData,
-        ...contextData
-      };
-
-      console.log('✅ [usePolicyForm] Datos iniciales preparados:', {
-        camposMapeados: Object.keys(mappedData).length,
-        camposContexto: Object.keys(contextData).length,
-        completitud: scannedData.porcentajeCompletitud || 0
+      // ✅ CORREGIDO: Usar MasterDataApi desde apiService
+      const data = await MasterDataApi.getMasterDataOptions();
+      setMasterData(data);
+      console.log('✅ Datos maestros cargados:', {
+        categorias: data.categorias?.length || 0,
+        destinos: data.destinos?.length || 0,
+        combustibles: data.combustibles?.length || 0
       });
-
-      setFormData(initialData);
-      setIsDirty(true);
-      
     } catch (error) {
-      console.error('❌ [usePolicyForm] Error inicializando formulario:', error);
-      setMasterError('Error procesando datos del documento escaneado');
+      console.error('❌ Error cargando maestros:', error);
+      setErrors(prev => ({
+        ...prev,
+        _global: 'Error cargando datos maestros. Algunos campos podrían no funcionar correctamente.'
+      }));
+    } finally {
+      setLoading(false);
     }
-  }, [scannedData, selectedClient, selectedCompany, masterOptions]);
+  };
 
-  // ===== EFECTO PARA INICIALIZAR FORMULARIO =====
-  useEffect(() => {
-    // Solo inicializar cuando tengamos todos los datos necesarios
-    if (scannedData && selectedClient && !loadingMasters && masterOptions) {
-      console.log('🚀 [usePolicyForm] Condiciones cumplidas para inicialización');
-      initializeFormFromAzure();
+  /**
+   * 🎯 Mapear datos del escaneo Azure al formulario
+   */
+  const mapScannedData = useCallback(() => {
+    if (!scannedData?.datosVelneo || !masterData) return;
+
+    const { datosBasicos, datosPoliza, datosVehiculo, datosCobertura } = scannedData.datosVelneo;
+
+    // Mapear datos básicos
+    if (datosBasicos) {
+      setFormData(prev => ({
+        ...prev,
+        corredor: datosBasicos.corredor || prev.corredor
+      }));
     }
-  }, [scannedData, selectedClient, selectedCompany, loadingMasters, masterOptions, initializeFormFromAzure]);
 
-  // ===== VALIDACIÓN INDIVIDUAL DE CAMPO =====
-  const validateField = useCallback((field: keyof PolicyFormData, value: any): string | null => {
-    // Campos requeridos básicos
-    const requiredFields = ['poliza', 'desde', 'hasta', 'tramite', 'estadoPoliza'];
-    
-    if (requiredFields.includes(field as string)) {
-      if (value === null || value === undefined || value === '') {
-        return `${field} es requerido`;
+    // Mapear datos de póliza
+    if (datosPoliza) {
+      setFormData(prev => ({
+        ...prev,
+        poliza: datosPoliza.numeroPoliza || prev.poliza,
+        certificado: datosPoliza.certificado || prev.certificado,
+        desde: formatDate(datosPoliza.desde) || prev.desde,
+        hasta: formatDate(datosPoliza.hasta) || prev.hasta
+      }));
+    }
+
+    // Mapear datos del vehículo
+    if (datosVehiculo) {
+      const marcaModelo = [datosVehiculo.marca, datosVehiculo.modelo]
+        .filter(Boolean)
+        .join(' ');
+
+      setFormData(prev => ({
+        ...prev,
+        marcaModelo: marcaModelo || prev.marcaModelo,
+        anio: datosVehiculo.anio || prev.anio,
+        matricula: datosVehiculo.matricula || prev.matricula,
+        motor: datosVehiculo.motor || prev.motor,
+        chasis: datosVehiculo.chasis || prev.chasis
+      }));
+
+      // ✅ Mapear maestros con búsqueda inteligente simple
+      if (datosVehiculo.combustible && masterData.combustibles) {
+        const combustible = findBestMatch(
+          masterData.combustibles,
+          datosVehiculo.combustible,
+          'name'
+        );
+        if (combustible) {
+          setFormData(prev => ({ ...prev, combustibleId: combustible.id }));
+        }
+      }
+
+      if (datosVehiculo.categoria && masterData.categorias) {
+        const categoria = findBestMatch(
+          masterData.categorias,
+          datosVehiculo.categoria,
+          'catdsc'
+        );
+        if (categoria) {
+          setFormData(prev => ({ ...prev, categoriaId: categoria.id }));
+        }
+      }
+
+      if (datosVehiculo.destino && masterData.destinos) {
+        const destino = findBestMatch(
+          masterData.destinos,
+          datosVehiculo.destino,
+          'desnom'
+        );
+        if (destino) {
+          setFormData(prev => ({ ...prev, destinoId: destino.id }));
+        }
       }
     }
 
-    // Validaciones específicas por campo
-    switch (field) {
-      case 'anio':
-        const yearStr = String(value);
-        if (yearStr && !/^\d{4}$/.test(yearStr)) {
-          return 'Año debe ser un número de 4 dígitos';
-        }
-        const year = Number(yearStr);
-        if (yearStr && (year < 1900 || year > new Date().getFullYear() + 1)) {
-          return 'Año debe estar entre 1900 y el próximo año';
-        }
-        break;
+    // Mapear datos financieros
+    if (datosCobertura) {
+      setFormData(prev => ({
+        ...prev,
+        premio: parseFloat(datosCobertura.premio) || prev.premio,
+        total: parseFloat(datosCobertura.total) || parseFloat(datosCobertura.premio) || prev.total,
+        zonaCirculacion: datosCobertura.zonaCirculacion || prev.zonaCirculacion
+      }));
 
-      case 'cuotas':
-        const cuotas = Number(value);
-        if (value && (isNaN(cuotas) || cuotas < 1 || cuotas > 12)) {
-          return 'Cuotas debe estar entre 1 y 12';
+      if (datosCobertura.moneda && masterData.monedas) {
+        const moneda = findBestMatch(
+          masterData.monedas,
+          datosCobertura.moneda,
+          'nombre'
+        );
+        if (moneda) {
+          setFormData(prev => ({ ...prev, monedaId: moneda.id }));
         }
-        break;
-
-      case 'premio':
-      case 'total':
-      case 'valorCuota':
-        const amount = Number(value);
-        if (value && (isNaN(amount) || amount < 0)) {
-          return 'Debe ser un número válido mayor o igual a 0';
-        }
-        break;
-
-      case 'hasta':
-        if (formData.desde && value) {
-          const desde = new Date(formData.desde);
-          const hasta = new Date(value);
-          if (hasta <= desde) {
-            return 'La fecha hasta debe ser posterior a la fecha desde';
-          }
-        }
-        break;
+      }
     }
 
-    return null;
-  }, [formData]);
+    console.log('✅ Datos mapeados desde Azure');
+  }, [scannedData, masterData]);
 
-  // ===== ACTUALIZAR CAMPO DEL FORMULARIO =====
-  const updateFormData = useCallback((field: keyof PolicyFormData, value: any) => {
-    console.log(`📝 [usePolicyForm] Actualizando ${field}:`, value);
-    
+  /**
+   * 📋 Aplicar business rules según tipo de operación
+   */
+  const applyBusinessRules = useCallback(() => {
+    switch (operationType) {
+      case 'EMISION':
+        setFormData(prev => ({
+          ...prev,
+          tramite: 'Nuevo',
+          estadoPoliza: 'VIG',
+          endoso: '0'
+        }));
+        break;
+
+      case 'RENOVACION':
+        setFormData(prev => ({
+          ...prev,
+          tramite: 'Renovación',
+          estadoPoliza: 'VIG',
+          desde: incrementYear(prev.desde),
+          hasta: incrementYear(prev.hasta)
+        }));
+        break;
+
+      case 'CAMBIO':
+        setFormData(prev => ({
+          ...prev,
+          tramite: 'Cambio',
+          estadoPoliza: 'VIG',
+          endoso: String(parseInt(prev.endoso || '0') + 1)
+        }));
+        break;
+    }
+  }, [operationType]);
+
+  /**
+   * 📝 Actualizar campo del formulario
+   */
+  const updateField = useCallback((field: keyof PolicyFormData, value: any) => {
     setFormData(prev => {
-      const newData = { ...prev, [field]: value };
-      
-      // Sincronizaciones automáticas
-      if (field === 'monedaId') {
-        newData.moneda = value;
+      const updated = { ...prev, [field]: value };
+
+      // Auto-cálculos
+      if (field === 'premio' || field === 'cuotas') {
+        updated.total = updated.premio;
+        updated.valorCuota = updated.cuotas > 0 ? updated.total / updated.cuotas : 0;
       }
-      
-      return newData;
+
+      return updated;
     });
-    
-    setTouchedFields(prev => new Set(prev.add(field as string)));
-    setIsDirty(true);
-    
+
+    // Marcar campo como tocado
+    setTouchedFields(prev => new Set(prev).add(field));
+
     // Limpiar error del campo si existe
-    setErrors(prev => {
-      if (prev[field]) {
+    if (errors[field]) {
+      setErrors(prev => {
         const newErrors = { ...prev };
         delete newErrors[field];
         return newErrors;
-      }
-      return prev;
-    });
-    
-    // Validación en tiempo real para campos críticos
-    const error = validateField(field, value);
-    if (error) {
-      setErrors(prev => ({ ...prev, [field]: error }));
+      });
     }
-  }, [validateField]);
 
-  // ===== 🔧 VALIDACIÓN COMPLETA DEL FORMULARIO - CORREGIDA =====
-  const validateForm = useCallback((): FormValidationResult => {
+    // Limpiar warning del campo si existe
+    if (warnings[field]) {
+      setWarnings(prev => {
+        const newWarnings = { ...prev };
+        delete newWarnings[field];
+        return newWarnings;
+      });
+    }
+  }, [errors, warnings]);
+
+  /**
+   * ✅ Validar formulario completo
+   */
+  const validateForm = useCallback((): boolean => {
     const newErrors: Record<string, string> = {};
-    const requiredFields = ['poliza', 'desde', 'hasta', 'tramite', 'estadoPoliza'];
+    const newWarnings: Record<string, string> = {};
 
-    // Validar campos requeridos
-    requiredFields.forEach(field => {
-      const value = formData[field as keyof PolicyFormData];
-      const error = validateField(field as keyof PolicyFormData, value);
-      
-      if (error) {
-        newErrors[field] = error;
-      }
-    });
+    // ===== VALIDACIONES REQUERIDAS =====
+    if (!formData.poliza) {
+      newErrors.poliza = 'Número de póliza es requerido';
+    }
 
-    // Validaciones cruzadas
+    if (!formData.desde) {
+      newErrors.desde = 'Fecha desde es requerida';
+    }
+
+    if (!formData.hasta) {
+      newErrors.hasta = 'Fecha hasta es requerida';
+    }
+
     if (formData.desde && formData.hasta) {
-      const desde = new Date(formData.desde);
-      const hasta = new Date(formData.hasta);
-      if (hasta <= desde) {
+      const fechaDesde = new Date(formData.desde);
+      const fechaHasta = new Date(formData.hasta);
+      if (fechaDesde >= fechaHasta) {
         newErrors.hasta = 'La fecha hasta debe ser posterior a la fecha desde';
       }
     }
 
-    const isValid = Object.keys(newErrors).length === 0;
-    const missingRequired = requiredFields.filter(field => {
-      const value = formData[field as keyof PolicyFormData];
-      return value === null || value === undefined || value === '';
-    });
+    if (!formData.marcaModelo) {
+      newErrors.marcaModelo = 'Marca y modelo son requeridos';
+    }
 
-    // ✅ ESTRUCTURA CORRECTA SEGÚN FormValidationResult
-    return {
-      isValid,
-      errors: newErrors,
-      warnings: {}, // Agregar warnings vacío
-      missingRequired // Agregar missingRequired
-    };
-  }, [formData, validateField]);
+    if (!formData.anio) {
+      newErrors.anio = 'Año del vehículo es requerido';
+    } else {
+      const anio = parseInt(formData.anio);
+      if (anio < 1900 || anio > new Date().getFullYear() + 1) {
+        newErrors.anio = 'Año del vehículo inválido';
+      }
+    }
 
-  // ===== PROGRESO DEL FORMULARIO =====
-  const formProgress = useMemo(() => {
-    const requiredFields = ['poliza', 'desde', 'hasta', 'tramite', 'estadoPoliza'];
-    const completedFields = requiredFields.filter(field => {
-      const value = formData[field as keyof PolicyFormData];
-      return value !== null && value !== undefined && value !== '';
-    }).length;
+    if (!formData.combustibleId) {
+      newErrors.combustibleId = 'Tipo de combustible es requerido';
+    }
 
-    const overallProgress = Math.round((completedFields / requiredFields.length) * 100);
+    if (!formData.destinoId) {
+      newErrors.destinoId = 'Destino del vehículo es requerido';
+    }
 
-    // Progreso por pestaña
-    const byTab = FORM_TABS.reduce((acc, tab) => {
-      const tabFields = TabsUtils.getRequiredFieldsForTab(tab.id);
-      const tabCompleted = tabFields.filter(field => {
-        const value = formData[field as keyof PolicyFormData];
-        return value !== null && value !== undefined && value !== '';
-      }).length;
-      
-      const tabErrors = tabFields.filter(field => errors[field]).length;
+    if (formData.premio <= 0) {
+      newErrors.premio = 'El premio debe ser mayor a 0';
+    }
 
-      acc[tab.id] = {
-        completion: tabFields.length > 0 ? Math.round((tabCompleted / tabFields.length) * 100) : 100,
-        errors: tabErrors,
-        required: tabFields,
-        completed: tabCompleted
+    if (!formData.monedaId) {
+      newErrors.monedaId = 'Moneda es requerida';
+    }
+
+    // ===== WARNINGS (no bloquean el envío) =====
+    if (!formData.matricula) {
+      newWarnings.matricula = 'Se recomienda ingresar la matrícula';
+    }
+
+    if (!formData.motor && !formData.chasis) {
+      newWarnings.vehiculo = 'Se recomienda ingresar motor o chasis';
+    }
+
+    if (!formData.corredor) {
+      newWarnings.corredor = 'No se ha especificado un corredor';
+    }
+
+    if (!formData.observaciones && operationType === 'CAMBIO') {
+      newWarnings.observaciones = 'Se recomienda agregar observaciones para cambios';
+    }
+
+    setErrors(newErrors);
+    setWarnings(newWarnings);
+
+    return Object.keys(newErrors).length === 0;
+  }, [formData, operationType]);
+
+  /**
+   * 📤 Enviar formulario a Velneo
+   */
+  const submitForm = useCallback(async (): Promise<SubmitResult> => {
+    if (!validateForm()) {
+      console.log('❌ Formulario tiene errores, no se puede enviar');
+      return { 
+        success: false, 
+        error: 'El formulario tiene errores de validación',
+        message: 'Por favor corrija los errores antes de enviar'
+      };
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Preparar datos para el backend
+      const payload = mapFormDataToVelneoRequest(formData);
+
+      console.log('📤 Enviando a Velneo:', payload);
+
+      // ✅ CORREGIDO: Usar PolizaApi desde apiService
+      const response = await PolizaApi.create(payload);
+
+      console.log('✅ Póliza creada exitosamente:', response);
+
+      return {
+        success: true,
+        data: response,
+        message: 'Póliza enviada exitosamente a Velneo'
       };
 
-      return acc;
-    }, {} as Record<FormTabId, any>);
-
-    return {
-      overall: overallProgress,
-      byTab
-    };
-  }, [formData, errors]);
-
-  // ===== NAVEGACIÓN ENTRE PESTAÑAS =====
-  const goToTab = useCallback((tabId: FormTabId) => {
-    console.log(`🔀 [usePolicyForm] Navegando a pestaña: ${tabId}`);
-    setActiveTab(tabId);
-  }, []);
-
-  const goToNextTab = useCallback(() => {
-    const nextTab = TabsUtils.getNextTab(activeTab);
-    if (nextTab) {
-      console.log(`➡️ [usePolicyForm] Siguiente pestaña: ${nextTab.id}`);
-      setActiveTab(nextTab.id);
-    }
-  }, [activeTab]);
-
-  const goToPreviousTab = useCallback(() => {
-    const previousTab = TabsUtils.getPreviousTab(activeTab);
-    if (previousTab) {
-      console.log(`⬅️ [usePolicyForm] Pestaña anterior: ${previousTab.id}`);
-      setActiveTab(previousTab.id);
-    }
-  }, [activeTab]);
-
-  const goToFieldError = useCallback((field: keyof PolicyFormData) => {
-    const tabId = TabsUtils.getTabForField(field as string);
-    if (tabId) {
-      console.log(`🚨 [usePolicyForm] Navegando a pestaña con error: ${tabId} (campo: ${field})`);
-      setActiveTab(tabId);
-    }
-  }, []);
-
-  // ===== CALLBACKS PARA MANEJO DE RESULTADOS =====
-  const handleFormError = useCallback((message: string) => {
-    console.error('❌ [usePolicyForm] Form error:', message);
-    onError(message);
-  }, [onError]);
-
-  const handleFormSuccess = useCallback((result: any) => {
-    console.log('✅ [usePolicyForm] Form success:', result);
-    onSuccess(result);
-  }, [onSuccess]);
-
-  // ===== 🔧 ENVÍO DEL FORMULARIO CORREGIDO =====
-  const submitForm = useCallback(async () => {
-    console.log('📤 [usePolicyForm] Iniciando envío del formulario...');
-    setIsSubmitting(true);
-    
-    try {
-      // Marcar todos los campos como tocados
-      const allFields = Object.keys(formData) as (keyof PolicyFormData)[];
-      setTouchedFields(new Set(allFields.map(f => f as string)));
-
-      // Validar formulario completo
-      const validationResult = validateForm();
+    } catch (error: any) {
+      console.error('❌ Error enviando póliza:', error);
       
-      if (!validationResult.isValid) {
-        setErrors(validationResult.errors);
-        
-        // Ir a la primera pestaña con errores
-        const firstErrorField = Object.keys(validationResult.errors)[0] as keyof PolicyFormData;
-        if (firstErrorField) {
-          goToFieldError(firstErrorField);
-        }
-        
-        handleFormError(`Se encontraron ${Object.keys(validationResult.errors).length} errores en el formulario`);
-        return;
-      }
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Error al enviar la póliza';
 
-      // Limpiar errores
-      setErrors({});
+      setErrors(prev => ({
+        ...prev,
+        _global: errorMessage
+      }));
 
-      console.log('🔄 [usePolicyForm] Mapeando datos para Velneo...');
-      
-      // ✅ CORREGIDO: Verificar que el método existe y mapear correctamente
-      if (!VelneoMappingService.mapFormDataToVelneoRequest) {
-        throw new Error('VelneoMappingService.mapFormDataToVelneoRequest no está disponible');
-      }
+      return {
+        success: false,
+        error: errorMessage,
+        message: errorMessage
+      };
 
-      const velneoRequest = VelneoMappingService.mapFormDataToVelneoRequest(
-        formData,
-        selectedClient,
-        selectedCompany,
-        selectedSection,
-        masterOptions || undefined
-      );
-
-      console.log('📋 [usePolicyForm] Objeto mapeado para Velneo:', {
-        poliza: velneoRequest.Conpol || formData.poliza,
-        cliente: velneoRequest.Clinom || selectedClient?.clinom,
-        companiaId: velneoRequest.Comcod,
-        premio: velneoRequest.Conpremio,
-        campos: Object.keys(velneoRequest).length
-      });
-
-      // ✅ CORREGIDO: Usar el método correcto del apiService
-      console.log('🚀 [usePolicyForm] Enviando a Velneo...');
-      
-      const result = await apiService.createPoliza(velneoRequest);
-      
-      console.log('✅ [usePolicyForm] Póliza enviada exitosamente:', result);
-      
-      // Resetear estados
-      setIsDirty(false);
-      
-      handleFormSuccess(result);
-    } catch (error) {
-      console.error('❌ [usePolicyForm] Error enviando formulario:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error enviando póliza a Velneo';
-      handleFormError(errorMessage);
     } finally {
       setIsSubmitting(false);
     }
-  }, [
-    formData, 
-    selectedClient, 
-    selectedCompany, 
-    selectedSection, 
-    masterOptions, 
-    validateForm, 
-    goToFieldError, 
-    handleFormSuccess, 
-    handleFormError
-  ]);
+  }, [formData, validateForm]);
 
-  // ===== RESETEAR FORMULARIO =====
+  /**
+   * 🔄 Resetear formulario
+   */
   const resetForm = useCallback(() => {
-    console.log('🔄 [usePolicyForm] Reseteando formulario...');
-    setFormData({ ...EMPTY_POLICY_FORM });
+    setFormData(EMPTY_POLICY_FORM);
     setErrors({});
+    setWarnings({});
     setTouchedFields(new Set());
     setActiveTab('datos_basicos');
-    setIsDirty(false);
+    console.log('📋 Formulario reseteado');
   }, []);
 
-  // ===== ESTADOS COMPUTADOS =====
-  const isValid = useMemo(() => {
-    return validateForm().isValid;
-  }, [validateForm]);
-
-  const canSubmit = useMemo(() => {
-    return isValid && !isSubmitting && !loadingMasters && masterOptions !== null;
-  }, [isValid, isSubmitting, loadingMasters, masterOptions]);
-
-  const hasUnsavedChanges = useMemo(() => {
-    return isDirty && !isSubmitting;
-  }, [isDirty, isSubmitting]);
-
-  // ===== RECARGA MANUAL DE MAESTROS =====
-  const reloadMasters = useCallback(async () => {
-    console.log('🔄 [usePolicyForm] Recargando maestros manualmente...');
-    setMasterOptions(null);
-    setLoadingMasters(true);
-    setMasterError(null);
-    
-    try {
-      const options = await MasterDataApi.getMasterDataOptions();
-      setMasterOptions(options);
-      setMasterError(null);
-      console.log('✅ [usePolicyForm] Maestros recargados exitosamente');
-    } catch (error) {
-      console.error('❌ [usePolicyForm] Error recargando maestros:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Error recargando maestros';
-      setMasterError(errorMessage);
-    } finally {
-      setLoadingMasters(false);
-    }
-  }, []);
-
-  // ===== INFORMACIÓN DE DEBUG =====
-  const debugInfo = useMemo(() => {
-    if (process.env.NODE_ENV !== 'development') return null;
-    
-    return {
-      formData: Object.keys(formData).length,
-      errors: Object.keys(errors),
-      touchedFields: Array.from(touchedFields),
-      activeTab,
-      progress: formProgress.overall,
-      masterOptions: masterOptions ? {
-        categorias: masterOptions.categorias?.length || 0,
-        destinos: masterOptions.destinos?.length || 0,
-        calidades: masterOptions.calidades?.length || 0,
-        combustibles: masterOptions.combustibles?.length || 0,
-        monedas: masterOptions.monedas?.length || 0
-      } : null,
-      validation: validateForm()
+    /**
+   * 📊 Calcular progreso por pestaña
+   */
+  const calculateProgressByTab = useCallback((): TabProgress => {
+    const tabs: Record<FormTabId, (keyof PolicyFormData)[]> = {
+      datos_basicos: ['corredor', 'estadoTramite', 'tramite', 'estadoPoliza'],
+      datos_poliza: ['poliza', 'desde', 'hasta'],
+      datos_vehiculo: ['marcaModelo', 'anio', 'combustibleId', 'destinoId'],
+      datos_cobertura: ['monedaId', 'zonaCirculacion'],
+      condiciones_pago: ['premio', 'formaPago'],
+      observaciones: []
     };
-  }, [formData, errors, touchedFields, activeTab, formProgress, masterOptions, validateForm]);
+
+    const progressByTab: TabProgress = {};
+
+    for (const [tab, fields] of Object.entries(tabs)) {
+      if (fields.length === 0) {
+        progressByTab[tab] = 100; // Pestañas sin campos requeridos
+      } else {
+        const completed = fields.filter(field => {
+          const value = formData[field];
+          return value !== '' && value !== null && value !== undefined && value !== 0;
+        }).length;
+        progressByTab[tab] = Math.round((completed / fields.length) * 100);
+      }
+    }
+
+    return progressByTab;
+  }, [formData]);
+
+  /**
+   * 📊 Calcular progreso del formulario
+   */
+  const progress = useMemo((): FormProgress => {
+    const requiredFields = [
+      'poliza', 'desde', 'hasta', 'marcaModelo', 'anio',
+      'combustibleId', 'destinoId', 'premio', 'monedaId'
+    ];
+
+    const completedRequired = requiredFields.filter(
+      field => {
+        const value = formData[field as keyof PolicyFormData];
+        return value !== '' && value !== null && value !== undefined && value !== 0;
+      }
+    ).length;
+
+    const totalFields = Object.keys(formData).length;
+    const completedFields = Object.values(formData).filter(
+      value => value !== '' && value !== 0 && value !== null && value !== undefined
+    ).length;
+
+    return {
+      required: Math.round((completedRequired / requiredFields.length) * 100),
+      total: Math.round((completedFields / totalFields) * 100),
+      byTab: calculateProgressByTab()
+    };
+  }, [formData]);
+
+  /**
+   * 🔍 Verificaciones de estado
+   */
+  const isValid = useMemo(() => Object.keys(errors).length === 0, [errors]);
+  const isDirty = useMemo(() => touchedFields.size > 0, [touchedFields]);
+  const canSubmit = useMemo(() => isValid && !isSubmitting, [isValid, isSubmitting]);
 
   // ===== RETURN DEL HOOK =====
   return {
     // Estados principales
     formData,
     errors,
+    warnings,
     touchedFields,
-    activeTab,
+    masterData,
+    loading,
     isSubmitting,
-    isDirty,
-    isValid,
-    canSubmit,
-    hasUnsavedChanges,
+    activeTab,
     
-    // Estados de maestros
-    masterOptions,
-    loadingMasters,
-    masterError,
-    
-    // Progreso
-    formProgress,
-    
-    // Acciones principales
-    updateFormData,
+    // Acciones
+    updateField,
     validateForm,
     submitForm,
     resetForm,
-    reloadMasters,
+    loadMasterData,
+    setActiveTab,
     
-    // Navegación
-    setActiveTab: goToTab,
-    goToNextTab,
-    goToPreviousTab,
-    goToFieldError,
-    
-    // Información contextual
-    selectedClient,
-    selectedCompany,
-    selectedSection,
-    scannedData,
-    
-    // Utilidades
-    validateField,
-    onBack,
-    
-    // Debug (solo en desarrollo)
-    debugInfo
+    // Información de estado
+    progress,
+    isValid,
+    isDirty,
+    canSubmit
   };
-};
+}
+
+// ===== FUNCIONES AUXILIARES =====
+
+function formatDate(dateString: string | undefined): string {
+  if (!dateString) return '';
+  try {
+    return new Date(dateString).toISOString().split('T')[0];
+  } catch {
+    return '';
+  }
+}
+
+function incrementYear(dateString: string): string {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    date.setFullYear(date.getFullYear() + 1);
+    return date.toISOString().split('T')[0];
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * 🔍 Búsqueda inteligente simple para maestros
+ */
+function findBestMatch<T extends { id: any; [key: string]: any }>(
+  items: T[],
+  searchText: string,
+  searchField: string
+): T | null {
+  if (!searchText || !items?.length) return null;
+
+  const normalizedSearch = searchText.toLowerCase().trim();
+
+  // Búsqueda exacta
+  for (const item of items) {
+    if (item[searchField]?.toLowerCase().trim() === normalizedSearch) {
+      return item;
+    }
+  }
+
+  // Búsqueda parcial
+  for (const item of items) {
+    if (item[searchField]?.toLowerCase().includes(normalizedSearch)) {
+      return item;
+    }
+  }
+
+  return null;
+}
