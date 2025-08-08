@@ -1,4 +1,4 @@
-// src/constants/velneoDefaults.ts - VERSIÓN CORREGIDA
+// src/constants/velneoDefaults.ts - VERSIÓN ACTUALIZADA CON DOBLE MONEDA
 
 import type { PolicyFormData } from '../types/poliza';
 
@@ -9,7 +9,7 @@ import type { PolicyFormData } from '../types/poliza';
 export const VELNEO_DEFAULTS = {
   // ===== IDs FIJOS INICIALES =====
   SECCION_AUTOMOVILES: 9,              // ID de la sección AUTOMÓVILES
-  COMPANIA_BSE: 2,                     // ID de BSE (ajustar según tu BD)
+  COMPANIA_BSE: 2,                     // ID de BSE
   
   // ===== ESTADOS Y TIPOS POR DEFECTO =====
   ESTADO_TRAMITE_DEFAULT: 'En proceso',
@@ -27,24 +27,24 @@ export const VELNEO_DEFAULTS = {
   DESTINO_DEFAULT: 2,                  // PARTICULAR por defecto
   CALIDAD_DEFAULT: 2,                  // PROPIETARIO por defecto
   MONEDA_DEFAULT: 1,                   // PESO URUGUAYO por defecto
-  CATEGORIA_DEFAULT: 20,  
-  CAMPOS_NUMERICOS_DEFAULT: 0,             // AUTOMÓVIL por defecto
+  CATEGORIA_DEFAULT: 20,               // AUTOMÓVIL por defecto
+  COBERTURA_DEFAULT: 1,                // Responsabilidad Civil por defecto
+  DEPARTAMENTO_DEFAULT_ID: 1,          // Montevideo por defecto
   
   // ===== VALORES NUMÉRICOS =====
   CUOTAS_DEFAULT: 1,
   PREMIO_DEFAULT: 0,
-  COBERTURA_DEFAULT: 1,
-  DEPARTAMENTO_DEFAULT_ID: 1,
+  VALOR_CUOTA_DEFAULT: 0,
   
   // ===== CAMPOS VACÍOS POR DEFECTO =====
   EMPTY_STRING: '',
   
   // ===== ZONA POR DEFECTO =====
-  ZONA_CIRCULACION_DEFAULT: 'MONTEVIDEO'
+  ZONA_CIRCULACION_DEFAULT: 'Todo el país'
 } as const;
 
 /**
- * 📋 FORMULARIO VACÍO INICIAL - CORREGIDO
+ * 📋 FORMULARIO VACÍO INICIAL - ACTUALIZADO CON DOBLE MONEDA
  */
 export const EMPTY_POLICY_FORM: PolicyFormData = {
   // ===== PESTAÑA 1: DATOS BÁSICOS =====
@@ -62,11 +62,11 @@ export const EMPTY_POLICY_FORM: PolicyFormData = {
 
   // ===== PESTAÑA 2: DATOS DE LA PÓLIZA =====
   compania: VELNEO_DEFAULTS.COMPANIA_BSE,
-  comalias: 'BSE',                    // Agregado: alias de compañía
-  seccion: VELNEO_DEFAULTS.SECCION_AUTOMOVILES,  // Agregado: sección
+  comalias: 'BSE',
+  seccion: VELNEO_DEFAULTS.SECCION_AUTOMOVILES,
   poliza: VELNEO_DEFAULTS.EMPTY_STRING,
   certificado: VELNEO_DEFAULTS.EMPTY_STRING,
-  endoso: VELNEO_DEFAULTS.ENDOSO_DEFAULT,        // Agregado: endoso
+  endoso: VELNEO_DEFAULTS.ENDOSO_DEFAULT,
   desde: VELNEO_DEFAULTS.EMPTY_STRING,
   hasta: VELNEO_DEFAULTS.EMPTY_STRING,
 
@@ -83,31 +83,32 @@ export const EMPTY_POLICY_FORM: PolicyFormData = {
 
   // ===== PESTAÑA 4: DATOS DE LA COBERTURA =====
   coberturaId: VELNEO_DEFAULTS.COBERTURA_DEFAULT,
+  tarifaId: undefined,                                    // Opcional
   zonaCirculacion: VELNEO_DEFAULTS.ZONA_CIRCULACION_DEFAULT,
-  departamentoId: VELNEO_DEFAULTS.DEPARTAMENTO_DEFAULT_ID,  // Corregido: era 'departamento'
-  monedaId: VELNEO_DEFAULTS.MONEDA_DEFAULT,
-  tarifaId: undefined,
+  departamentoId: VELNEO_DEFAULTS.DEPARTAMENTO_DEFAULT_ID,
+  monedaId: VELNEO_DEFAULTS.MONEDA_DEFAULT,              // Moneda de COBERTURA
 
   // ===== PESTAÑA 5: CONDICIONES DE PAGO =====
   premio: VELNEO_DEFAULTS.PREMIO_DEFAULT,
   total: VELNEO_DEFAULTS.PREMIO_DEFAULT,
   formaPago: VELNEO_DEFAULTS.FORMA_PAGO_DEFAULT,
   cuotas: VELNEO_DEFAULTS.CUOTAS_DEFAULT,
-  valorCuota: 0,
+  valorCuota: VELNEO_DEFAULTS.VALOR_CUOTA_DEFAULT,
+  monedaPagoId: VELNEO_DEFAULTS.MONEDA_DEFAULT,          // NUEVO - Moneda de PAGO
 
   // ===== PESTAÑA 6: OBSERVACIONES =====
   observaciones: VELNEO_DEFAULTS.EMPTY_STRING
 };
 
 /**
- * 📊 CAMPOS REQUERIDOS POR PESTAÑA
+ * 📊 CAMPOS REQUERIDOS POR PESTAÑA - ACTUALIZADO
  */
 export const REQUIRED_FIELDS_BY_TAB = {
   datos_basicos: ['corredor', 'estadoTramite', 'tramite', 'tipo', 'estadoPoliza'],
   datos_poliza: ['poliza', 'desde', 'hasta'],
-  datos_vehiculo: ['marcaModelo', 'anio', 'destinoId', 'combustibleId'],
-  datos_cobertura: ['monedaId', 'zonaCirculacion'],
-  condiciones_pago: ['premio', 'formaPago'],
+  datos_vehiculo: ['marcaModelo', 'anio', 'destinoId', 'combustibleId', 'calidadId', 'categoriaId'],
+  datos_cobertura: ['coberturaId', 'monedaId', 'departamentoId'],
+  condiciones_pago: ['premio', 'formaPago', 'monedaPagoId'],
   observaciones: [] as string[]
 } as const;
 
@@ -131,21 +132,24 @@ export const VALIDATION_CONFIG = {
   ANIO_MAX: new Date().getFullYear() + 1,
   
   CUOTAS_MIN: 1,
-  CUOTAS_MAX: 48,
+  CUOTAS_MAX: 12,  // Máximo 12 cuotas según el backend
   
   PREMIO_MIN: 0,
   TOTAL_MIN: 0,
   VALOR_CUOTA_MIN: 0,
   
   // Longitudes de texto
-  CORREDOR_MAX_LENGTH: 100,
-  POLIZA_MAX_LENGTH: 50,
-  CERTIFICADO_MAX_LENGTH: 50,
-  MARCA_MODELO_MAX_LENGTH: 150,
-  MATRICULA_MAX_LENGTH: 20,
-  MOTOR_MAX_LENGTH: 50,
-  CHASIS_MAX_LENGTH: 50,
-  OBSERVACIONES_MAX_LENGTH: 1000,
+  CORREDOR_MAX_LENGTH: 128,
+  POLIZA_MAX_LENGTH: 256,
+  CERTIFICADO_MAX_LENGTH: 256,
+  MARCA_MODELO_MAX_LENGTH: 128,
+  MATRICULA_MAX_LENGTH: 64,
+  MOTOR_MAX_LENGTH: 40,
+  CHASIS_MAX_LENGTH: 40,
+  OBSERVACIONES_MAX_LENGTH: 2000,
+  ASEGURADO_MAX_LENGTH: 128,
+  DIRECCION_MAX_LENGTH: 256,
+  ZONA_CIRCULACION_MAX_LENGTH: 128,
   
   // Patrones regex
   POLIZA_PATTERN: /^[A-Z0-9\-\/]+$/i,
@@ -158,10 +162,11 @@ export const VALIDATION_CONFIG = {
     INVALID_DATE: 'Fecha inválida',
     DATE_RANGE: 'La fecha hasta debe ser posterior a la fecha desde',
     INVALID_YEAR: `Año debe estar entre ${1900} y ${new Date().getFullYear() + 1}`,
-    INVALID_CUOTAS: 'Cuotas debe estar entre 1 y 48',
+    INVALID_CUOTAS: 'Cuotas debe estar entre 1 y 12',
     NEGATIVE_AMOUNT: 'El monto no puede ser negativo',
     MAX_LENGTH: (max: number) => `Máximo ${max} caracteres`,
-    INVALID_FORMAT: 'Formato inválido'
+    INVALID_FORMAT: 'Formato inválido',
+    DIFFERENT_CURRENCIES: 'Atención: Las monedas de cobertura y pago son diferentes'
   }
 } as const;
 
@@ -208,29 +213,43 @@ export const REGIONAL_CONFIG = {
   
   // Formato de números
   CURRENCY_LOCALE: 'es-UY',
-  CURRENCY_SYMBOL: '$U',
+  CURRENCY_OPTIONS: {
+    style: 'currency',
+    currency: 'UYU',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  },
   
-  // Departamentos de Uruguay
+  // Símbolos de moneda
+  CURRENCY_SYMBOLS: {
+    1: '$U',    // Peso uruguayo
+    2: 'USD',   // Dólar
+    3: 'UI',    // Unidades indexadas
+    4: '€',     // Euro
+    5: 'R$'     // Real brasileño
+  },
+  
+  // Departamentos de Uruguay con IDs
   DEPARTAMENTOS_URUGUAY: [
-    'MONTEVIDEO',
-    'ARTIGAS',
-    'CANELONES',
-    'CERRO LARGO',
-    'COLONIA',
-    'DURAZNO',
-    'FLORES',
-    'FLORIDA',
-    'LAVALLEJA',
-    'MALDONADO',
-    'PAYSANDÚ',
-    'RÍO NEGRO',
-    'RIVERA',
-    'ROCHA',
-    'SALTO',
-    'SAN JOSÉ',
-    'SORIANO',
-    'TACUAREMBÓ',
-    'TREINTA Y TRES'
+    { id: 1, name: 'MONTEVIDEO' },
+    { id: 2, name: 'ARTIGAS' },
+    { id: 3, name: 'CANELONES' },
+    { id: 4, name: 'CERRO LARGO' },
+    { id: 5, name: 'COLONIA' },
+    { id: 6, name: 'DURAZNO' },
+    { id: 7, name: 'FLORES' },
+    { id: 8, name: 'FLORIDA' },
+    { id: 9, name: 'LAVALLEJA' },
+    { id: 10, name: 'MALDONADO' },
+    { id: 11, name: 'PAYSANDÚ' },
+    { id: 12, name: 'RÍO NEGRO' },
+    { id: 13, name: 'RIVERA' },
+    { id: 14, name: 'ROCHA' },
+    { id: 15, name: 'SALTO' },
+    { id: 16, name: 'SAN JOSÉ' },
+    { id: 17, name: 'SORIANO' },
+    { id: 18, name: 'TACUAREMBÓ' },
+    { id: 19, name: 'TREINTA Y TRES' }
   ]
 } as const;
 
@@ -243,7 +262,8 @@ export const API_CONFIG = {
     MAPPING_OPTIONS: '/api/velneo/mapping-options',
     CREATE_POLIZA: '/api/polizas',
     GET_CLIENTES: '/api/clientes',
-    SEARCH_CLIENTES: '/api/clientes/search'
+    SEARCH_CLIENTES: '/api/clientes/search',
+    GET_MASTER_DATA: '/api/masterdata/options'
   },
   
   // Timeouts
@@ -254,77 +274,6 @@ export const API_CONFIG = {
   MAX_RETRIES: 3,
   RETRY_DELAY: 1000
 } as const;
-
-/**
- * 📝 TIPO REQUEST PARA CREAR PÓLIZA EN VELNEO
- */
-export interface PolizaCreateRequest {
-  // Campos principales obligatorios
-  Clinro: number;
-  Clinom?: string;
-  Comcod: number;
-  Seccod: number;
-  Conpremio: number;
-  
-  // Campos de póliza
-  Conpol?: string;
-  Concar?: string;
-  Conend?: string;
-  Confchdes?: string;
-  Confchhas?: string;
-  Convig?: string;
-  Contra?: string;
-  Consta?: string;
-  
-  // Datos del asegurado
-  Asegurado?: string;
-  Direccion?: string;
-  Condom?: string;
-  
-  // Datos del vehículo
-  Marca?: string;
-  Modelo?: string;
-  Conmaraut?: string;
-  Anio?: number;
-  Conanioaut?: number;
-  Matricula?: string;
-  Conmataut?: string;
-  Motor?: string;
-  Conmotor?: string;
-  Chasis?: string;
-  Conchasis?: string;
-  
-  // Maestros
-  Combustibles?: string;  // STRING!
-  CategoriaId?: number;
-  DestinoId?: number;
-  CalidadId?: number;
-  
-  // Financiero
-  PremioTotal?: number;
-  Contot?: number;
-  CantidadCuotas?: number;
-  Concuo?: number;
-  Moneda?: string;
-  Moncod?: number;
-  FormaPago?: string;
-  
-  // Cobertura
-  CoberturaId?: number;
-  Cobertura?: string;
-  ZonaCirculacion?: string;
-  DepartamentoId?: number;
-  
-  // Otros
-  Ramo?: string;
-  EstadoPoliza?: string;
-  Tramite?: string;
-  Observaciones?: string;
-  ProcesadoConIA?: boolean;
-  
-  // Campos adicionales
-  [key: string]: any;
-}
 
 /**
  * 📝 HELPERS PARA ACCESO RÁPIDO
@@ -343,74 +292,200 @@ export const getTabColor = (tabId: keyof typeof UI_CONFIG.TAB_COLORS) =>
 export const getTabIcon = (tabId: keyof typeof UI_CONFIG.TAB_ICONS) => 
   UI_CONFIG.TAB_ICONS[tabId];
 
+export const getCurrencySymbol = (monedaId: number): string => 
+  REGIONAL_CONFIG.CURRENCY_SYMBOLS[monedaId as keyof typeof REGIONAL_CONFIG.CURRENCY_SYMBOLS] || '$';
+
 /**
- * 🔄 MAPEO DE FORM DATA A VELNEO REQUEST
+ * 🔄 MAPEO DE FORM DATA A VELNEO REQUEST - ACTUALIZADO CON DOBLE MONEDA
  */
-export const mapFormDataToVelneoRequest = (formData: PolicyFormData): PolizaCreateRequest => {
+export const mapFormDataToVelneoRequest = (
+  formData: PolicyFormData,
+  selectedClient?: any,
+  selectedCompany?: any
+): any => {
   // Separar marca y modelo si están unidos
   const [marca, ...modeloParts] = formData.marcaModelo.split(' ');
   const modelo = modeloParts.join(' ');
 
   return {
-    // IDs principales
-    Clinro: formData.clinro || 0,
-    Clinom: formData.asegurado,
-    Comcod: formData.compania,
-    Seccod: formData.seccion,
+    // ===== CAMPOS REQUERIDOS =====
+    Comcod: selectedCompany?.id || formData.compania || VELNEO_DEFAULTS.COMPANIA_BSE,
+    Seccod: formData.seccion || VELNEO_DEFAULTS.SECCION_AUTOMOVILES,
+    Clinro: selectedClient?.id || formData.clinro || 0,
+    Conpol: formData.poliza || '',
+    Confchdes: formData.desde || new Date().toISOString().split('T')[0],
+    Confchhas: formData.hasta || new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    Conpremio: Number(formData.premio) || 0,
+    Asegurado: selectedClient?.clinom || formData.asegurado || '',
     
-    // Datos de póliza
-    Conpol: formData.poliza,
-    Concar: formData.certificado,
-    Conend: formData.endoso,
-    Confchdes: formData.desde,
-    Confchhas: formData.hasta,
-    Convig: formData.estadoPoliza,
-    Contra: formData.tramite,
-    Consta: formData.formaPago,
+    // ===== DATOS DE CONTROL =====
+    Contra: mapTramiteToNumber(formData.tramite),
+    Congesti: mapEstadoToNumber(formData.estadoTramite),
+    Congeses: mapEstadoToNumber(formData.estadoTramite),
+    Convig: mapEstadoPolizaToNumber(formData.estadoPoliza),
+    Consta: mapFormaPagoToNumber(formData.formaPago),
     
-    // Datos del asegurado
-    Asegurado: formData.asegurado,
-    Direccion: formData.domicilio,
-    Condom: formData.domicilio,
+    // ===== DATOS DEL VEHÍCULO =====
+    Conmaraut: formData.marcaModelo || '',
+    Conanioaut: formData.anio ? Number(formData.anio) : undefined,
+    Conmataut: formData.matricula || '',
+    Conmotor: formData.motor || '',
+    Conchasis: formData.chasis || '',
     
-    // Datos del vehículo
+    // ===== IDs DE MAESTROS =====
+    Catdsc: formData.categoriaId || undefined,
+    Desdsc: formData.destinoId || undefined,
+    Caldsc: formData.calidadId || undefined,
+    Tarcod: formData.tarifaId || undefined,
+    
+    // ===== DATOS FINANCIEROS CON DOBLE MONEDA =====
+    Contot: Number(formData.total) || Number(formData.premio) || 0,
+    Concuo: Number(formData.cuotas) || 1,
+    Moncod: Number(formData.monedaId) || VELNEO_DEFAULTS.MONEDA_DEFAULT,        // Moneda COBERTURA
+    Conviamon: Number(formData.monedaPagoId) || Number(formData.monedaId) || VELNEO_DEFAULTS.MONEDA_DEFAULT, // Moneda PAGO
+    
+    // ===== CAMPOS LEGACY =====
     Marca: marca,
     Modelo: modelo,
-    Conmaraut: formData.marcaModelo,
     Anio: parseInt(formData.anio) || 0,
-    Conanioaut: parseInt(formData.anio) || 0,
     Matricula: formData.matricula,
-    Conmataut: formData.matricula,
     Motor: formData.motor,
-    Conmotor: formData.motor,
     Chasis: formData.chasis,
-    Conchasis: formData.chasis,
-    
-    // Maestros
-    Combustibles: formData.combustibleId,  // STRING!
+    Combustible: formData.combustibleId || '', // STRING
     CategoriaId: formData.categoriaId,
     DestinoId: formData.destinoId,
     CalidadId: formData.calidadId,
-    
-    // Financiero
-    Conpremio: formData.premio,
-    PremioTotal: formData.total,
-    Contot: formData.total,
-    CantidadCuotas: formData.cuotas,
-    Concuo: formData.cuotas,
-    Moncod: formData.monedaId,
     FormaPago: formData.formaPago,
+    CantidadCuotas: formData.cuotas,
+    ValorCuota: formData.valorCuota,
+    Departamento: formData.zonaCirculacion || '',
     
-    // Cobertura
-    CoberturaId: formData.coberturaId,
-    ZonaCirculacion: formData.zonaCirculacion,
-    DepartamentoId: formData.departamentoId,
-    
-    // Otros
+    // ===== OTROS CAMPOS =====
     Ramo: VELNEO_DEFAULTS.RAMO,
-    EstadoPoliza: formData.estadoPoliza,
-    Tramite: formData.tramite,
-    Observaciones: formData.observaciones,
-    ProcesadoConIA: true
+    Observaciones: buildObservations(formData),
+    ProcesadoConIA: true,
+    
+    // Datos adicionales
+    Condom: selectedClient?.clidir || formData.domicilio || '',
+    Clinom: selectedClient?.clinom || formData.asegurado || '',
+    Concar: formData.certificado || '0',
+    Conend: formData.endoso || '0',
+  };
+};
+
+/**
+ * Helper para construir observaciones incluyendo info de monedas
+ */
+const buildObservations = (formData: PolicyFormData): string => {
+  let obs = formData.observaciones || '';
+  
+  // Agregar nota si las monedas son diferentes
+  if (formData.monedaPagoId && formData.monedaId && formData.monedaPagoId !== formData.monedaId) {
+    const monedaCobertura = getCurrencySymbol(formData.monedaId);
+    const monedaPago = getCurrencySymbol(formData.monedaPagoId);
+    obs += `\n[MONEDAS DIFERENTES: Cobertura en ${monedaCobertura}, Pago en ${monedaPago}]`;
+  }
+  
+  return obs;
+};
+
+/**
+ * Helpers de mapeo a números para el backend
+ */
+const mapTramiteToNumber = (tramite: string): string => {
+  const mapping: Record<string, string> = {
+    'Nuevo': '1',
+    'Renovación': '2',
+    'Cambio': '3',
+    'Endoso': '4',
+    'No Renueva': '5',
+    'Cancelación': '6'
+  };
+  return mapping[tramite] || '1';
+};
+
+const mapEstadoToNumber = (estado: string): string => {
+  const mapping: Record<string, string> = {
+    'Pendiente': '1',
+    'En proceso': '2',
+    'Terminado': '3',
+    'Modificaciones': '4'
+  };
+  return mapping[estado] || '1';
+};
+
+const mapEstadoPolizaToNumber = (estado: string): string => {
+  const mapping: Record<string, string> = {
+    'VIG': '1',
+    'ANT': '2',
+    'VEN': '3',
+    'END': '4',
+    'ELIM': '5',
+    'FIN': '6'
+  };
+  return mapping[estado] || '1';
+};
+
+const mapFormaPagoToNumber = (formaPago: string): string => {
+  const mapping: Record<string, string> = {
+    'Contado': '1',
+    'Tarjeta': '2',
+    'Débito Automático': '3',
+    'Cuotas': '4'
+  };
+  return mapping[formaPago] || '1';
+};
+
+/**
+ * Validador de formulario
+ */
+export const validateFormData = (formData: PolicyFormData): { isValid: boolean; errors: Record<string, string> } => {
+  const errors: Record<string, string> = {};
+  
+  // Validar campos requeridos
+  ALL_REQUIRED_FIELDS.forEach(field => {
+    if (!formData[field as keyof PolicyFormData]) {
+      errors[field] = VALIDATION_CONFIG.MESSAGES.REQUIRED;
+    }
+  });
+  
+  // Validar año
+  if (formData.anio) {
+    const year = parseInt(formData.anio);
+    if (isNaN(year) || year < VALIDATION_CONFIG.ANIO_MIN || year > VALIDATION_CONFIG.ANIO_MAX) {
+      errors.anio = VALIDATION_CONFIG.MESSAGES.INVALID_YEAR;
+    }
+  }
+  
+  // Validar fechas
+  if (formData.desde && formData.hasta) {
+    const desde = new Date(formData.desde);
+    const hasta = new Date(formData.hasta);
+    if (hasta <= desde) {
+      errors.hasta = VALIDATION_CONFIG.MESSAGES.DATE_RANGE;
+    }
+  }
+  
+  // Validar cuotas
+  if (formData.cuotas < VALIDATION_CONFIG.CUOTAS_MIN || formData.cuotas > VALIDATION_CONFIG.CUOTAS_MAX) {
+    errors.cuotas = VALIDATION_CONFIG.MESSAGES.INVALID_CUOTAS;
+  }
+  
+  // Validar montos
+  if (formData.premio < 0) {
+    errors.premio = VALIDATION_CONFIG.MESSAGES.NEGATIVE_AMOUNT;
+  }
+  if (formData.total < 0) {
+    errors.total = VALIDATION_CONFIG.MESSAGES.NEGATIVE_AMOUNT;
+  }
+  
+  // Advertencia de monedas diferentes (no es un error, solo informativo)
+  if (formData.monedaPagoId && formData.monedaId && formData.monedaPagoId !== formData.monedaId) {
+    console.warn(VALIDATION_CONFIG.MESSAGES.DIFFERENT_CURRENCIES);
+  }
+  
+  return {
+    isValid: Object.keys(errors).length === 0,
+    errors
   };
 };

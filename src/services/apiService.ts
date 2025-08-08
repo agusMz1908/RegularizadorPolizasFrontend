@@ -1,34 +1,52 @@
 // src/services/apiService.ts - VERSIÓN CORREGIDA CON TIPOS COMPATIBLES
 
 import type { LoginRequest, LoginResponse } from '@/types/auth';
-import type { CompanyDto, MasterDataOptionsDto, SeccionDto, TarifaDto } from '../types/masterData';
-import { API_CONFIG } from '../constants/velneoDefault';
+import type { CompanyDto, MasterDataOptionsDto, SeccionDto, TarifaDto } from '@/types/masterData';
 import type { ClientDto } from '@/types/cliente';
-import type { PolizaCreateRequest } from '@/types/poliza';
+import type { PolizaCreateRequest, PolicyFormData, CreatePolizaResponse  } from '@/types/poliza';
+import { API_CONFIG } from '@/constants/velneoDefault';
+import { VelneoMappingService } from './velneoMapping';
+
+interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+  errors?: Record<string, string[]>;
+  timestamp?: string;
+}
+
+interface CreatePolizaParams {
+  formData: PolicyFormData;
+  selectedClient: ClientDto | null;
+  selectedCompany: CompanyDto | null;
+  selectedSection: SeccionDto | null;
+  masterOptions?: MasterDataOptionsDto;
+  scannedData?: any;
+}
 
 class ApiService {
   private baseUrl: string;
   private token: string | null = null;
   private timeout: number;
+  private tenantId: string | null = null;
 
   constructor() {
-    // ✅ Obtener configuración desde variables de entorno
     this.baseUrl = import.meta.env.VITE_API_BASE_URL || 'https://localhost:7191/api';
     this.timeout = parseInt(import.meta.env.VITE_API_TIMEOUT || '30000');
-    
-    // Obtener token del localStorage/contexto de auth
     this.token = this.getStoredToken();
-    
-    console.log('🔧 ApiService initialized:', {
-      baseUrl: this.baseUrl,
-      timeout: this.timeout,
-      hasToken: !!this.token
-    });
+    this.tenantId = this.getStoredTenantId();
   }
-
   private getStoredToken(): string | null {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('authToken') || null;
+    }
+    return null;
+  }
+
+   private getStoredTenantId(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('tenantId') || sessionStorage.getItem('tenantId') || null;
     }
     return null;
   }
@@ -370,82 +388,235 @@ async getMasterDataOptions(companiaId?: number): Promise<MasterDataOptionsDto> {
    * ✅ CORREGIDO: Crear nueva póliza con el tipo correcto del backend
    * POST /api/polizas
    */
-  async createPoliza(polizaData: PolizaCreateRequest): Promise<any> {
+// src/services/apiService.ts
+// SOLO NECESITAS CAMBIAR ESTAS LÍNEAS:
+private validatePolizaRequest(request: PolizaCreateRequest): void {
+    const errors: string[] = [];
+
+    // Campos absolutamente requeridos según el backend
+    if (!request.Comcod || request.Comcod <= 0) {
+      errors.push('Código de compañía es requerido');
+    }
+    
+    // CORREGIDO: Seccod puede ser 0 (que es válido según el backend)
+    if (request.Seccod === undefined || request.Seccod === null || request.Seccod < 0 || request.Seccod > 9) {
+      errors.push('Código de sección debe estar entre 0 y 9');
+    }
+    
+    if (!request.Conpol) {
+      errors.push('Número de póliza es requerido');
+    }
+    if (!request.Confchdes) {
+      errors.push('Fecha desde es requerida');
+    }
+    if (!request.Confchhas) {
+      errors.push('Fecha hasta es requerida');
+    }
+    if (request.Conpremio === undefined || request.Conpremio === null || request.Conpremio < 0) {
+      errors.push('Premio es requerido y debe ser mayor o igual a 0');
+    }
+    if (!request.Asegurado) {
+      errors.push('Nombre del asegurado es requerido');
+    }
+
+    if (errors.length > 0) {
+      const errorMessage = `Errores de validación:\n${errors.join('\n')}`;
+      console.error('❌ Validación fallida:', errors);
+      throw new Error(errorMessage);
+    }
+
+    console.log('✅ Validación de póliza exitosa');
+  }
+/**
+ * ✅ CORRECCIÓN: Crear nueva póliza
+ * POST /api/Poliza (SINGULAR, no plural)
+ */
+async createPoliza(
+    formData: PolicyFormData,
+    selectedClient: ClientDto | null,
+    selectedCompany: CompanyDto | null,
+    selectedSection: SeccionDto | null,
+    masterOptions?: MasterDataOptionsDto,
+    scannedData?: any
+  ): Promise<CreatePolizaResponse> {
     try {
-      console.log('🚀 [ApiService] Enviando póliza a Velneo...', {
-        poliza: polizaData.Conpol,
-        cliente: polizaData.Clinom || polizaData.Asegurado,
-        clienteId: polizaData.Clinro,
-        companiaId: polizaData.Comcod,
-        premio: polizaData.Conpremio
+      console.log('📋 Iniciando creación de póliza...');
+      
+      // Validar datos requeridos
+      if (!selectedClient) {
+        throw new Error('Cliente es requerido');
+      }
+      
+      // Mapear los datos del formulario al formato del backend
+      const polizaRequest: PolizaCreateRequest = VelneoMappingService.mapFormDataToVelneoRequest(
+        formData,
+        selectedClient,
+        selectedCompany,
+        selectedSection,
+        masterOptions,
+        scannedData
+      );
+
+      // Log del request para debug
+      console.log('📤 Póliza Request:', {
+        cliente: polizaRequest.Clinro,
+        compania: polizaRequest.Comcod,
+        seccion: polizaRequest.Seccod,
+        numeroPoliza: polizaRequest.Conpol,
+        premio: polizaRequest.Conpremio,
+        monedaCobertura: polizaRequest.Moncod,
+        monedaPago: polizaRequest.Conviamon,
+        request: polizaRequest
       });
 
-      // ✅ LOG DEL PAYLOAD COMPLETO EN DESARROLLO
-      if (process.env.NODE_ENV === 'development') {
-        console.log('📋 [ApiService] Payload completo:', {
-          ...polizaData,
-          // Ocultar campos sensibles si los hay
-          Password: polizaData.Password ? '[HIDDEN]' : undefined
-        });
-      }
+      // Validar que los campos requeridos estén presentes
+      this.validatePolizaRequest(polizaRequest);
 
-      const response = await this.request<any>('/polizas', {
+      // Hacer el POST al backend
+      const response = await this.request<any>('/Poliza', {
         method: 'POST',
-        body: JSON.stringify(polizaData)
+        body: JSON.stringify(polizaRequest)
       });
 
-      console.log('✅ [ApiService] Póliza creada exitosamente:', {
-        success: response.success,
-        message: response.message,
-        numeroPoliza: response.numeroPoliza || response.polizaCreada?.numeroPoliza,
-        timestamp: response.timestamp
-      });
+      console.log('✅ Póliza creada exitosamente:', response);
 
-      return response;
-    } catch (error) {
-      console.error('❌ [ApiService] Error creando póliza:', error);
+      // Formatear respuesta
+      return {
+        success: true,
+        data: {
+          id: response.id || response.data?.id,
+          numeroPoliza: response.numeroPoliza || response.data?.numeroPoliza || polizaRequest.Conpol,
+          message: response.message || 'Póliza creada exitosamente',
+          ...response
+        },
+        message: 'Póliza creada exitosamente'
+      };
+
+    } catch (error: any) {
+      console.error('❌ Error creando póliza:', error);
       
-      // ✅ MENSAJES DE ERROR MEJORADOS
-      let userMessage = 'Error enviando póliza a Velneo';
-      if (error instanceof Error) {
-        if (error.message.includes('400')) {
-          userMessage = 'Datos de póliza inválidos. Verifique los campos requeridos.';
-        } else if (error.message.includes('500')) {
-          userMessage = 'Error interno del servidor. Contacte al administrador.';
-        } else if (error.message.includes('timeout')) {
-          userMessage = 'Timeout enviando póliza. Intente nuevamente.';
-        } else if (error.message.includes('401') || error.message.includes('403')) {
-          userMessage = 'Error de autenticación. Vuelva a iniciar sesión.';
-        } else {
-          userMessage = `Error: ${error.message}`;
-        }
+      // Manejar errores de validación
+      if (error.validationErrors) {
+        return {
+          success: false,
+          error: 'Error de validación',
+          validationErrors: error.validationErrors,
+          message: 'Por favor, corrija los errores en el formulario'
+        };
       }
-      
-      throw new Error(userMessage);
+
+      // Otros errores
+      return {
+        success: false,
+        error: error.message || 'Error al crear la póliza',
+        message: error.message || 'Ocurrió un error al crear la póliza'
+      };
     }
   }
 
+  async getPoliza(id: number): Promise<ApiResponse<any>> {
+    try {
+      const response = await this.request<any>(`/Poliza/${id}`, {
+        method: 'GET'
+      });
+      
+      return {
+        success: true,
+        data: response,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async getPolizas(filters?: {
+    clienteId?: number;
+    companiaId?: number;
+    estado?: string;
+    desde?: string;
+    hasta?: string;
+  }): Promise<ApiResponse<any[]>> {
+    try {
+      const queryParams = new URLSearchParams();
+      
+      if (filters) {
+        Object.entries(filters).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            queryParams.append(key, value.toString());
+          }
+        });
+      }
+
+      const queryString = queryParams.toString();
+      const endpoint = queryString ? `/Poliza?${queryString}` : '/Poliza';
+      
+      const response = await this.request<any[]>(endpoint, {
+        method: 'GET'
+      });
+      
+      return {
+        success: true,
+        data: response,
+        timestamp: new Date().toISOString()
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+        data: [],
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  async updatePoliza(id: number, polizaData: Partial<PolizaCreateRequest>): Promise<ApiResponse> {
+    try {
+      const response = await this.request<any>(`/Poliza/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(polizaData)
+      });
+      
+      return {
+        success: true,
+        data: response,
+        message: 'Póliza actualizada exitosamente',
+        timestamp: new Date().toISOString()
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
   /**
    * Obtener pólizas por cliente
    */
-  async getPolizasByCliente(clienteId: number, filters?: any): Promise<any[]> {
-    try {
-      const queryParams = new URLSearchParams();
-      if (filters) {
-        Object.entries(filters).forEach(([key, value]) => {
-          if (value) queryParams.append(key, String(value));
-        });
-      }
-
-      const url = `/poliza/client/${clienteId}${queryParams.toString() ? `?${queryParams}` : ''}`;
-      const response = await this.request<any>(url);
-      
-      return response.data || response || [];
-    } catch (error) {
-      console.error(`❌ Error obteniendo pólizas del cliente ${clienteId}:`, error);
-      return [];
+async getPolizasByCliente(clienteId: number, filters?: any): Promise<any[]> {
+  try {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) queryParams.append(key, String(value));
+      });
     }
+
+    // ✅ TAMBIÉN CORREGIR AQUÍ: Usar 'Poliza' singular
+    const url = `/Poliza/client/${clienteId}${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+    const response = await this.request<any[]>(url);
+    
+    return response || [];
+  } catch (error) {
+    console.error(`❌ Error obteniendo pólizas del cliente ${clienteId}:`, error);
+    return [];
   }
+}
 
   /**
    * LEGACY: Mantener compatibilidad
@@ -661,10 +832,46 @@ export const ClienteApi = {
 };
 
 export const PolizaApi = {
-  create: (data: PolizaCreateRequest) => apiService.createPoliza(data),
-  createLegacy: (data: any) => apiService.createPolizaLegacy(data),
-  getByCliente: (clienteId: number, filters?: any) => apiService.getPolizasByCliente(clienteId, filters)
+  /**
+   * Crear nueva póliza
+   */
+  create: (params: CreatePolizaParams) => {
+    return apiService.createPoliza(
+      params.formData,
+      params.selectedClient,
+      params.selectedCompany,
+      params.selectedSection,
+      params.masterOptions,
+      params.scannedData
+    );
+  },
+
+  getByCliente: (clienteId: number, filters?: any) => {
+    return apiService.getPolizas({ 
+      clienteId, 
+      ...filters 
+    });
+  },
+
+  getById: (id: number) => {
+    return apiService.getPoliza(id);
+  },
+
+  getAll: (filters?: {
+    clienteId?: number;
+    companiaId?: number;
+    estado?: string;
+    desde?: string;
+    hasta?: string;
+  }) => {
+    return apiService.getPolizas(filters);
+  },
+
+  update: (id: number, data: Partial<PolizaCreateRequest>) => {
+    return apiService.updatePoliza(id, data);
+  }
 };
+
 
 export const AzureApi = {
   processDocument: (file: File) => apiService.processDocument(file)

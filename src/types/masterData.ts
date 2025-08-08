@@ -1,7 +1,6 @@
-// src/types/masterData.ts - VERSIÓN LIMPIA SIN DUPLICACIÓN
-// ⚠️ NO DEFINIR SelectOption aquí - importar desde ui.ts
+// src/types/masterData.ts - VERSIÓN ACTUALIZADA CON DEPARTAMENTOS
 
-import type { SelectOption } from './ui';  // ← IMPORTAR desde ui.ts
+import type { SelectOption } from './ui';
 
 /**
  * 🎯 DATOS MAESTROS DEL BACKEND
@@ -14,6 +13,7 @@ export interface MasterDataOptionsDto {
   combustibles: CombustibleDto[];
   monedas: MonedaDto[];
   tarifas?: TarifaDto[];
+  departamentos: DepartamentoDto[];  // ← AGREGADO
   
   // Opciones de texto plano (arrays de strings)
   estadosPoliza: string[];
@@ -30,7 +30,7 @@ export interface MasterDataOptionsDto {
  */
 export interface CategoriaDto {
   id: number;
-  catdsc: string;  // ← Campo exacto del backend
+  catdsc: string;
 }
 
 /**
@@ -38,7 +38,7 @@ export interface CategoriaDto {
  */
 export interface DestinoDto {
   id: number;
-  desnom: string;  // ← Campo exacto del backend
+  desnom: string;
 }
 
 /**
@@ -46,7 +46,7 @@ export interface DestinoDto {
  */
 export interface CalidadDto {
   id: number;
-  caldsc: string;  // ← Campo exacto del backend
+  caldsc: string;
 }
 
 /**
@@ -67,7 +67,19 @@ export interface MonedaDto {
   simbolo?: string; // "$U", "$", "€"
 }
 
-// ===== OTROS TIPOS DEL SISTEMA =====
+/**
+ * 📍 DEPARTAMENTO - Basado en la respuesta del backend
+ */
+export interface DepartamentoDto {
+  id: number;
+  nombre: string;                  // "MONTEVIDEO", "CANELONES", etc.
+  codigo?: string;                 // Código del departamento si existe
+  bonificacionInterior?: number;   // Bonificación para interior
+  codigoSC?: string;              // Código SC si aplica
+  activo: boolean;                // Si está activo
+  // Campos alternativos por si el backend los devuelve así
+  dptnom?: string;                // Nombre alternativo del campo
+}
 
 /**
  * 🏢 COMPAÑÍA
@@ -92,6 +104,9 @@ export interface SeccionDto {
   activo: boolean;
 }
 
+/**
+ * 💵 TARIFA
+ */
 export interface TarifaDto {
   id: number;
   companiaId: number;
@@ -131,7 +146,8 @@ export interface TextToMasterMapping {
   combustibles: Record<string, string>;  // "DIESEL" -> "DIS"
   destinos: Record<string, number>;      // "PARTICULAR" -> 2
   calidades: Record<string, number>;     // "PROPIETARIO" -> 1
-  categorias: Record<string, number>;    // "AUTO" -> 1
+  categorias: Record<string, number>;    // "AUTO" -> 20
+  departamentos: Record<string, number>; // "MONTEVIDEO" -> 1
 }
 
 // ===== VALIDACIÓN Y BUSINESS RULES =====
@@ -150,14 +166,44 @@ export interface MasterValidation {
  * 📋 CONFIGURACIÓN DE CAMPO DE MAESTRO
  */
 export interface MasterFieldConfig {
-  type: 'categoria' | 'destino' | 'calidad' | 'combustible' | 'moneda';
+  type: 'categoria' | 'destino' | 'calidad' | 'combustible' | 'moneda' | 'departamento';
   validation: MasterValidation;
   placeholder?: string;
   helpText?: string;
 }
 
+// ===== CONSTANTES DE MAPEO DE DEPARTAMENTOS =====
+
+/**
+ * 🗺️ Mapeo de departamentos de Uruguay con sus IDs
+ */
+export const DEPARTAMENTOS_URUGUAY_MAP: Record<string, number> = {
+  'MONTEVIDEO': 1,
+  'ARTIGAS': 2,
+  'CANELONES': 3,
+  'CERRO LARGO': 4,
+  'COLONIA': 5,
+  'DURAZNO': 6,
+  'FLORES': 7,
+  'FLORIDA': 8,
+  'LAVALLEJA': 9,
+  'MALDONADO': 10,
+  'PAYSANDÚ': 11,
+  'PAYSANDU': 11,  // Sin tilde
+  'RÍO NEGRO': 12,
+  'RIO NEGRO': 12,  // Sin tilde
+  'RIVERA': 13,
+  'ROCHA': 14,
+  'SALTO': 15,
+  'SAN JOSÉ': 16,
+  'SAN JOSE': 16,  // Sin tilde
+  'SORIANO': 17,
+  'TACUAREMBÓ': 18,
+  'TACUAREMBO': 18,  // Sin tilde
+  'TREINTA Y TRES': 19
+};
+
 // ===== ALIASES PARA COMPATIBILIDAD =====
-// Usa estos si necesitas mantener código legacy temporalmente
 
 /** @deprecated Usar MasterDataOptionsDto */
 export type VelneoMasterDataOptions = MasterDataOptionsDto;

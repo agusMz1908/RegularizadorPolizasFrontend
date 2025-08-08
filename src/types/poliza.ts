@@ -1,134 +1,188 @@
-// === ACTUALIZACIÓN para src/types/poliza.ts ===
-
 export interface PolicyFormData {
   // ===== PESTAÑA 1: DATOS BÁSICOS =====
-  corredor: string;              // Input texto (del escaneo)
-  asegurado: string;             // Read-only (cliente seleccionado)
-  tomador: string;               // Read-only (mismo que asegurado)
-  domicilio: string;             // Read-only (del cliente)
-  dirCobro: string;              // Input texto manual
-  estadoTramite: string;         // Select texto plano ['Pendiente', 'En proceso', 'Terminado', 'Modificaciones']
-  tramite: string;               // Select texto plano ['Nuevo', 'Renovación', 'Cambio', 'Endoso']
-  fecha: string;                 // Date (fecha gestión)
-  asignado: string;              // Input texto (usuario asignado)
-  tipo: string;                  // Select texto plano ['Líneas personales', 'Líneas comerciales']
-  estadoPoliza: string;          // Select texto plano ['VIG', 'ANT', 'VEN', 'END', 'ELIM', 'FIN']
+  corredor: string;              
+  asegurado: string;             
+  tomador: string;               
+  domicilio: string;             
+  dirCobro: string;              
+  estadoTramite: string;         
+  tramite: string;               
+  fecha: string;                 
+  asignado: string;              
+  tipo: string;                  
+  estadoPoliza: string;          
 
   // ===== PESTAÑA 2: DATOS DE LA PÓLIZA =====
-  compania: number;              // Read-only (BSE = 2 inicialmente)
-  comalias: string;              // Read-only (nombre de la compañía)
-  seccion: number;               // Read-only (AUTOMÓVILES = 9)
-  poliza: string;                // Input texto (del escaneo)
-  certificado: string;           // Input texto (del escaneo)
-  endoso: string;                // Input texto/number (incrementa en CAMBIO)
-  desde: string;                 // Date input (del escaneo)
-  hasta: string;                 // Date input (del escaneo)
+  compania: number;              
+  comalias: string;              
+  seccion: number;               
+  poliza: string;                
+  certificado: string;           
+  endoso: string;                
+  desde: string;                 
+  hasta: string;                 
 
   // ===== PESTAÑA 3: DATOS DEL VEHÍCULO =====
-  marcaModelo: string;           // Input texto (marca + modelo unidos)
-  anio: string;                  // Input number (del escaneo)
-  matricula: string;             // Input texto (del escaneo, opcional)
-  motor: string;                 // Input texto (del escaneo)
-  chasis: string;                // Input texto (del escaneo)
-  
-  // Maestros del vehículo (SELECT desde backend)
-  destinoId: number;             // Select maestro Destino
-  combustibleId: string;         // Select maestro Combustible (STRING! No number)
-  calidadId: number;             // Select maestro Calidad  
-  categoriaId: number;           // Select maestro Categoría
+  marcaModelo: string;           
+  anio: string;                  
+  matricula: string;             
+  motor: string;                 
+  chasis: string;                
+  destinoId: number;             
+  combustibleId: string;         // STRING, no number!
+  calidadId: number;             
+  categoriaId: number;           
 
   // ===== PESTAÑA 4: DATOS DE COBERTURA =====
-  coberturaId: number;           // Select maestro Cobertura
-  tarifaId?: number;             // Select maestro Tarifa (NUEVO CAMPO)
-  zonaCirculacion: string;       // Input texto o select departamentos
-  departamentoId: number;        // Select maestro Departamento (opcional)
-  monedaId: number;              // Select maestro Moneda
+  coberturaId: number;           
+  tarifaId?: number;             
+  zonaCirculacion: string;       
+  departamentoId: number;        
+  monedaId: number;              // Moneda de COBERTURA → Moncod
 
   // ===== PESTAÑA 5: CONDICIONES DE PAGO =====
-  premio: number;                // Input number (del escaneo)
-  total: number;                 // Input number (calculado)
-  formaPago: string;             // Select texto plano ['Contado', 'Tarjeta', 'Débito Automático', 'Cuotas']
-  cuotas: number;                // Input number (default 1)
-  valorCuota: number;            // Input number (calculado: total/cuotas)
+  premio: number;                
+  total: number;                 
+  formaPago: string;             
+  cuotas: number;                
+  valorCuota: number;            
+  monedaPagoId: number;          // NUEVO - Moneda de PAGO → Conviamon
 
   // ===== PESTAÑA 6: OBSERVACIONES =====
-  observaciones: string;         // Textarea (notas adicionales)
+  observaciones: string;         
   
-  // ===== METADATA (no visible en form) =====
-  clinro?: number;               // ID del cliente seleccionado
-  procesadoConIA?: boolean;      // Flag de procesamiento Azure
-  confidence?: number;           // Confianza del escaneo (0-100)
+  // ===== METADATA =====
+  clinro?: number;               
+  procesadoConIA?: boolean;      
+  confidence?: number;           
 }
 
 export interface PolizaCreateRequest {
-  // ===== CAMPOS PRINCIPALES OBLIGATORIOS =====
-  Clinro: number;                    // ID Cliente
-  Clinom?: string;                   // Nombre cliente
-  Comcod: number;                    // ID Compañía
-  Seccod: number;                    // ID Sección
-  Conpremio: number;                 // Premio (OBLIGATORIO)
+  // ===== CAMPOS BÁSICOS REQUERIDOS =====
+  Comcod: number;                    // ID Compañía (requerido)
+  Seccod: number;                    // ID Sección (requerido, 0-9)
+  Clinro: number;                    // ID Cliente (requerido)
+  Conpol: string;                    // Número de póliza (requerido)
+  Confchdes: string;                 // Fecha desde (requerido)
+  Confchhas: string;                 // Fecha hasta (requerido)
+  Conpremio: number;                 // Premio (requerido)
+  Asegurado: string;                 // Nombre asegurado (requerido)
   
-  // ===== CAMPOS DE PÓLIZA =====
-  Conpol?: string;                   // Número de póliza
-  Concar?: string;                   // Certificado
-  Conend?: string;                   // Endoso
-  Confchdes?: string;                // Fecha desde
-  Confchhas?: string;                // Fecha hasta
-  Convig?: string;                   // Estado vigencia
-  Contra?: string;                   // Tipo trámite
-  Consta?: string;                   // Forma de pago
+  // ===== CAMPOS DE CONTROL Y ESTADO =====
+  Contra?: string;                   // Trámite
   Congesti?: string;                 // Tipo gestión
   Congeses?: string;                 // Estado gestión
-  Congesfi?: string;                 // Fecha gestión
-  
-  // ===== DATOS DEL ASEGURADO =====
-  Asegurado?: string;                // Nombre asegurado
-  Direccion?: string;                // Dirección
-  Condom?: string;                   // Domicilio
+  Convig?: string;                   // Estado póliza
+  Consta?: string;                   // Forma de pago
   
   // ===== DATOS DEL VEHÍCULO =====
-  Marca?: string;                    // Marca
-  Modelo?: string;                   // Modelo
-  Conmaraut?: string;                // Marca + modelo completo
-  Anio?: number;                     // Año
-  Conanioaut?: number;               // Año (campo Velneo)
-  Matricula?: string;                // Matrícula
-  Conmataut?: string;                // Matrícula (campo Velneo)
-  Motor?: string;                    // Motor
-  Conmotor?: string;                 // Motor (campo Velneo)
-  Chasis?: string;                   // Chasis
-  Conchasis?: string;                // Chasis (campo Velneo)
+  Conmaraut?: string;                // Marca
+  Conanioaut?: number;               // Año
+  Conmataut?: string;                // Matrícula
+  Conmotor?: string;                 // Motor
+  Conchasis?: string;                // Chasis
+  Conpadaut?: string;                // Padrón
   
-  // ===== MAESTROS DEL VEHÍCULO =====
-  Combustibles?: string;             // ID Combustible (STRING! "GAS", "DIS", etc)
-  CategoriaId?: number;              // ID Categoría
-  DestinoId?: number;                // ID Destino
-  CalidadId?: number;                // ID Calidad
-  
-  // ===== DATOS FINANCIEROS =====
-  PremioTotal?: number;              // Premio total
+  // ===== DATOS COMERCIALES Y FINANCIEROS =====
   Contot?: number;                   // Total
-  CantidadCuotas?: number;           // Cantidad de cuotas
-  Concuo?: number;                   // Cuotas (campo Velneo)
-  Moneda?: string;                   // Moneda como string
-  Moncod?: number;                   // Moneda ID
-  FormaPago?: string;                // Forma de pago como string
+  Concuo?: number;                   // Cuotas (1-12)
+  Conimp?: number;                   // Importe
+  Ramo?: string;                     // Ramo (default: "AUTOMOVILES")
+  Com_alias?: string;                // Alias compañía
   
-  // ===== DATOS DE COBERTURA =====
-  CoberturaId?: number;              // ID Cobertura
-  Cobertura?: string;                // Nombre cobertura
-  TarifaId?: number;                 // ID Tarifa (NUEVO CAMPO)
-  TarifaNombre?: string;             // Nombre de la tarifa (NUEVO CAMPO)
-  ZonaCirculacion?: string;          // Zona de circulación
-  DepartamentoId?: number;           // ID Departamento
+  // ===== IDs DE MAESTROS (NUEVOS/ACTUALIZADOS) =====
+  Catdsc?: number;                   // ID Categoría
+  Desdsc?: number;                   // ID Destino  
+  Caldsc?: number;                   // ID Calidad
+  Flocod?: number;                   // ID Flota
+  Tarcod?: number;                   // ID Tarifa (NUEVO)
+  Corrnom?: number;                  // ID Corredor
   
-  // ===== OTROS CAMPOS =====
-  Ramo?: string;                     // Ramo (ej: "AUTOMOVILES")
-  EstadoPoliza?: string;             // Estado de la póliza
-  Tramite?: string;                  // Tipo de trámite
-  Observaciones?: string;            // Observaciones generales
-  ProcesadoConIA?: boolean;          // Flag de procesamiento con IA
+  // ===== DATOS DEL CLIENTE/ASEGURADO =====
+  Condom?: string;                   // Domicilio
+  Clinom?: string;                   // Nombre cliente
+  Clinro1?: number;                  // ID Cliente secundario/tomador
   
-  // ===== CAMPOS FLEXIBLES =====
-  [key: string]: any;                // Para campos adicionales
+  // ===== COBERTURAS Y SEGUROS =====
+  Tposegdsc?: string;                // Tipo seguro/cobertura
+  Concar?: string;                   // Certificado
+  Conend?: string;                   // Endoso
+  Forpagvid?: string;                // Forma pago vida
+  
+  // ===== CAMPOS DE MONEDA =====
+  Moncod?: number;                   // ID Moneda
+  Conviamon?: number;                // ID Moneda condiciones pago
+  
+  // ===== CAMPOS ADICIONALES VEHÍCULOS =====
+  Conclaaut?: number;                // Clase auto
+  Condedaut?: number;                // Deducible auto
+  Conresciv?: number;                // Responsabilidad civil
+  Conbonnsin?: number;               // Bonus sin siniestro
+  Conbonant?: number;                // Bonus anterior
+  Concaraut?: number;                // Carrocería auto
+  Concesnom?: string;                // Nombre cesionario
+  Concestel?: string;                // Teléfono cesionario
+  Concapaut?: number;                // Capacidad auto
+  
+  // ===== CAMPOS DE GESTIÓN =====
+  Congesfi?: Date;                   // Fecha gestión
+  Conges?: string;                   // Gestión
+  
+  // ===== CAMPOS DE AUDITORÍA =====
+  Observaciones?: string;            // Observaciones
+  ProcesadoConIA?: boolean;          // Procesado con IA
+  FechaCreacion?: Date;              // Fecha creación
+  FechaModificacion?: Date;          // Fecha modificación
+  
+  // ===== CAMPOS LEGACY (compatibilidad) =====
+  Vehiculo?: string;
+  Marca?: string;
+  Modelo?: string;
+  Motor?: string;
+  Chasis?: string;
+  Matricula?: string;
+  Combustible?: string;              // Combustible como texto
+  Anio?: number;
+  PrimaComercial?: number;
+  PremioTotal?: number;
+  Corredor?: string;
+  Plan?: string;
+  Documento?: string;
+  Email?: string;
+  Telefono?: string;
+  Direccion?: string;
+  Localidad?: string;
+  Departamento?: string;             // Departamento/Zona
+  Moneda?: string;
+  SeccionId?: number;
+  Estado?: string;
+  Tramite?: string;
+  EstadoPoliza?: string;
+  CalidadId?: number;
+  DestinoId?: number;
+  CategoriaId?: number;
+  TipoVehiculo?: string;
+  Uso?: string;
+  FormaPago?: string;
+  CantidadCuotas?: number;
+  ValorCuota?: number;
+  Tipo?: string;
+  Cobertura?: string;
+  Certificado?: string;
+  Calidad?: string;
+  Categoria?: string;
+  Destino?: string;
+}
+
+export interface CreatePolizaResponse {
+  success: boolean;
+  data?: {
+    id?: number;
+    numeroPoliza?: string;
+    message?: string;
+    [key: string]: any;
+  };
+  message?: string;
+  error?: string;
+  validationErrors?: Record<string, string>;
 }
